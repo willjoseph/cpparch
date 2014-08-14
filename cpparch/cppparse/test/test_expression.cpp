@@ -1,6 +1,6 @@
 
 
-#if 1
+#if 0
 namespace N390 // technique used in boost::is_class
 {
 	template<bool b>

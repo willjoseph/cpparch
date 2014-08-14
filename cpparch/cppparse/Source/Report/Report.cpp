@@ -565,7 +565,7 @@ inline const char* getDeclarationType(const Declaration& declaration)
 
 struct SourcePrinter : SymbolPrinter
 {
-	std::ofstream out;
+	FileOutputStream out;
 	FileTokenPrinter printer;
 	const char* inputRoot;
 	const char* outputRoot;
@@ -787,12 +787,12 @@ struct SourcePrinter : SymbolPrinter
 #if 0
 				for(IncludeDependencyNodes::const_iterator i = graph.begin(); i != graph.end(); ++i)
 				{
-					printer.out << "direct: " << (*i)->name.c_str() << std::endl;
+					printer.out << "direct: " << (*i)->name.c_str() << '\n';
 				}
 
 				for(IncludeDependencyNodes::const_iterator i = included.begin(); i != included.end(); ++i)
 				{
-					printer.out << "indirect: " << (*i)->name.c_str() << std::endl;
+					printer.out << "indirect: " << (*i)->name.c_str() << '\n';
 				}
 #endif
 			}
@@ -805,7 +805,7 @@ struct SourcePrinter : SymbolPrinter
 
 				printer.out << (declaration.first != NAME_NULL ? declaration.first : Name("<unknown>")).c_str() << ": ";
 				printName(declaration.second);
-				printer.out << std::endl;
+				printer.out << '\n';
 
 				if(reportable
 					&& declaration.first != NAME_NULL
@@ -813,7 +813,7 @@ struct SourcePrinter : SymbolPrinter
 					&& isHeader
 					&& !isIncluded(included, declaration.second))
 				{
-					printer.out << "WARNING: depending on file that was not (in)directly included: " << declaration.first.c_str() << std::endl;
+					printer.out << "WARNING: depending on file that was not (in)directly included: " << declaration.first.c_str() << '\n';
 					warnings = true;
 				}
 			}
@@ -823,7 +823,7 @@ struct SourcePrinter : SymbolPrinter
 			for(MacroDeclarationSet::const_iterator i = d.begin(); i != d.end(); ++i)
 			{
 				const MacroDeclarationSet::value_type& declaration = *i;
-				printer.out << declaration.first.c_str() << ": " << declaration.second << std::endl;
+				printer.out << declaration.first.c_str() << ": " << declaration.second << '\n';
 
 				if(reportable
 					&& *declaration.first.c_str() != '<' // <command line>
@@ -831,7 +831,7 @@ struct SourcePrinter : SymbolPrinter
 					&& !string_equal(declaration.second, "NULL")// TEMP HACK
 					&& !isIncluded(included, declaration.first)) 
 				{
-					printer.out << "WARNING: depending on file that was not (in)directly included: " << declaration.first.c_str() << std::endl;
+					printer.out << "WARNING: depending on file that was not (in)directly included: " << declaration.first.c_str() << '\n';
 					warnings = true;
 				}
 			}
@@ -953,7 +953,7 @@ struct SourcePrinter : SymbolPrinter
 					for(IncludeDependencyNode::const_iterator i = d.begin(); i != d.end(); ++i)
 					{
 						//printer.out << (void*)(*i)->name.c_str();
-						printer.out << "<a href='" << OutPath(outputRoot, (*i)->name.c_str()).c_str() << "'>" << (*i)->name.c_str() << "</a>" << std::endl;
+						printer.out << "<a href='" << OutPath(outputRoot, (*i)->name.c_str()).c_str() << "'>" << (*i)->name.c_str() << "</a>" << '\n';
 
 						{
 							MacroDeclarationSet::const_iterator j = macros.lower_bound(MacroDeclaration((*i)->name, 0));
@@ -966,7 +966,7 @@ struct SourcePrinter : SymbolPrinter
 								}
 								printer.out << "  ";
 								printer.out << declaration.second;
-								printer.out << std::endl;
+								printer.out << '\n';
 							}
 						}
 						{
@@ -982,7 +982,7 @@ struct SourcePrinter : SymbolPrinter
 								printAnchorStart(declaration.second);
 								printName(declaration.second);
 								printer.out << "</a>";
-								printer.out << std::endl;
+								printer.out << '\n';
 							}
 						}
 					}
@@ -998,7 +998,7 @@ struct SourcePrinter : SymbolPrinter
 	{
 		symbol->accept(*this);
 		printer.out << " // ";
-		TreePrinter<std::ofstream> tmp(printer.out);
+		TreePrinter<FileOutputStream> tmp(printer.out);
 		symbol->accept(tmp);
 	}
 
@@ -1006,7 +1006,7 @@ struct SourcePrinter : SymbolPrinter
 	{
 		symbol->accept(*this);
 		printer.out << " // ";
-		TreePrinter<std::ofstream> tmp(printer.out);
+		TreePrinter<FileOutputStream> tmp(printer.out);
 		symbol->accept(tmp);
 	}
 
@@ -1014,7 +1014,7 @@ struct SourcePrinter : SymbolPrinter
 	{
 		symbol->accept(*this);
 		printer.out << " // ";
-		TreePrinter<std::ofstream> tmp(printer.out);
+		TreePrinter<FileOutputStream> tmp(printer.out);
 		symbol->accept(tmp);
 	}
 #endif
@@ -1061,7 +1061,7 @@ struct SourcePrinter : SymbolPrinter
 
 struct ParseTreePrinter : SymbolPrinter
 {
-	std::ofstream out;
+	FileOutputStream out;
 	FileTokenPrinter printer;
 	ParseTreePrinter(const char* outputRoot)
 		: SymbolPrinter(printer, true), printer(out)

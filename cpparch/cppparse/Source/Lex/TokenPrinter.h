@@ -34,7 +34,7 @@ struct TokenPrinter
 	}
 	void nextLine(LexTokenId id)
 	{
-		out << std::endl;
+		out << '\n';
 		prev = boost::wave::T_NEWLINE;
 		templateDeclarationDepth = id == boost::wave::T_TEMPLATE;
 		++line;

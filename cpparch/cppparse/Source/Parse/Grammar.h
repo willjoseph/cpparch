@@ -2621,7 +2621,7 @@ namespace cpp
 	struct static_assert_declaration
 	{
 		typedef TYPELIST2(block_declaration, member_declaration) Bases;
-		terminal<boost::wave::T_STATIC_ASSERT> key;
+		terminal<boost::wave::T_STATICASSERT> key;
 		terminal<boost::wave::T_LEFTPAREN> lp;
 		symbol_required<constant_expression> expr;
 		terminal<boost::wave::T_COMMA> comma;

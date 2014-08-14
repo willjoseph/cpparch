@@ -21,5 +21,4 @@ C:\Program Files\Microsoft Visual Studio 8\VC\BIN\cl.exe
 .\test\test_vector.cpp
 .\test\test_map.cpp
 /I .\msvc-8.0\INCLUDE
-/I C:\Program Files\Microsoft Visual Studio 8\VC\PlatformSDK\Include
-/I C:\Program Files (x86)\Microsoft Visual Studio 8\VC\PlatformSDK\Include
+/I .\platform\ws03sp2\INCLUDE

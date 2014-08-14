@@ -1128,7 +1128,7 @@ inline void testTypeGen()
 
 	BuiltInType test16 = MakeType< Template<int, 1> >::apply();
 
-	FileTokenPrinter tokenPrinter(std::cout);
+	FileTokenPrinter tokenPrinter(stdOut());
 	SymbolPrinter symbolPrinter(tokenPrinter);
 
 	symbolPrinter.printType(test1);

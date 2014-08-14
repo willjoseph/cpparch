@@ -169,12 +169,12 @@ struct InstantiationPath : public Concatenate
 	}
 };
 
-inline void printPosition(const Source& source, std::ostream& out)
+inline void printPosition(const Source& source, FileOutputStream& out)
 {
 	out << source.absolute.c_str() << "(" << source.line << ", " << source.column << "): ";
 }
 
-void printTypeReadable(const SimpleType& type, std::ostream& out, bool escape = true)
+void printTypeReadable(const SimpleType& type, FileOutputStream& out, bool escape = true)
 {
 	if(type.enclosing != 0)
 	{
@@ -196,13 +196,13 @@ void printTypeReadable(const SimpleType& type, std::ostream& out, bool escape = 
 			{
 				out << ",";
 			}
-			out << std::endl << "\t";
+			out << '\n' << '\t';
 			printType(*i, out, escape);
 			separator = true;
 		}
 		if(!type.templateArguments.empty())
 		{
-			out << std::endl;
+			out << '\n';
 		}
 		out << (escape ? "&gt;" : ">");
 	}
@@ -217,7 +217,7 @@ inline void dumpTemplateInstantiations(const SimpleType& instance, bool root = f
 	instance.dumped = true;
 	SYMBOLS_ASSERT(!instance.visited);
 	instance.visited = true;
-	std::ofstream out(Concatenate(makeRange(root ? "debug/!" : "debug/"), makeRange(InstantiationPath(instance).c_str())).c_str());
+	FileOutputStream out(Concatenate(makeRange(root ? "debug/!" : "debug/"), makeRange(InstantiationPath(instance).c_str())).c_str());
 	SYMBOLS_ASSERT(out.is_open());
 
 	out << "<html>\n"
@@ -226,9 +226,9 @@ inline void dumpTemplateInstantiations(const SimpleType& instance, bool root = f
 		"<body>\n"
 		"<pre style='color:#000000;background:#ffffff;'>\n";
 	printPosition(instance.declaration->getName().source, out);
-	out << std::endl;
+	out << '\n';
 	printTypeReadable(instance, out, true);
-	out << std::endl << std::endl;
+	out << '\n' << '\n';
 
 	typedef std::map<const SimpleType*, Location> InstanceMap;
 	InstanceMap instanceMap;
@@ -239,11 +239,11 @@ inline void dumpTemplateInstantiations(const SimpleType& instance, bool root = f
 	for(InstanceMap::const_iterator i = instanceMap.begin(); i != instanceMap.end(); ++i)
 	{
 		printPosition((*i).second, out);
-		out << std::endl;
+		out << '\n';
 		out << "<a href='" << InstantiationPath(*(*i).first).c_str() << "'>";
 		printTypeReadable(*(*i).first, out, true);
 		out << "</a>";
-		out << std::endl;
+		out << '\n';
 		dumpTemplateInstantiations(*(*i).first);
 	}
 	out << "</pre>\n"

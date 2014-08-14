@@ -44,13 +44,13 @@ struct IndirectSet
 	}
 	// Ptr must be constructible from T*
 	template<typename T>
-	iterator find(const T& value)
+	iterator find(T& value)
 	{
 		return elements.find(&value);
 	}
 	// Ptr must be constructible from T*
 	template<typename T>
-	inline iterator insert(const T& value)
+	inline iterator insert(T& value)
 	{
 		iterator i = elements.lower_bound(&value); // first element not less than value
 		if(i != elements.end()

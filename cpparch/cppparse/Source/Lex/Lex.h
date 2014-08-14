@@ -288,13 +288,58 @@ inline BacktrackBuffer::const_iterator advance(BacktrackBuffer& buffer, Backtrac
 	return buffer.advance(position, count);
 }
 
-typedef TokenPrinter<std::ostream> FileTokenPrinter;
+class NullOutputStream
+{
+	bool isOpen;
+public:
+	NullOutputStream() : isOpen(false)
+	{
+	}
+	NullOutputStream(const char* path) : isOpen(true)
+	{
+	}
+	template<typename T>
+	NullOutputStream& operator<<(const T&)
+	{
+		return *this;
+	}
+	bool is_open() const
+	{
+		return isOpen;
+	}
+	void open(const char*, std::ios::openmode = std::ios::out)
+	{
+		isOpen = true;
+	}
+	void close()
+	{
+		isOpen = false;
+	}
+};
 
+#if 1
+typedef NullOutputStream FileOutputStream;
+typedef NullOutputStream OutputStream;
+inline OutputStream& stdOut()
+{
+	static NullOutputStream out;
+	return out;
+}
+#else
+typedef std::ofstream FileOutputStream;
+typedef std::ostream OutputStream;
+inline OutputStream& stdOut()
+{
+	return std::cout;
+}
+#endif
+
+typedef TokenPrinter<OutputStream> FileTokenPrinter;
 
 struct Lexer
 {
 	LexContext& context;
-	std::ofstream out;
+	FileOutputStream out;
 	FileTokenPrinter printer;
 
 	LexIterator& first;

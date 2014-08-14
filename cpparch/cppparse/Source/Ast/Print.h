@@ -5,13 +5,14 @@
 #include "Type.h"
 #include "ExpressionImpl.h"
 
-typedef TokenPrinter<std::ostream> FileTokenPrinter;
+
+typedef TokenPrinter<OutputStream> FileTokenPrinter;
 
 
 typedef std::list<UniqueType> TypeElements;
 
-inline void printType(UniqueTypeWrapper type, std::ostream& out = std::cout, bool escape = false);
-inline void printType(const SimpleType& type, std::ostream& out = std::cout, bool escape = false);
+inline void printType(UniqueTypeWrapper type, OutputStream& out = stdOut(), bool escape = false);
+inline void printType(const SimpleType& type, OutputStream& out = stdOut(), bool escape = false);
 
 struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 {
@@ -443,21 +444,21 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 
 };
 
-inline void printName(const Declaration* name, std::ostream& out = std::cout)
+inline void printName(const Declaration* name, OutputStream& out = stdOut())
 {
 	FileTokenPrinter tokenPrinter(out);
 	SymbolPrinter printer(tokenPrinter);
 	printer.printName(name);
 }
 
-inline void printName(const Scope* scope, std::ostream& out = std::cout)
+inline void printName(const Scope* scope, OutputStream& out = stdOut())
 {
 	FileTokenPrinter tokenPrinter(out);
 	SymbolPrinter printer(tokenPrinter);
 	printer.printName(scope);
 }
 
-inline void printType(const SimpleType& type, std::ostream& out, bool escape)
+inline void printType(const SimpleType& type, OutputStream& out, bool escape)
 {
 	FileTokenPrinter tokenPrinter(out);
 	SymbolPrinter printer(tokenPrinter, escape);
@@ -468,7 +469,7 @@ inline void printType(const SimpleType& type, std::ostream& out, bool escape)
 	}
 }
 
-inline void printType(UniqueTypeWrapper type, std::ostream& out, bool escape)
+inline void printType(UniqueTypeWrapper type, OutputStream& out, bool escape)
 {
 	FileTokenPrinter tokenPrinter(out);
 	SymbolPrinter printer(tokenPrinter, escape);

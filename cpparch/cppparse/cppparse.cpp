@@ -80,8 +80,13 @@ void runTest(const Test& test)
 		add_macro_definition(lexer, "__FUNCTION__=\"<function-sig>\"", true);
 		add_macro_definition(lexer, "_INTEGRAL_MAX_BITS=64", true); // long long
 		add_macro_definition(lexer, "_M_IX86=600", true); // /GB: Blend
+#if 1 // prevent boost from trying to use type-traits intrinsics
+		add_macro_definition(lexer, "_MSC_VER=1310", true); // Visual C++ 7.1
+		add_macro_definition(lexer, "_MSC_FULL_VER=13103077", true); // Visual C++ 7.1
+#else
 		add_macro_definition(lexer, "_MSC_VER=1400", true); // Visual C++ 8
 		add_macro_definition(lexer, "_MSC_FULL_VER=140050727", true); // Visual C++ 8
+#endif
 
 		add_macro_definition(lexer, "_CPPP_TEST", true);
 

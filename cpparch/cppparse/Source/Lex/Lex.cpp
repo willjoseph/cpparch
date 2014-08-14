@@ -626,7 +626,7 @@ public:
 		length = size_t(instream.tellg());
 		instream.seekg(0, std::ios::beg);
 		buffer = new char[length];
-		length = size_t(instream.readsome(buffer, length));
+		length = size_t(instream.rdbuf()->sgetn(buffer, length));
 	}
 	~FileBuffer()
 	{
@@ -654,8 +654,7 @@ struct LoadFile
 			// read in the file
 			std::ifstream instream(iter_ctx.filename.c_str());
 			if (!instream.is_open()) {
-				BOOST_WAVE_THROW_CTX(iter_ctx.ctx, preprocess_exception, 
-					bad_include_file, iter_ctx.filename.c_str(), act_pos);
+				throw LexError();
 				return;
 			}
 			instream.unsetf(std::ios::skipws);
@@ -708,8 +707,7 @@ struct StreamFile
 			// read in the file
 			std::ifstream instream(iter_ctx.filename.c_str());
 			if (!instream.is_open()) {
-				BOOST_WAVE_THROW_CTX(iter_ctx.ctx, preprocess_exception, 
-					bad_include_file, iter_ctx.filename.c_str(), act_pos);
+				throw LexError();
 				return;
 			}
 			instream.unsetf(std::ios::skipws);
@@ -919,7 +917,7 @@ Token* Lexer::read(Token* first, Token* last)
 					}
 					else if(string_equal(name, "static_assert")) // temporary hack, avoids regenerating lexer
 					{
-						id = boost::wave::T_STATIC_ASSERT;
+						id = boost::wave::T_STATICASSERT;
 					}
 					else if(string_equal(name, "decltype")) // temporary hack, avoids regenerating lexer
 					{
