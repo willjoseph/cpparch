@@ -395,7 +395,7 @@ inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expressio
 		return type; // evaluate it now
 	}
 #endif
-	SYMBOLS_ASSERT(type == expression.type);
+	SYMBOLS_ASSERT(type == expression.type); // this expression is not type-dependent: check that the type is the same as was originally evaluated
 
 	// TODO: move into typeOfExpression?
 	// [basic.lval] Class prvalues can have cv-qualified types; non-class prvalues always have cv-unqualified types
@@ -1117,7 +1117,8 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	const IdExpression& idExpression = getIdExpression(
 		isClassMemberAccess ? getClassMemberAccessExpression(expression).right : expression);
 	DeclarationInstanceRef declaration = idExpression.declaration;
-	const TemplateArgumentsInstance& templateArguments = idExpression.templateArguments;
+	TemplateArgumentsInstance templateArguments;
+	substitute(templateArguments, idExpression.templateArguments, context); // substitute f<T>
 
 	// [over.call.func] Call to named function
 	SYMBOLS_ASSERT(declaration.p != 0);

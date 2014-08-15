@@ -800,6 +800,21 @@ inline FunctionOverload findBestOverloadedOperator(const Identifier& id, const A
 	return resolver.get();
 }
 
+ExpressionWrapper substituteArgument(ExpressionWrapper expression, const InstantiationContext& context)
+{
+	return makeArgument(expression, removeReference(typeOfExpressionWrapper(expression, context)));
+}
+
+Arguments substituteArguments(const Arguments& arguments, const InstantiationContext& context)
+{
+	Arguments result;
+	result.reserve(arguments.size());
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		result.push_back(substituteArgument(*i, context));
+	}
+	return result;
+}
 
 
 struct TypeOfVisitor : ExpressionNodeVisitor
@@ -851,15 +866,15 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	void visit(const UnaryExpression& node)
 	{
 		result = typeOfUnaryExpression(node.operatorName,
-			makeArgument(node.first, removeReference(typeOfExpressionWrapper(node.first, context))),
+			substituteArgument(node.first, context),
 			context);
 		SYMBOLS_ASSERT(!isDependent(result));
 	}
 	void visit(const BinaryExpression& node)
 	{
 		result = node.type(node.operatorName,
-			makeArgument(node.first, removeReference(typeOfExpressionWrapper(node.first, context))),
-			makeArgument(node.second, removeReference(typeOfExpressionWrapper(node.second, context))),
+			substituteArgument(node.first, context),
+			substituteArgument(node.second, context),
 			context);
 		SYMBOLS_ASSERT(!isDependent(result));
 	}
@@ -898,8 +913,7 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	}
 	void visit(const struct DependentObjectExpression& node)
 	{
-		ExpressionType type = typeOfExpressionWrapper(node.left, context);
-		result = getMemberOperatorType(makeArgument(node.left, removeReference(type)), node.isArrow, context);
+		result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
 		SYMBOLS_ASSERT(!isDependent(result));
 	}
 	void visit(const struct ClassMemberAccessExpression& node)
@@ -914,21 +928,21 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	void visit(const struct FunctionCallExpression& node)
 	{
 		result = typeOfFunctionCallExpression(
-			makeArgument(node.left, removeReference(typeOfExpressionWrapper(node.left, context))),
-			node.arguments,
+			substituteArgument(node.left, context),
+			substituteArguments(node.arguments, context),
 			context);
 	}
 	void visit(const struct SubscriptExpression& node)
 	{
 		result = typeOfSubscriptExpression(
-			makeArgument(node.left, removeReference(typeOfExpressionWrapper(node.left, context))),
-			makeArgument(node.right, removeReference(typeOfExpressionWrapper(node.right, context))),
+			substituteArgument(node.left, context),
+			substituteArgument(node.right, context),
 			context);
 	}
 	void visit(const struct PostfixOperatorExpression& node)
 	{
 		result = typeOfPostfixOperatorExpression(node.operatorName,
-			makeArgument(node.operand, removeReference(typeOfExpressionWrapper(node.operand, context))),
+			substituteArgument(node.operand, context),
 			context);
 	}
 };

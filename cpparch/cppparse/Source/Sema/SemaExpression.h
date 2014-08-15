@@ -289,17 +289,17 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 			return reportIdentifierMismatch(symbol, *id, &gUndeclared, "object-name");
 		}
 		id = walker.id;
-		type = walker.type;
 		expression = walker.expression;
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
 		//setDependent(dependent, walker.dependent); // TODO:
-		setExpressionType(symbol, type);
 		bool isPointerToMember = isAddressOf && expression.isQualifiedNonStaticMemberName;
 		if(!isPointerToMember) // if the expression does not form a pointer to member
 		{
 			expression = makeTransformedIdExpression(expression, typeDependent, valueDependent);
 		}
+		type = expression.type;
+		setExpressionType(symbol, type);
 		return true;
 	}
 	SEMA_POLICY(cpp::unary_expression_op, SemaPolicyIdentity)

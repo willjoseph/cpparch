@@ -1,6 +1,36 @@
 
+namespace N399 // TODO: temporary test, may not be useful
+{
+	struct A
+	{
+		int m;
+		void f(int) const
+		{
+			f(m); // fails internal expression-type consistency check
+		}
+	};
+}
 
-#if 0
+namespace N398 // technique used in boost::is_convertible_to
+{
+	template<typename T, typename U>
+	struct A
+	{
+		static int f(...);
+		static bool f(T);
+
+		static const U& m;
+		static const bool value = sizeof(f(m)) == sizeof(bool);
+	};
+
+	struct C
+	{
+	};
+
+	static_assert(A<int, int>::value == true, "");
+	static_assert(A<int, C>::value == false, "");
+}
+
 namespace N390 // technique used in boost::is_class
 {
 	template<bool b>
@@ -26,7 +56,6 @@ namespace N390 // technique used in boost::is_class
 	static_assert(B<C>::value == true, "");
 	static_assert(B<int>::value == false, "");
 }
-#endif
 
 namespace N389
 {
@@ -436,7 +465,7 @@ namespace N383
 
 }
 
-namespace N395
+namespace N342
 {
 	template<int>
 	struct B
