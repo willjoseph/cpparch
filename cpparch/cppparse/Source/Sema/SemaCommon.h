@@ -971,7 +971,7 @@ struct SemaState
 		enclosing = scope;
 	}
 
-	void addBase(Declaration* declaration, const Type& base)
+	static void addBase(Declaration* declaration, const Type& base)
 	{
 		declaration->enclosed->bases.push_front(base);
 	}
@@ -1331,6 +1331,36 @@ struct SemaBase : public SemaState
 		}
 		enclosed->name = declaration->getName();
 		return declaration;
+	}
+
+	// subsequent name lookups in this context will find names in this class and its enclosing classes and namespaces
+	void beginClassDefinition(Declaration* declaration)
+	{
+		// [basic.lookup.unqual]
+		// A name used in the definition of a class X outside of a member function body or nested class definition
+		// shall be declared in one of the following ways:
+		//  - before its use in class X or be a member of a base class of X, or
+		// 	- if X is a nested class of class Y, before the definition of X in Y, or shall be a member of a base
+		//	class of Y(this lookup applies in turn to Y's enclosing classes, starting with the innermost enclosing
+		//	class), or
+		// 	- if X is a local class or is a nested class of a local class, before the definition of class X in a block
+		// 	enclosing the definition of class X, or
+		// 	- if X is a member of namespace N, or is a nested class of a class that is a member of N, or is a local class
+		// 	or a nested class within a local class of a function that is a member of N, before the definition of class
+		// 	X in namespace N or in one of N's enclosing namespaces.
+
+		pushScope(declaration->enclosed);
+		if(templateParamScope != 0)
+		{
+			// insert the template-parameter scope to enclose the class scope
+			templateParamScope->parent = enclosing->parent;
+			enclosing->parent = templateParamScope; // required when looking up template-parameters from within a template class
+		}
+		if(declaration->isTemplate)
+		{
+			enclosing->templateDepth = templateDepth; // indicates that this is a template
+		}
+		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
 	}
 
 	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent)
@@ -2109,14 +2139,18 @@ struct SemaQualified : public SemaBase, SemaQualifyingResult
 			{
 				qualifyingScope = declaration;
 			}
-			else if(isDependentOld(qualifying_p))
-			{
-				qualifyingScope = 0;
-			}
 			else
 			{
-				qualifyingClass = &getSimpleType(getUniqueType(*qualifying_p, getInstantiationContext(), isDeclarator).value);
-				qualifyingScope = qualifyingClass->declaration;
+				UniqueTypeWrapper type = getUniqueType(*qualifying_p, getInstantiationContext(), isDeclarator || qualifying_p->isDependent);
+				if(!type.isSimple())
+				{
+					qualifyingScope = 0;
+				}
+				else
+				{
+					qualifyingClass = &getSimpleType(type.value);
+					qualifyingScope = qualifyingClass->declaration;
+				}
 			}
 		}
 	}

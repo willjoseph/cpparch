@@ -74,11 +74,9 @@ struct SemaClassHead : public SemaBase
 	SEMA_POLICY(cpp::nested_name_specifier, SemaPolicyPushCached<struct SemaNestedNameSpecifier>)
 	void action(cpp::nested_name_specifier* symbol, const SemaNestedNameSpecifier& walker)
 	{
-		// resolve the (possibly dependent) qualifying scope
-		if(walker.getDeclaratorQualifying() != 0)
-		{
-			parent = walker.getDeclaratorQualifying()->enclosed; // class is declared in scope of qualifying class/namespace
-		}
+		SYMBOLS_ASSERT(walker.qualifyingScope != 0);
+		parent = walker.qualifyingScope->enclosed;
+		enclosingType = walker.qualifyingClass;
 
 		if(templateParams != 0
 			&& !templateParams->empty()
@@ -100,6 +98,8 @@ struct SemaClassHead : public SemaBase
 		// defer class declaration until we know this is a class-specifier - it may be an elaborated-type-specifier until ':' is discovered
 		// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
 		declaration = declareClass(parent, id, isSpecialization, arguments);
+		enclosing = parent;
+		beginClassDefinition(declaration);
 	}
 	SEMA_POLICY(cpp::base_specifier, SemaPolicyPush<struct SemaBaseSpecifier>)
 	void action(cpp::base_specifier* symbol, const SemaBaseSpecifier& walker) 
@@ -172,6 +172,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		isSpecialization = walker.isSpecialization;
 		arguments = walker.arguments;
 		enclosing = walker.parent;
+		enclosingType = walker.enclosingType;
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTBRACE> symbol)
@@ -182,26 +183,9 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 			// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
 			declaration = declareClass(enclosing, id, isSpecialization, arguments);
 		}
-
-		/* basic.scope.class-1
-		The potential scope of a name declared in a class consists not only of the declarative region following
-		the name’s point of declaration, but also of all function bodies, brace-or-equal-initializers of non-static
-		data members, and default arguments in that class (including such things in nested classes).
-		*/
-		SEMANTIC_ASSERT(declaration->enclosed != 0);
-
-		pushScope(declaration->enclosed);
-		if(templateParamScope != 0)
-		{
-			// insert the template-parameter scope to enclose the class scope
-			templateParamScope->parent = enclosing->parent;
-			enclosing->parent = templateParamScope; // required when looking up template-parameters from within a template class
-		}
-		if(declaration->isTemplate)
-		{
-			enclosing->templateDepth = templateDepth; // indicates that this is a template
-		}
-		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
+		SEMANTIC_ASSERT(declaration->enclosed != 0); // the existing declaration should be the result of declareClass
+		
+		beginClassDefinition(declaration);
 
 		Type type(declaration, context);
 		type.id = &declaration->getName();

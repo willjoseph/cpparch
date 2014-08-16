@@ -1,12 +1,42 @@
 
-namespace N399 // TODO: temporary test, may not be useful
+namespace N402 // test name lookup and expression evaluation in out-of-line nested class definition
 {
-	struct A
+	template<typename T>
+	struct B
 	{
-		int m;
-		void f(int) const
+		struct A;
+		static int f();
+		template<int>
+		struct C
 		{
-			f(m); // fails internal expression-type consistency check
+		};
+	};
+	template<typename T>
+	struct B<T>::A : C<sizeof(f())> // 'C' and 'f' found via enclosing type 'B'
+	{
+		void mf()
+		{
+			f(); // 'f' found via enclosing type 'B'
+		}
+	};
+}
+
+namespace N401 // test name lookup and expression evaluation in out-of-line nested class definition
+{
+	struct B
+	{
+		struct A;
+		static int f();
+		template<int>
+		struct C
+		{
+		};
+	};
+	struct B::A : C<sizeof(f())> // 'C' and 'f' found via enclosing type 'B'
+	{
+		void mf()
+		{
+			f(); // 'f' found via enclosing type 'B'
 		}
 	};
 }
