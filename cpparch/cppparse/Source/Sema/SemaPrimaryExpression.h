@@ -111,11 +111,12 @@ struct SemaPrimaryExpression : public SemaBase
 			}
 			else
 			{
+				bool isQualified = !walker.qualifying.empty();
 				UniqueTypeWrapper qualifyingType = makeUniqueQualifying(walker.qualifying, getInstantiationContext());
 				const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
 				TemplateArgumentsInstance templateArguments;
 				makeUniqueTemplateArguments(arguments, templateArguments, getInstantiationContext(), isDependentOld(arguments));
-				type = typeOfIdExpression(qualifyingClass, declaration, templateArguments, getInstantiationContext());
+				type = typeOfIdExpression(qualifyingClass, declaration, templateArguments, isQualified, getInstantiationContext());
 #if 0
 				idEnclosing = isSpecialMember(*declaration) ? 0 : getIdExpressionClass(qualifyingClass, declaration, enclosingType);
 #endif

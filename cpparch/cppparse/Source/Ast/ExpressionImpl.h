@@ -93,8 +93,9 @@ struct DependentIdExpression
 	Name name;
 	UniqueTypeWrapper qualifying;
 	TemplateArgumentsInstance templateArguments;
-	DependentIdExpression(Name name, UniqueTypeWrapper qualifying, TemplateArgumentsInstance templateArguments)
-		: name(name), qualifying(qualifying), templateArguments(templateArguments)
+	bool isQualified;
+	DependentIdExpression(Name name, UniqueTypeWrapper qualifying, TemplateArgumentsInstance templateArguments, bool isQualified)
+		: name(name), qualifying(qualifying), templateArguments(templateArguments), isQualified(isQualified)
 	{
 		SYMBOLS_ASSERT(qualifying.value.p != 0);
 	}
@@ -106,7 +107,9 @@ inline bool operator<(const DependentIdExpression& left, const DependentIdExpres
 		? left.name < right.name
 		: left.qualifying != right.qualifying
 		? left.qualifying < right.qualifying
-		: left.templateArguments < right.templateArguments;
+		: left.templateArguments != right.templateArguments
+		? left.templateArguments < right.templateArguments
+		: left.isQualified < right.isQualified;
 }
 
 inline bool isDependentIdExpression(ExpressionNode* node)
@@ -128,8 +131,9 @@ struct IdExpression
 	const SimpleType* enclosing;
 	// TODO: handle empty template-argument list '<>'. If specified, overload resolution should ignore non-templates
 	TemplateArgumentsInstance templateArguments;
-	IdExpression(DeclarationInstanceRef declaration, const SimpleType* enclosing, const TemplateArgumentsInstance& templateArguments)
-		: declaration(declaration), enclosing(enclosing), templateArguments(templateArguments)
+	bool isQualified;
+	IdExpression(DeclarationInstanceRef declaration, const SimpleType* enclosing, const TemplateArgumentsInstance& templateArguments, bool isQualified)
+		: declaration(declaration), enclosing(enclosing), templateArguments(templateArguments), isQualified(isQualified)
 	{
 	}
 };

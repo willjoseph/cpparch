@@ -1,4 +1,19 @@
 
+namespace N404
+{
+	class A
+	{
+	};
+	namespace N
+	{
+		void f(A a);
+	}
+	void f(A a)
+	{
+		return N::f(a); // should NOT find '::f' via argument dependent lookup
+	}
+}
+
 namespace N403
 {
 	enum file_type

@@ -762,7 +762,7 @@ inline ExpressionType typeOfNonStaticClassMemberAccessExpression(ExpressionType 
 	return result;
 }
 
-inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const DeclarationInstance& declaration, const TemplateArgumentsInstance& templateArguments, const InstantiationContext& context)
+inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const DeclarationInstance& declaration, const TemplateArgumentsInstance& templateArguments, bool isQualified, const InstantiationContext& context)
 {
 	if(declaration == gDestructorInstance.p)
 	{
@@ -782,7 +782,7 @@ inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const Dec
 		// is not done, if a template argument list is specified and it, along with any default template arguments,
 		// identifies a single function template specialization, then the template-id is an lvalue for the function template
 		// specialization.
-		return selectOverloadedFunctionImpl(gUniqueTypeNull, IdExpression(declaration, qualifying, templateArguments), context);
+		return selectOverloadedFunctionImpl(gUniqueTypeNull, IdExpression(declaration, qualifying, templateArguments, isQualified), context);
 	}
 
 	const SimpleType* idEnclosing = getIdExpressionClass(qualifying, declaration, context.enclosingType);
@@ -1186,16 +1186,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 
 	OverloadSet overloads;
 	addOverloaded(overloads, declaration, memberEnclosing);
-	if(!isMember(*declaration))
-	{
-		// [basic.lookup.koenig]
-		// If the ordinary unqualified lookup of the name finds the declaration of a class member function, the associated
-		// namespaces and classes are not considered. Otherwise the set of declarations found by the lookup of
-		// the function name is the union of the set of declarations found using ordinary unqualified lookup and the set
-		// of declarations found in the namespaces and classes associated with the argument types.
-		addArgumentDependentOverloads(overloads, declaration->getName(), augmentedArguments);
-	}
-	else
+	if(isMember(*declaration)) // if the id-expression names a member
 	{ // TODO: temporary hack: add special overload for implicitly declared copy-assignment operator
 		SYMBOLS_ASSERT(memberEnclosing != 0);
 		if(declaration->getName().value == gOperatorAssignId // if we found a user-defined operator=
@@ -1203,6 +1194,17 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 		{
 			overloads.push_back(Overload(gCopyAssignmentOperatorInstance.p, memberEnclosing));
 		}
+	}
+	else if(!idExpression.isQualified) // else if the id-expression is unqualified
+	{
+		// [basic.lookup.koenig]
+		// When the postfix-expression in a function call is an unqualified-id, other namespaces not considered
+		// during the usual unqualified lookup may be searched...
+		// If the ordinary unqualified lookup of the name finds the declaration of a class member function, the associated
+		// namespaces and classes are not considered. Otherwise the set of declarations found by the lookup of
+		// the function name is the union of the set of declarations found using ordinary unqualified lookup and the set
+		// of declarations found in the namespaces and classes associated with the argument types.
+		addArgumentDependentOverloads(overloads, declaration->getName(), augmentedArguments);
 	}
 
 	SYMBOLS_ASSERT(!overloads.empty());

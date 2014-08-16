@@ -41,7 +41,7 @@ inline IdExpression substituteIdExpression(const DependentIdExpression& node, co
 	}
 
 	// TODO: substitute template arguments, in case of template-id when making pointer-to-function
-	return IdExpression(declaration, qualifyingType, TemplateArgumentsInstance());
+	return IdExpression(declaration, qualifyingType, TemplateArgumentsInstance(), node.isQualified);
 }
 
 inline IntegralConstant evaluateIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -847,12 +847,12 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	void visit(const DependentIdExpression& node)
 	{
 		const IdExpression expression = substituteIdExpression(node, context);
-		result = typeOfIdExpression(expression.enclosing, expression.declaration, expression.templateArguments, context);
+		result = typeOfIdExpression(expression.enclosing, expression.declaration, expression.templateArguments, expression.isQualified, context);
 		SYMBOLS_ASSERT(!isDependent(result));
 	}
 	void visit(const IdExpression& node)
 	{
-		result = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, context);
+		result = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
 		SYMBOLS_ASSERT(!isDependent(result));
 	}
 	void visit(const SizeofExpression& node)
