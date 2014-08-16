@@ -1,4 +1,12 @@
 
+namespace N403
+{
+	enum file_type
+	{
+		status_error, status_unknown=status_error, file_not_found
+	};
+}
+
 namespace N402 // test name lookup and expression evaluation in out-of-line nested class definition
 {
 	template<typename T>

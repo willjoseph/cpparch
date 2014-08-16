@@ -317,7 +317,7 @@ public:
 	}
 };
 
-#if 1
+#if 0
 typedef NullOutputStream FileOutputStream;
 typedef NullOutputStream OutputStream;
 inline OutputStream& stdOut()
