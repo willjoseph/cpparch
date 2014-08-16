@@ -20,6 +20,7 @@ extern Declaration gNamespace;
 extern Declaration gCtor;
 extern Declaration gEnumerator;
 extern Declaration gUnknown;
+extern Declaration gBuiltInOperator;
 
 
 // ----------------------------------------------------------------------------
@@ -134,7 +135,7 @@ inline bool isEnum(const Declaration& declaration)
 
 inline bool isEnumerator(const Declaration& declaration)
 {
-	return isEnum(*declaration.type.declaration);
+	return declaration.isEnumerator;
 }
 
 inline bool isComplete(const Declaration& declaration)

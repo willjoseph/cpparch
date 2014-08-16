@@ -350,6 +350,7 @@ public:
 	bool isTemplateName; // true if this is a template declaration, or an overload of a template declaration
 	bool isSpecialization;
 	bool isFunctionDefinition;
+	bool isEnumerator; // true if this is the declaration of an enumerator
 	std::size_t instance;
 
 	Declaration(
@@ -382,6 +383,7 @@ public:
 		isTemplateName(isTemplate),
 		isSpecialization(isSpecialization),
 		isFunctionDefinition(false),
+		isEnumerator(false),
 		instance(INDEX_INVALID)
 	{
 	}
@@ -411,6 +413,7 @@ public:
 		std::swap(isTemplateName, other.isTemplateName);
 		std::swap(isSpecialization, other.isSpecialization);
 		std::swap(isFunctionDefinition, other.isFunctionDefinition);
+		std::swap(isEnumerator, other.isEnumerator);
 		std::swap(instance, other.instance);
 	}
 

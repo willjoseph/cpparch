@@ -27,6 +27,8 @@ Identifier gEnumeratorId = makeIdentifier("$enumerator");
 Declaration gEnumerator(AST_ALLOCATOR_NULL, 0, gEnumeratorId, TYPE_SPECIAL, 0);
 Identifier gUnknownId = makeIdentifier("$unknown");
 Declaration gUnknown(AST_ALLOCATOR_NULL, 0, gUnknownId, TYPE_SPECIAL, 0);
+Identifier gBuiltInOperatorId = makeIdentifier("$built-in");
+Declaration gBuiltInOperator(AST_ALLOCATOR_NULL, 0, gBuiltInOperatorId, TYPE_SPECIAL, 0);
 
 
 // template placeholders

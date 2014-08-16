@@ -1,4 +1,31 @@
 
+namespace N406
+{
+	struct A
+	{
+		typedef void(*unspecified_bool_type)();
+		operator unspecified_bool_type() const;
+	};
+	A a;
+	bool b = a || 0; // overload resolution finds built-in operator|| via conversion operator
+}
+namespace N405
+{
+	enum E
+	{
+		value
+	};
+	inline E& operator&=(E& x, E y);
+	struct A
+	{
+		E m;
+		void f()
+		{
+			m &= value; // 'm' is non-static and should be transformed to a class-member-access
+		}
+	};
+}
+
 namespace N404
 {
 	class A

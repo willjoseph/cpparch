@@ -28,6 +28,7 @@ struct SemaEnumeratorDefinition : public SemaBase
 #endif
 		setDecoration(&symbol->value, instance);
 		declaration = instance;
+		declaration->isEnumerator = true;
 	}
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
