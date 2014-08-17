@@ -9,12 +9,22 @@
 
 
 
+struct FunctionOverload
+{
+	Declaration* declaration;
+	ExpressionType type;
+	FunctionOverload(Declaration* declaration, ExpressionType type)
+		: declaration(declaration), type(type)
+	{
+	}
+};
+
 struct ImplicitConversion
 {
 	StandardConversionSequence sequence; // if user-defined, this is the second standard conversion
 	IcsType type;
-	Declaration* conversion; // if user-defined, this is the declaration of the conversion function
-	explicit ImplicitConversion(StandardConversionSequence sequence, IcsType type = ICSTYPE_STANDARD, Declaration* conversion = 0)
+	FunctionOverload conversion; // if user-defined, this is the chosen conversion function
+	explicit ImplicitConversion(StandardConversionSequence sequence, IcsType type = ICSTYPE_STANDARD, FunctionOverload conversion = FunctionOverload(0, ExpressionType()))
 		: sequence(sequence), type(type), conversion(conversion)
 	{
 	}
@@ -27,16 +37,6 @@ inline ExpressionType getFunctionCallExpressionType(UniqueTypeWrapper type)
 	// [expr.call] A function call is an lvalue if and only if the result type is a reference.
 	return ExpressionType(type, type.isReference());
 }
-
-struct FunctionOverload
-{
-	Declaration* declaration;
-	ExpressionType type;
-	FunctionOverload(Declaration* declaration, ExpressionType type)
-		: declaration(declaration), type(type)
-	{
-	}
-};
 
 inline ExpressionType selectOverloadedFunction(UniqueTypeWrapper to, Argument from, const InstantiationContext& context);
 inline ExpressionType selectOverloadedFunctionImpl(UniqueTypeWrapper target, const IdExpression& expression, const InstantiationContext& context);
@@ -120,7 +120,7 @@ ImplicitConversion makeImplicitConversionSequence(To to, Argument from, const In
 				bool isIdentity = type.value.getPointer() == to.value.getPointer();
 				StandardConversionSequence second(isIdentity ? SCSRANK_IDENTITY : SCSRANK_CONVERSION, to.value.getQualifiers());
 				second.isReference = true;
-				return ImplicitConversion(second, ICSTYPE_USERDEFINED, overload.declaration);
+				return ImplicitConversion(second, ICSTYPE_USERDEFINED, overload);
 			}
 			// drop through...
 		}
@@ -203,7 +203,7 @@ ImplicitConversion makeImplicitConversionSequence(To to, Argument from, const In
 		// type for the sequence.
 		StandardConversionSequence second = makeStandardConversionSequence(to, removeReference(overload.type), context, false);
 		second.isReference = isReference;
-		return ImplicitConversion(second, ICSTYPE_USERDEFINED, overload.declaration);
+		return ImplicitConversion(second, ICSTYPE_USERDEFINED, overload);
 	}
 
 	from.type = selectOverloadedFunction(to, from, context);
@@ -225,6 +225,12 @@ inline IcsRank getIcsRank(UniqueTypeWrapper to, UniqueTypeWrapper from, const In
 // [over.ics.rank]
 inline bool isBetter(const ImplicitConversion& l, const ImplicitConversion& r)
 {
+	// [over.ics.rank]
+	// When comparing the basic forms of implicit conversion sequences
+	// 	- a standard conversion sequence is a better conversion sequence than a user-defined conversion
+	// 	sequence or an ellipsis conversion sequence, and
+	// 	- a user-defined conversion sequence is a better conversion sequence than an ellipsis conversion
+	// 	sequence.
 	if(l.type != r.type)
 	{
 		return l.type < r.type;
@@ -259,19 +265,34 @@ struct FunctionTemplate
 	}
 };
 
-struct CandidateFunction : FunctionOverload, FunctionTemplate
+// note: FunctionType is only required for error-reporting and could be optimised
+struct CandidateFunction : FunctionOverload, FunctionType, FunctionTemplate
 {
 	ArgumentConversions conversions;
+	UniqueTypeWrapper implicitObjectParameter; // note: required only for error reporting, could be optimised out
 	bool isTemplate;
 	CandidateFunction()
 		: FunctionOverload(0, gNullExpressionType)
 	{
 	}
-	CandidateFunction(FunctionOverload overload, const FunctionTemplate& functionTemplate = FunctionTemplate())
-		: FunctionOverload(overload), FunctionTemplate(functionTemplate), isTemplate(overload.declaration->isTemplate)
+	CandidateFunction(FunctionOverload overload, const FunctionType& functionType, const FunctionTemplate& functionTemplate = FunctionTemplate())
+		: FunctionOverload(overload), FunctionType(functionType), FunctionTemplate(functionTemplate), isTemplate(overload.declaration->isTemplate)
 	{
 	}
 };
+
+inline bool isViable(const CandidateFunction& candidate)
+{
+	for(ArgumentConversions::const_iterator i = candidate.conversions.begin(); i != candidate.conversions.end(); ++i)
+	{
+		if(!isValid(*i))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
 
 inline bool isMoreSpecialized(const FunctionTemplate& left, const FunctionTemplate& right)
 {
@@ -392,6 +413,7 @@ inline bool isBetter(const CandidateFunction& l, const CandidateFunction& r)
 }
 
 const CandidateFunction gOverloadNull;
+typedef std::list<CandidateFunction> CandidateFunctions;
 
 // TODO: fix circular dependency!
 inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
@@ -403,6 +425,7 @@ struct OverloadResolver
 	InstantiationContext context;
 	CandidateFunction best;
 	Declaration* ambiguous;
+	CandidateFunctions candidates; // note: only required for error-reporting and could be optimised
 	bool isUserDefinedConversion;
 
 	OverloadResolver(const Arguments& arguments, const TemplateArgumentsInstance* templateArguments, const InstantiationContext& context, bool isUserDefinedConversion = false)
@@ -414,40 +437,9 @@ struct OverloadResolver
 	{
 		return ambiguous != 0 ? gOverloadNull : best;
 	}
-	bool isViable(const CandidateFunction& candidate)
+	void addNonViable(const ParameterTypes& parameters)
 	{
-		if(candidate.conversions.size() != best.conversions.size())
-		{
-			return false; // TODO: early-out for functions with not enough params
-		}
-
-		for(ArgumentConversions::const_iterator i = candidate.conversions.begin(); i != candidate.conversions.end();  ++i)
-		{
-			if(!isValid(*i))
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
-	void add(const CandidateFunction& candidate)
-	{
-		if(!isViable(candidate))
-		{
-			return;
-		}
-
-		if(best.declaration == 0
-			|| isBetter(candidate, best))
-		{
-			best = candidate;
-			ambiguous = 0;
-		}
-		else if(!isBetter(best, candidate)) // the best candidate is an equally good match
-		{
-			ambiguous = candidate.declaration;
-		}
+		candidates.push_back(CandidateFunction());
 	}
 	template<typename To>
 	ImplicitConversion makeConversion(To to, const Argument& from)
@@ -457,12 +449,15 @@ struct OverloadResolver
 		bool isNullPointerConstant = !from.isValueDependent && from.isConstant && evaluateExpression(from, context).value == 0;
 		return makeImplicitConversionSequence(to, from, context, isNullPointerConstant, isUserDefinedConversion);
 	}
-	void add(const FunctionOverload& overload, const ParameterTypes& parameters, bool isEllipsis, CvQualifiers qualifiers, const SimpleType* memberEnclosing, FunctionTemplate& functionTemplate = FunctionTemplate())
+	void add(const FunctionOverload& overload, const FunctionType& functionType, CvQualifiers qualifiers, const SimpleType* memberEnclosing, FunctionTemplate& functionTemplate = FunctionTemplate())
 	{
+		const ParameterTypes& parameters = functionType.parameterTypes;
+		bool isEllipsis = functionType.isEllipsis;
+
 		bool hasImplicitObjectParameter = isMember(*overload.declaration)
 			&& overload.declaration->type.declaration != &gCtor;
 
-		CandidateFunction candidate(overload, functionTemplate);
+		CandidateFunction candidate(overload, functionType, functionTemplate);
 		candidate.conversions.reserve(best.conversions.size());
 
 		Arguments::const_iterator a = arguments.begin();
@@ -489,6 +484,8 @@ struct OverloadResolver
 			{
 				candidate.isStaticMember = true;
 			}
+
+			candidate.implicitObjectParameter = implicitObjectParameter;
 
 			SYMBOLS_ASSERT(a != arguments.end());
 			const Argument& impliedObjectArgument = *a++;
@@ -529,7 +526,7 @@ struct OverloadResolver
 				SYMBOLS_ASSERT(d != defaults.end());
 				if((*d).defaultArgument == 0) // TODO: catch this earlier
 				{
-					return; // [over.match.viable] no default-argument available, this candidate is not viable
+					return addNonViable(parameters); // [over.match.viable] no default-argument available, this candidate is not viable
 				}
 				else
 				{
@@ -551,14 +548,33 @@ struct OverloadResolver
 		if(!isEllipsis
 			&& a != arguments.end())
 		{
-			return;
+			return addNonViable(parameters);
 		}
+
 		for(; a != arguments.end(); ++a)
 		{
 			candidate.conversions.push_back(IMPLICITCONVERSION_ELLIPSIS);
 		}
 
-		add(candidate);
+		SYMBOLS_ASSERT(candidate.conversions.size() == best.conversions.size());
+
+		if(!isViable(candidate))
+		{
+			return addNonViable(parameters);
+		}
+
+		candidates.push_back(candidate); // TODO: avoid copies!
+
+		if(best.declaration == 0
+			|| isBetter(candidate, best))
+		{
+			best = candidate;
+			ambiguous = 0;
+		}
+		else if(!isBetter(best, candidate)) // the best candidate is an equally good match
+		{
+			ambiguous = candidate.declaration;
+		}
 	}
 };
 
@@ -682,6 +698,15 @@ inline void addConversionFunctionOverloads(OverloadResolver& resolver, const Sim
 	}
 }
 
+inline LookupResultRef findConstructor(const SimpleType& classType, const InstantiationContext& context)
+{
+	instantiateClass(classType, context); // searching for overloads requires a complete type
+	Identifier tmp;
+	tmp.value = classType.declaration->getName().value;
+	tmp.source = context.source;
+	return ::findDeclaration(classType, tmp, IsConstructor());
+}
+
 template<typename To>
 FunctionOverload findBestConversionFunction(To to, Argument from, const InstantiationContext& context, bool isNullPointerConstant)
 {
@@ -701,11 +726,7 @@ FunctionOverload findBestConversionFunction(To to, Argument from, const Instanti
 	{
 		// add converting constructors of 'to'
 		const SimpleType& classType = getSimpleType(to.value);
-		instantiateClass(classType, context); // searching for overloads requires a complete type
-		Identifier tmp;
-		tmp.value = classType.declaration->getName().value;
-		tmp.source = context.source;
-		LookupResultRef declaration = ::findDeclaration(classType, tmp, IsConstructor());
+		LookupResultRef declaration = findConstructor(classType, context);
 
 		if(declaration != 0) // TODO: add implicit copy constructor!
 		{

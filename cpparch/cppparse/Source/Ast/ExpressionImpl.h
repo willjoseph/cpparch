@@ -312,7 +312,7 @@ inline bool operator<(const TernaryExpression& left, const TernaryExpression& ri
 }
 
 // ----------------------------------------------------------------------------
-typedef bool (*UnaryTypeTraitsOp)(UniqueTypeWrapper);
+typedef bool (*UnaryTypeTraitsOp)(UniqueTypeWrapper, const InstantiationContext& context);
 typedef bool (*BinaryTypeTraitsOp)(UniqueTypeWrapper, UniqueTypeWrapper, const InstantiationContext& context);
 
 struct TypeTraitsUnaryExpression

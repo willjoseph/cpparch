@@ -1023,6 +1023,8 @@ inline ExpressionType typeOfSubscriptExpression(Argument left, Argument right, c
 	return ExpressionType(type, true);
 }
 
+IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context);
+
 inline ExpressionType typeOfFunctionCallExpression(Argument left, const Arguments& arguments, const InstantiationContext& context)
 {
 	ExpressionWrapper expression = left;
@@ -1030,7 +1032,10 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 
 	SYMBOLS_ASSERT(expression.p != 0);
 
-	if(isDependentIdExpression(expression)) // if this is an expression of the form 'undeclared-id(args)', the name must be found via ADL 
+	bool isDependentId = isDependentIdExpression(expression);
+
+	if(isDependentId
+		&& !getDependentIdExpression(expression).isQualified) // if this is an expression of the form 'undeclared-id(args)', the name must be found via ADL 
 	{
 		SYMBOLS_ASSERT(type == gUniqueTypeNull); // check that the id-expression names an overloaded function
 		SYMBOLS_ASSERT(!arguments.empty()); // check that the argument-list was not empty
@@ -1105,7 +1110,8 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 
 	bool isClassMemberAccess = isClassMemberAccessExpression(expression);
 	bool isNamed = isClassMemberAccess
-		|| isIdExpression(expression);
+		|| isIdExpression(expression)
+		|| isDependentId;
 
 	if(!isNamed) // if the left-hand expression does not contain an (optionally parenthesised) id-expression (and is not a class which supports 'operator()')
 	{
@@ -1114,8 +1120,10 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 		return getFunctionCallExpressionType(popType(type)); // get the return type: T
 	}
 
-	const IdExpression& idExpression = getIdExpression(
-		isClassMemberAccess ? getClassMemberAccessExpression(expression).right : expression);
+	IdExpression idExpression = isDependentId
+		? substituteIdExpression(getDependentIdExpression(expression), context)
+		: getIdExpression(isClassMemberAccess ? getClassMemberAccessExpression(expression).right : expression);
+
 	DeclarationInstanceRef declaration = idExpression.declaration;
 	TemplateArgumentsInstance templateArguments;
 	substitute(templateArguments, idExpression.templateArguments, context); // substitute f<T>

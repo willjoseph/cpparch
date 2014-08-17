@@ -14,7 +14,7 @@ inline IntegralConstant evaluateIdExpression(const IdExpression& node, const Ins
 	return evaluate(node.declaration->initializer, setEnclosingType(context, memberEnclosing));
 }
 
-inline IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(node.qualifying != gOverloaded); // assert that this is not the name of an undeclared identifier (to be looked up via ADL)
 	SYMBOLS_ASSERT(context.enclosingType != 0);
@@ -154,7 +154,8 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	void visit(const TypeTraitsUnaryExpression& node)
 	{
 		result = IntegralConstant(node.operation(
-			substitute(node.type, context)
+			substitute(node.type, context),
+			context
 			));
 	}
 	void visit(const TypeTraitsBinaryExpression& node)
@@ -262,13 +263,37 @@ ExpressionType getOverloadedMemberOperatorType(ExpressionType operand, const Ins
 }
 
 
-inline void printOverloads(OverloadResolver& resolver, const OverloadSet& overloads, const InstantiationContext& context)
+inline void printConversion(UniqueTypeWrapper to, ExpressionType from, const ImplicitConversion& conversion)
 {
-	for(OverloadSet::const_iterator i = overloads.begin(); i != overloads.end(); ++i)
+	printType(from);
+	if(conversion.type == ICSTYPE_ELLIPSIS)
 	{
-		const Overload& overload = *i;
-		const ParameterTypes parameters = addOverload(resolver, overload);
-		printPosition(overload.declaration->getName().source);
+		std::cout << " -> ... (EC)";
+		return;
+	}
+	if(conversion.type == ICSTYPE_USERDEFINED)
+	{
+		std::cout << " -> ";
+		printType(conversion.conversion.type);
+		std::cout << " (UDC)";
+	}
+	std::cout << " -> ";
+	printType(to);
+	std::cout << " (SC - " << getScsRankName(conversion.sequence.rank);
+	if(conversion.sequence.adjustment != CvQualifiers())
+	{
+		std::cout << " with qualification adjustment";
+	}
+	std::cout << ")";
+}
+
+inline void printCandidates(OverloadResolver& resolver, const InstantiationContext& context)
+{
+	for(CandidateFunctions::const_iterator i = resolver.candidates.begin(); i != resolver.candidates.end(); ++i)
+	{
+		const CandidateFunction& candidate = *i;
+		const ParameterTypes& parameters = candidate.parameterTypes;
+		printPosition(candidate.declaration->getName().source);
 		std::cout << "(";
 		bool separator = false;
 		for(ParameterTypes::const_iterator i = parameters.begin(); i != parameters.end(); ++i)
@@ -281,6 +306,37 @@ inline void printOverloads(OverloadResolver& resolver, const OverloadSet& overlo
 			separator = true;
 		}
 		std::cout << ")" << std::endl;
+		if(candidate.conversions.empty())
+		{
+			std::cout << "not viable!" << std::endl;
+			continue;
+		}
+		Arguments::const_iterator a = resolver.arguments.begin();
+		ParameterTypes::const_iterator p = parameters.begin();
+		ArgumentConversions::const_iterator c = candidate.conversions.begin();
+		// report conversions for implicit object parameter
+		if(candidate.isStaticMember)
+		{
+			SYMBOLS_ASSERT(candidate.implicitObjectParameter == gImplicitObjectParameter);
+			++a; // no conversion is applicable for implicit object parameter
+			++c;
+		}
+		else
+		{
+			printConversion(candidate.implicitObjectParameter, (*a++).type, *c++);
+		}
+		// report conversions for remaining parameters
+		for(; p != parameters.end(); ++p)
+		{
+			printConversion(*p, (*a++).type, *c++);
+			std::cout << std::endl;
+		}
+		// report remaining ellipsis conversions
+		for(; c != candidate.conversions.end(); ++c)
+		{
+			printConversion(gUniqueTypeNull, (*a++).type, *c);
+			std::cout << std::endl;
+		}
 	}
 }
 
@@ -330,7 +386,7 @@ inline FunctionOverload findBestOverloadedFunction(const OverloadSet& overloads,
 		printName(declaration->scope);
 		std::cout << getValue(declaration->getName());
 		std::cout << std::endl;
-		printOverloads(resolver, overloads, context);
+		printCandidates(resolver, context);
 	}
 
 	return resolver.get();
@@ -340,8 +396,7 @@ inline FunctionOverload findBestOverloadedFunction(const OverloadSet& overloads,
 
 inline void addBuiltInOperatorOverload(OverloadResolver& resolver, UniqueTypeWrapper type)
 {
-	const ParameterTypes& parameters = getParameterTypes(type.value);
-	resolver.add(FunctionOverload(&gBuiltInOperator, getFunctionCallExpressionType(popType(type))), parameters, false, CvQualifiers(), 0);
+	resolver.add(FunctionOverload(&gBuiltInOperator, getFunctionCallExpressionType(popType(type))), getFunctionType(type.value), CvQualifiers(), 0);
 }
 
 inline void addBuiltInOperatorOverloads(OverloadResolver& resolver, BuiltInTypeArrayRange overloads)

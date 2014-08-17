@@ -103,6 +103,22 @@ struct SemaDeclSpecifierSeq : public SemaBase
 			seq.qualifiers.isVolatile = true;
 		}
 	}
+	SEMA_POLICY(cpp::function_specifier, SemaPolicyIdentity)
+	void action(cpp::function_specifier* symbol)
+	{
+		if(symbol->id == cpp::function_specifier::EXPLICIT)
+		{
+			seq.specifiers.isExplicit = true;
+		}
+		else if(symbol->id == cpp::function_specifier::VIRTUAL)
+		{
+			seq.specifiers.isVirtual = true;
+		}
+		else if(symbol->id == cpp::function_specifier::INLINE)
+		{
+			seq.specifiers.isInline = true;
+		}
+	}
 };
 
 #endif

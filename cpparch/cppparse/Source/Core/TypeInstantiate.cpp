@@ -261,6 +261,11 @@ inline TypeLayout addBase(SimpleType& instance, UniqueTypeWrapper base, const In
 	SYMBOLS_ASSERT(isClass(*objectType.declaration));
 	SYMBOLS_ASSERT(objectType.declaration->enclosed != 0); // this can occur when the primary template is incomplete, and a specialization was not chosen
 	instance.bases.push_back(&objectType);
+	instance.hasVirtualDestructor |= objectType.hasVirtualDestructor;
+	instance.isPolymorphic |= objectType.isPolymorphic;
+	instance.isAbstract |= objectType.isAbstract;
+	instance.isEmpty &= objectType.isEmpty; // TODO: virtual base
+	instance.isPod = false;
 	return layout;
 }
 

@@ -97,7 +97,7 @@ struct SemaClassHead : public SemaBase
 	{
 		// defer class declaration until we know this is a class-specifier - it may be an elaborated-type-specifier until ':' is discovered
 		// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
-		declaration = declareClass(parent, id, isSpecialization, arguments);
+		declaration = declareClass(parent, id, isUnion, isSpecialization, arguments);
 		enclosing = parent;
 		beginClassDefinition(declaration);
 	}
@@ -181,7 +181,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		if(declaration == 0)
 		{
 			// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
-			declaration = declareClass(enclosing, id, isSpecialization, arguments);
+			declaration = declareClass(enclosing, id, isUnion, isSpecialization, arguments);
 		}
 		SEMANTIC_ASSERT(declaration->enclosed != 0); // the existing declaration should be the result of declareClass
 		

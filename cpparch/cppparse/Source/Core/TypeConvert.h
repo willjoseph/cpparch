@@ -28,6 +28,19 @@ enum ScsRank
 	SCSRANK_INVALID,
 };
 
+inline const char* getScsRankName(ScsRank type)
+{
+	switch(type)
+	{
+	case SCSRANK_IDENTITY: return "Identity";
+	case SCSRANK_EXACT: return "Exact Match";
+	case SCSRANK_PROMOTION: return "Promotion";
+	case SCSRANK_CONVERSION: return "Conversion";
+	}
+	return 0;
+}
+
+
 struct StandardConversionSequence
 {
 	ScsRank rank;
@@ -537,6 +550,17 @@ inline IcsRank getIcsRank(ScsRank rank)
 	case SCSRANK_CONVERSION: return ICSRANK_STANDARDCONVERSION;
 	}
 	return ICSRANK_INVALID;
+}
+
+inline const char* getIcsTypeName(IcsType type)
+{
+	switch(type)
+	{
+	case ICSTYPE_STANDARD: return "SCS";
+	case ICSTYPE_USERDEFINED: return "UDCS";
+	case ICSTYPE_ELLIPSIS: return "ECS";
+	}
+	return 0;
 }
 
 

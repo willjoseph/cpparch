@@ -1318,7 +1318,7 @@ struct SemaBase : public SemaState
 		addBacktrackCallback(makeUndeclareCallback(&declaration));
 	}
 
-	Declaration* declareClass(Scope* parent, Identifier* id, bool isSpecialization, TemplateArguments& arguments)
+	Declaration* declareClass(Scope* parent, Identifier* id, bool isUnion, bool isSpecialization, TemplateArguments& arguments)
 	{
 		Scope* enclosed = newScope(makeIdentifier("$class"), SCOPETYPE_CLASS);
 		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, id == 0 ? parent->getUniqueName() : *id, TYPE_CLASS, enclosed, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, arguments);
@@ -1330,6 +1330,7 @@ struct SemaBase : public SemaState
 			setDecoration(id, declaration);
 		}
 		enclosed->name = declaration->getName();
+		declaration->isUnion = isUnion;
 		return declaration;
 	}
 
@@ -1363,7 +1364,7 @@ struct SemaBase : public SemaState
 		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
 	}
 
-	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent)
+	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor)
 	{
 		// [namespace.memdef]
 		// Every name first declared in a namespace is a member of that namespace. If a friend declaration in a non-local class
@@ -1387,6 +1388,8 @@ struct SemaBase : public SemaState
 		{
 			setDecoration(id, declaration);
 		}
+
+		declaration->isDestructor = isDestructor;
 
 		if(declaration->templateParamScope == 0)
 		{
@@ -1429,6 +1432,31 @@ struct SemaBase : public SemaState
 			}
 		}
 
+		// track whether class has virtual members
+		if(parent->type == SCOPETYPE_CLASS)
+		{
+			if(specifiers.isVirtual
+				&& uniqueType.isFunction())
+			{
+				SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
+				SYMBOLS_ASSERT(enclosingClass != 0);
+				enclosingClass->isEmpty = false;
+				enclosingClass->isPod = false;
+				enclosingClass->isPolymorphic = true;
+				// TODO: pure virtual
+				if(declaration->isDestructor)
+				{
+					enclosingClass->hasVirtualDestructor = true;
+				}
+			}
+			if(!isStatic(*declaration)
+				&& !uniqueType.isFunction())
+			{
+				// TODO: not POD if member is non-POD
+				// TODO: not empty if member is non-empty
+			}
+		}
+			
 		return declaration;
 	}
 

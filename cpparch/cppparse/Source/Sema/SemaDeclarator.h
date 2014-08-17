@@ -12,8 +12,9 @@ struct SemaUnqualifiedDeclaratorId : public SemaBase
 
 	IdentifierPtr id;
 	TypeId conversionType; // the return-type, if this is a conversion-function declarator
+	bool isDestructor;
 	SemaUnqualifiedDeclaratorId(const SemaState& state)
-		: SemaBase(state), id(&gAnonymousId), conversionType(0, context)
+		: SemaBase(state), id(&gAnonymousId), conversionType(0, context), isDestructor(false)
 	{
 	}
 	SEMA_POLICY(cpp::identifier, SemaPolicyIdentityCached)
@@ -44,6 +45,7 @@ struct SemaUnqualifiedDeclaratorId : public SemaBase
 	void action(cpp::destructor_id* symbol) 
 	{
 		id = &symbol->name->value;
+		isDestructor = true;
 	}
 	SEMA_POLICY(cpp::destructor_id_decltype, SemaPolicyIdentity)
 	void action(cpp::destructor_id_decltype* symbol) 
@@ -59,8 +61,9 @@ struct SemaQualifiedDeclaratorId : public SemaQualified
 	SEMA_BOILERPLATE;
 
 	IdentifierPtr id;
+	bool isDestructor;
 	SemaQualifiedDeclaratorId(const SemaState& state)
-		: SemaQualified(state), id(&gAnonymousId)
+		: SemaQualified(state), id(&gAnonymousId), isDestructor(false)
 	{
 	}
 	void action(cpp::terminal<boost::wave::T_COLON_COLON> symbol)
@@ -78,6 +81,7 @@ struct SemaQualifiedDeclaratorId : public SemaQualified
 	void action(cpp::unqualified_id* symbol, const SemaUnqualifiedDeclaratorId& walker)
 	{
 		id = walker.id;
+		isDestructor = walker.isDestructor;
 	}
 };
 
@@ -87,8 +91,9 @@ struct SemaDeclaratorId : public SemaQualified
 
 	IdentifierPtr id;
 	TypeId conversionType; // the return-type, if this is a conversion-function declarator
+	bool isDestructor;
 	SemaDeclaratorId(const SemaState& state)
-		: SemaQualified(state), id(&gAnonymousId), conversionType(0, context)
+		: SemaQualified(state), id(&gAnonymousId), conversionType(0, context), isDestructor(false)
 	{
 	}
 	SEMA_POLICY(cpp::qualified_id_default, SemaPolicyPush<struct SemaQualifiedDeclaratorId>)
@@ -96,18 +101,21 @@ struct SemaDeclaratorId : public SemaQualified
 	{
 		id = walker.id;
 		swapQualifying(walker.qualifying, true);
+		isDestructor = walker.isDestructor;
 	}
 	SEMA_POLICY(cpp::qualified_id_global, SemaPolicyPush<struct SemaQualifiedDeclaratorId>)
 	void action(cpp::qualified_id_global* symbol, const SemaQualifiedDeclaratorId& walker)
 	{
 		id = walker.id;
 		swapQualifying(walker.qualifying, true);
+		isDestructor = walker.isDestructor;
 	}
 	SEMA_POLICY(cpp::unqualified_id, SemaPolicyPush<struct SemaUnqualifiedDeclaratorId>)
 	void action(cpp::unqualified_id* symbol, const SemaUnqualifiedDeclaratorId& walker)
 	{
 		id = walker.id;
 		conversionType = walker.conversionType;
+		isDestructor = walker.isDestructor;
 	}
 };
 
@@ -181,8 +189,9 @@ struct SemaDeclarator : public SemaBase
 	Qualifying memberPointer;
 	Dependent dependent; // track which template parameters the declarator's type depends on. e.g. 'T::* memberPointer', 'void f(T)'
 	TypeId conversionType; // the return-type, if this is a conversion-function declarator
+	bool isDestructor;
 	SemaDeclarator(const SemaState& state)
-		: SemaBase(state), id(&gAnonymousId), paramScope(0), typeSequence(context), memberPointer(context), conversionType(0, context)
+		: SemaBase(state), id(&gAnonymousId), paramScope(0), typeSequence(context), memberPointer(context), conversionType(0, context), isDestructor(false)
 	{
 	}
 	void pushPointerType(cpp::ptr_operator* op)
@@ -255,6 +264,7 @@ struct SemaDeclarator : public SemaBase
 	void action(cpp::declarator_id* symbol, SemaDeclaratorId& walker)
 	{
 		id = walker.id;
+		isDestructor = walker.isDestructor;
 		qualifying = walker.qualifying.empty() || isNamespace(*walker.qualifying.back().declaration)
 			? gUniqueTypeNull : UniqueTypeWrapper(walker.qualifying.back().unique);
 

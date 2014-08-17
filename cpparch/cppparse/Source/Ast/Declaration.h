@@ -17,12 +17,14 @@ struct DeclSpecifiers
 	bool isExtern;
 	bool isExplicit;
 	bool isMutable;
+	bool isVirtual;
+	bool isInline;
 	DeclSpecifiers()
-		: isTypedef(false), isFriend(false), isStatic(false), isExtern(false), isExplicit(false), isMutable(false)
+		: isTypedef(false), isFriend(false), isStatic(false), isExtern(false), isExplicit(false), isMutable(false), isVirtual(false), isInline(false)
 	{
 	}
 	DeclSpecifiers(bool isTypedef, bool isFriend, bool isStatic, bool isExtern)
-		: isTypedef(isTypedef), isFriend(isFriend), isStatic(isStatic), isExtern(isExtern), isExplicit(false), isMutable(false)
+		: isTypedef(isTypedef), isFriend(isFriend), isStatic(isStatic), isExtern(isExtern), isExplicit(false), isMutable(false), isVirtual(false), isInline(false)
 	{
 	}
 };
@@ -351,6 +353,8 @@ public:
 	bool isSpecialization;
 	bool isFunctionDefinition;
 	bool isEnumerator; // true if this is the declaration of an enumerator
+	bool isUnion; // true if this is the declaration of a union
+	bool isDestructor; // true if this is the declaration of a destructor
 	std::size_t instance;
 
 	Declaration(
@@ -384,6 +388,8 @@ public:
 		isSpecialization(isSpecialization),
 		isFunctionDefinition(false),
 		isEnumerator(false),
+		isUnion(false),
+		isDestructor(false),
 		instance(INDEX_INVALID)
 	{
 	}
@@ -414,6 +420,8 @@ public:
 		std::swap(isSpecialization, other.isSpecialization);
 		std::swap(isFunctionDefinition, other.isFunctionDefinition);
 		std::swap(isEnumerator, other.isEnumerator);
+		std::swap(isUnion, other.isUnion);
+		std::swap(isDestructor, other.isDestructor);
 		std::swap(instance, other.instance);
 	}
 

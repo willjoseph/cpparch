@@ -183,14 +183,24 @@ inline Declaration* getFundamentalType(unsigned fundamental)
 
 
 
+inline bool isClass(const SimpleType& classType)
+{
+	return isClass(*classType.declaration);
+}
+
 inline bool isClass(UniqueTypeWrapper type)
 {
-	return type.isSimple() && getSimpleType(type.value).declaration->type.declaration == &gClass;
+	return type.isSimple() && isClass(getSimpleType(type.value));
+}
+
+inline bool isEnum(const SimpleType& classType)
+{
+	return isEnum(*classType.declaration);
 }
 
 inline bool isEnum(UniqueTypeWrapper type)
 {
-	return type.isSimple() && getSimpleType(type.value).declaration->type.declaration == &gEnum;
+	return type.isSimple() && isEnum(getSimpleType(type.value));
 }
 
 inline bool isObject(UniqueTypeWrapper type)
@@ -198,9 +208,14 @@ inline bool isObject(UniqueTypeWrapper type)
 	return type != gVoid && !type.isReference() && !type.isFunction();
 }
 
+inline bool isComplete(const SimpleType& classType)
+{
+	return isComplete(*classType.declaration);
+}
+
 inline bool isComplete(const UniqueTypeId& type)
 {
-	return type.isSimple() && isComplete(*getSimpleType(type.value).declaration);
+	return type.isSimple() && isComplete(getSimpleType(type.value));
 }
 
 inline bool isArithmetic(const UniqueTypeId& type)

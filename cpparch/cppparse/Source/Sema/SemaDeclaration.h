@@ -56,6 +56,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	Dependent valueDependent;
 	cpp::default_argument* defaultArgument; // parsing of this symbol will be deferred if this is a member-declaration
 	bool isConversionFunction;
+	bool isDestructor;
 	CvQualifiers conversionFunctionQualifiers;
 
 
@@ -68,7 +69,8 @@ struct SemaDeclarationSuffix : public SemaBase
 		parent(state.enclosing),
 		defaultArgument(0),
 		enclosed(0),
-		isConversionFunction(false)
+		isConversionFunction(false),
+		isDestructor(false)
 	{
 		*static_cast<Type*>(&type) = seq.type;
 		type.qualifiers = seq.qualifiers;
@@ -100,7 +102,7 @@ struct SemaDeclarationSuffix : public SemaBase
 				templateParamScope->parent = parent;
 				enclosed = templateParamScope; // for a static-member-variable definition, store template-params with different names than those in the class definition
 			}
-			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent);
+			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent, isDestructor);
 
 			enclosing = parent;
 
@@ -152,6 +154,8 @@ struct SemaDeclarationSuffix : public SemaBase
 			type = walker.conversionType;
 			isConversionFunction = true;
 		}
+
+		isDestructor = walker.isDestructor;
 	}
 	SEMA_POLICY(cpp::abstract_declarator, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::abstract_declarator* symbol, const SemaDeclarator& walker)
@@ -285,6 +289,13 @@ struct SemaDeclarationSuffix : public SemaBase
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
 	}
+#if 0 // TODO: distinguish between constant-initializer and pure-specifier
+	SEMA_POLICY(cpp::pure_specifier, SemaPolicyIdentity)
+	void action(cpp::pure_specifier* symbol)
+	{
+		declaration->isAbstract = true;
+	}
+#endif
 
 	typedef void(*SkipFunc)(Parser&);
 	template<typename SemaT, SkipFunc skipFunc>
@@ -369,6 +380,14 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 		if(symbol->id == cpp::function_specifier::EXPLICIT)
 		{
 			seq.specifiers.isExplicit = true;
+		}
+		else if(symbol->id == cpp::function_specifier::VIRTUAL)
+		{
+			seq.specifiers.isVirtual = true;
+		}
+		else if(symbol->id == cpp::function_specifier::INLINE)
+		{
+			seq.specifiers.isInline = true;
 		}
 	}
 	typedef Args2<SemaDeclarationArgs, const SemaDeclSpecifierSeqResult&> DeclarationSuffixWalkerArgs;

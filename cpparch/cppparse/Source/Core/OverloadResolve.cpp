@@ -139,7 +139,7 @@ ParameterTypes addOverload(OverloadResolver& resolver, const Overload& overload)
 		return ParameterTypes();
 	}
 
-	resolver.add(FunctionOverload(const_cast<Declaration*>(overload.declaration), getFunctionCallExpressionType(result.returnType)), result.parameterTypes, result.isEllipsis, result.qualifiers, overload.memberEnclosing, result);
+	resolver.add(FunctionOverload(const_cast<Declaration*>(overload.declaration), getFunctionCallExpressionType(result.returnType)), result, result.qualifiers, overload.memberEnclosing, result);
 	return result.parameterTypes;
 }
 
