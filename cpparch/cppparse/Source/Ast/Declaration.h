@@ -19,12 +19,13 @@ struct DeclSpecifiers
 	bool isMutable;
 	bool isVirtual;
 	bool isInline;
+	bool isPure;
 	DeclSpecifiers()
-		: isTypedef(false), isFriend(false), isStatic(false), isExtern(false), isExplicit(false), isMutable(false), isVirtual(false), isInline(false)
+		: isTypedef(false), isFriend(false), isStatic(false), isExtern(false), isExplicit(false), isMutable(false), isVirtual(false), isInline(false), isPure(false)
 	{
 	}
 	DeclSpecifiers(bool isTypedef, bool isFriend, bool isStatic, bool isExtern)
-		: isTypedef(isTypedef), isFriend(isFriend), isStatic(isStatic), isExtern(isExtern), isExplicit(false), isMutable(false), isVirtual(false), isInline(false)
+		: isTypedef(isTypedef), isFriend(isFriend), isStatic(isStatic), isExtern(isExtern), isExplicit(false), isMutable(false), isVirtual(false), isInline(false), isPure(false)
 	{
 	}
 };

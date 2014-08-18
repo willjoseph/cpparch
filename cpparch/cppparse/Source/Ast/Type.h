@@ -407,6 +407,7 @@ struct SimpleType
 	bool hasVirtualDestructor; // true if this class or any of its bases has a virtual destructor
 	bool isPolymorphic; // true if this class or any of its bases has a virtual function
 	bool isAbstract; // true if this class or any of its bases has a pure virtual function
+	bool isCStyle; // true if the class-specifier is preceded by 'typedef'
 	bool isEmpty; // true if this class is a non-union class with no members (other than bitfield size zero), no virtual functions, no virtual base classes, no non-empty base classes
 	bool isPod; // true if this class has no non-pod members, no base classes, no virtual functions, no constructor or destructor
 	mutable bool visited; // used during findDeclaration to prevent infinite recursion
@@ -417,7 +418,7 @@ struct SimpleType
 	SimpleType(Declaration* declaration, const SimpleType* enclosing, TypeLayout layout = TYPELAYOUT_NONE)
 		: uniqueId(0), primary(declaration), declaration(declaration), enclosing(enclosing), layout(layout),
 		instantiated(false), instantiating(false), allowLookup(false),
-		hasCopyAssignmentOperator(false), hasVirtualDestructor(false), isPolymorphic(false), isAbstract(false),
+		hasCopyAssignmentOperator(false), hasVirtualDestructor(false), isPolymorphic(false), isAbstract(false), isCStyle(false),
 		isEmpty(true), isPod(true),
 		visited(false), dumped(false)
 	{

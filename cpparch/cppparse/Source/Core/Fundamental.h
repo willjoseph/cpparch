@@ -182,6 +182,10 @@ inline Declaration* getFundamentalType(unsigned fundamental)
 
 
 
+inline bool isUnion(const SimpleType& classType)
+{
+	return classType.declaration->isUnion;
+}
 
 inline bool isClass(const SimpleType& classType)
 {

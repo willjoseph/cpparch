@@ -288,14 +288,13 @@ struct SemaDeclarationSuffix : public SemaBase
 		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
+		if(UniqueTypeWrapper(declaration->type.unique).isFunction())
+		{
+			SEMANTIC_ASSERT(isIntegralConstantExpression(walker.expression)); // TODO: non-fatal error: expected '0'
+			SEMANTIC_ASSERT(evaluateExpression(walker.expression, getInstantiationContext()).value == 0); // TODO: non-fatal error: expected '0'
+			declaration->specifiers.isPure = true;
+		}
 	}
-#if 0 // TODO: distinguish between constant-initializer and pure-specifier
-	SEMA_POLICY(cpp::pure_specifier, SemaPolicyIdentity)
-	void action(cpp::pure_specifier* symbol)
-	{
-		declaration->isAbstract = true;
-	}
-#endif
 
 	typedef void(*SkipFunc)(Parser&);
 	template<typename SemaT, SkipFunc skipFunc>

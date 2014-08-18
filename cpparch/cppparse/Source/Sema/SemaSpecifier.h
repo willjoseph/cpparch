@@ -50,7 +50,7 @@ struct SemaDeclSpecifierSeq : public SemaBase
 	{
 		seq.type = walker.type;
 	}
-	SEMA_POLICY(cpp::class_specifier, SemaPolicyPush<struct SemaClassSpecifier>)
+	SEMA_POLICY_ARGS(cpp::class_specifier, SemaPolicyPushBool<struct SemaClassSpecifier>, seq.specifiers.isTypedef)
 	void action(cpp::class_specifier* symbol, const SemaClassSpecifier& walker)
 	{
 		seq.type = walker.declaration;

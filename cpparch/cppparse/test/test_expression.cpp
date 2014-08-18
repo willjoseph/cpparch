@@ -1,17 +1,22 @@
 
-// https://gcc.gnu.org/onlinedocs/gcc/Type-Traits.html
-
-
-#if 0 // TODO
-namespace N414
+namespace N417
 {
-	struct Abstract
+	class Empty
 	{
-		virtual void f() = 0;
+		typedef union // c-style, NOT anonymous
+		{
+			int m; // member of 'U'
+		} U;
 	};
-
-	static_assert(__is_abstract(Abstract), "");
-	static_assert(!__is_abstract(Regular), "");
+	class NonEmpty
+	{
+		union // anonymous
+		{
+			int m; // becomes a member of enclosing class
+		};
+	};
+	static_assert(__is_empty(Empty), "");
+	static_assert(!__is_empty(NonEmpty), "");
 }
 
 namespace N415
@@ -29,7 +34,31 @@ namespace N415
 	static_assert(!__is_empty(NonEmpty), "");
 }
 
-#endif
+namespace N416 // testing handling of c-style struct definition 
+{
+	typedef struct
+	{
+		int m;
+	}
+	A;
+}
+
+
+namespace N414
+{
+	struct Abstract
+	{
+		virtual void f() = 0;
+	};
+
+	struct Regular
+	{
+		virtual void f();
+	};
+
+	static_assert(__is_abstract(Abstract), "");
+	static_assert(!__is_abstract(Regular), "");
+}
 
 namespace N413
 {

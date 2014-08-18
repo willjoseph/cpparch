@@ -552,7 +552,7 @@ inline const SimpleType* getEnclosingType(const SimpleType* enclosing)
 {
 	for(const SimpleType* i = enclosing; i != 0; i = (*i).enclosing)
 	{
-		if((*i).declaration->getName().value.c_str()[0] != '$') // ignore anonymous union
+		if(!isAnonymousUnion(*i)) // ignore anonymous union
 		{
 			return i;
 		}
@@ -1364,6 +1364,37 @@ struct SemaBase : public SemaState
 		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
 	}
 
+	void endMemberDeclaration(Declaration* declaration)
+	{
+		if(declaration == 0 // static-assert declaration
+			|| isClassKey(*declaration) // elaborated-type-specifier
+			|| isType(*declaration)) // nested class or enum
+		{
+			return;
+		}
+		SEMANTIC_ASSERT(declaration->type.unique != 0);
+		UniqueTypeWrapper uniqueType = UniqueTypeWrapper(declaration->type.unique);
+
+		// track whether class has (pure) virtual functions
+		if(declaration->specifiers.isVirtual
+			&& uniqueType.isFunction())
+		{
+			SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
+			SYMBOLS_ASSERT(enclosingClass != 0);
+			enclosingClass->isEmpty = false;
+			enclosingClass->isPod = false;
+			enclosingClass->isPolymorphic = true;
+			if(declaration->specifiers.isPure)
+			{
+				enclosingClass->isAbstract = true;
+			}
+			if(declaration->isDestructor)
+			{
+				enclosingClass->hasVirtualDestructor = true;
+			}
+		}
+	}
+
 	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor)
 	{
 		// [namespace.memdef]
@@ -1407,7 +1438,6 @@ struct SemaBase : public SemaState
 			&& type.declaration != &gCtor) // ignore constructor
 		{
 			SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
-			TypeLayout layout = TYPELAYOUT_NONE;
 			if(!type.isDependent)
 			{
 				if(!(parent->type == SCOPETYPE_CLASS && isStatic(*declaration)) // ignore static member
@@ -1415,7 +1445,8 @@ struct SemaBase : public SemaState
 					&& (uniqueType.isSimple() || uniqueType.isArray()))
 				{
 					// TODO: accurate sizeof
-					layout = requireCompleteObjectType(uniqueType, getInstantiationContext());
+					const InstantiationContext& context = getInstantiationContext();
+					addNonStaticMember(*enclosingType, uniqueType, context);
 				}
 			}
 			else if(enclosingClass != 0
@@ -1425,35 +1456,6 @@ struct SemaBase : public SemaState
 				// TODO: check compliance: the point of instantiation of a type used in a member declaration is the point of declaration of the member
 				// .. along with the point of instantiation of types required when naming the member type. e.g. A<T>::B m; B<A<T>::value> m;
 				enclosingClass->childLocations.push_back(getLocation());
-			}
-			if(enclosingClass != 0)
-			{
-				enclosingClass->layout = addMember(enclosingClass->layout, layout);
-			}
-		}
-
-		// track whether class has virtual members
-		if(parent->type == SCOPETYPE_CLASS)
-		{
-			if(specifiers.isVirtual
-				&& uniqueType.isFunction())
-			{
-				SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
-				SYMBOLS_ASSERT(enclosingClass != 0);
-				enclosingClass->isEmpty = false;
-				enclosingClass->isPod = false;
-				enclosingClass->isPolymorphic = true;
-				// TODO: pure virtual
-				if(declaration->isDestructor)
-				{
-					enclosingClass->hasVirtualDestructor = true;
-				}
-			}
-			if(!isStatic(*declaration)
-				&& !uniqueType.isFunction())
-			{
-				// TODO: not POD if member is non-POD
-				// TODO: not empty if member is non-empty
 			}
 		}
 			

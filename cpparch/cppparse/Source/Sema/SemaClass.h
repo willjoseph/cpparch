@@ -158,8 +158,9 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 	SEMA_BOILERPLATE;
 
 	DeferredSymbols deferred;
-	SemaClassSpecifier(const SemaState& state)
-		: SemaBase(state), SemaClassSpecifierResult(context)
+	bool isCStyle; // true if the class-specifier is preceded by 'typedef'
+	SemaClassSpecifier(const SemaState& state, bool isCStyle)
+		: SemaBase(state), SemaClassSpecifierResult(context), isCStyle(isCStyle)
 	{
 	}
 
@@ -203,6 +204,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		declaration->type.unique = makeUniqueType(type, getInstantiationContext(), allowDependent).value;
 		enclosingType = &getSimpleType(declaration->type.unique);
 		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
+		const_cast<SimpleType*>(enclosingType)->isCStyle = isCStyle; // needed at the point of instantiation of any member, so that we can decide whether this is an anonymous union
 		instantiateClass(*enclosingType, InstantiationContext(getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
 
 		addDependent(enclosingDependent, type);
@@ -217,6 +219,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 	SEMA_POLICY(cpp::member_declaration, SemaPolicyPush<struct SemaMemberDeclaration>)
 	void action(cpp::member_declaration* symbol, const SemaMemberDeclaration& walker)
 	{
+		endMemberDeclaration(walker.declaration);
 	}
 	void action(cpp::terminal<boost::wave::T_RIGHTBRACE> symbol)
 	{
