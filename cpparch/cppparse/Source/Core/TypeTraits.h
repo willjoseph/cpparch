@@ -30,6 +30,11 @@ inline bool isEnum(UniqueTypeWrapper type, const InstantiationContext& context)
 }
 
 
+inline bool hasNothrowAssign(UniqueTypeWrapper type, const InstantiationContext& context)
+{
+	return false; // TODO: safe but sub-optimal
+}
+
 inline bool hasNothrowConstructor(UniqueTypeWrapper type, const InstantiationContext& context)
 {
 	return false; // TODO: safe but sub-optimal
@@ -63,7 +68,7 @@ inline bool hasTrivialDestructor(UniqueTypeWrapper type, const InstantiationCont
 
 inline bool isConvertibleTo(UniqueTypeWrapper from, UniqueTypeWrapper to, const InstantiationContext& context)
 {
-	return getIcsRank(to, from, context) != ICSRANK_INVALID;
+	return getIcsRank(to, from, context, false, from.isReference()) != ICSRANK_INVALID;
 }
 
 
@@ -71,6 +76,7 @@ inline UnaryTypeTraitsOp getUnaryTypeTraitsOp(cpp::typetraits_unary* symbol)
 {
 	switch(symbol->id)
 	{
+	case cpp::typetraits_unary::HAS_NOTHROW_ASSIGN: return hasNothrowAssign;
 	case cpp::typetraits_unary::HAS_NOTHROW_CONSTRUCTOR: return hasNothrowConstructor;
 	case cpp::typetraits_unary::HAS_NOTHROW_COPY: return hasNothrowCopy;
 	case cpp::typetraits_unary::HAS_TRIVIAL_ASSIGN: return hasTrivialAssign;

@@ -811,6 +811,7 @@ inline cpp::msext_asm_element_list_inline* parseSymbol(ParserGeneric<SemaT>& par
 template<typename SemaT>
 inline cpp::typetraits_unary* parseSymbol(ParserGeneric<SemaT>& parser, cpp::typetraits_unary* result)
 {
+	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_HAS_NOTHROW_ASSIGN, cpp::typetraits_unary::HAS_NOTHROW_ASSIGN);
 	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_HAS_NOTHROW_CONSTRUCTOR, cpp::typetraits_unary::HAS_NOTHROW_CONSTRUCTOR);
 	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_HAS_NOTHROW_COPY, cpp::typetraits_unary::HAS_NOTHROW_COPY);
 	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_HAS_TRIVIAL_ASSIGN, cpp::typetraits_unary::HAS_TRIVIAL_ASSIGN);

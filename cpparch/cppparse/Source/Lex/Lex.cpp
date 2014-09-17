@@ -111,6 +111,7 @@ struct StringEqualPredicate
 typedef const char* LexTokenValue;
 
 LexTokenId LEXER_INTRINSIC_IDS[] = {
+	boost::wave::T_HAS_NOTHROW_ASSIGN,
 	boost::wave::T_HAS_NOTHROW_CONSTRUCTOR,
 	boost::wave::T_HAS_NOTHROW_COPY,
 	boost::wave::T_HAS_TRIVIAL_ASSIGN,
@@ -138,6 +139,7 @@ LexTokenId LEXER_INTRINSIC_IDS[] = {
 };
 
 LexTokenValue LEXER_INTRINSIC_VALUES[] = {
+	"__has_nothrow_assign",
 	"__has_nothrow_constructor",
 	"__has_nothrow_copy",
 	"__has_trivial_assign",

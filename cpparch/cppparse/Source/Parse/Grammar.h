@@ -1428,6 +1428,7 @@ namespace cpp
 	struct typetraits_unary : terminal_choice
 	{
 		enum {
+			HAS_NOTHROW_ASSIGN,
 			HAS_NOTHROW_CONSTRUCTOR,
 			HAS_NOTHROW_COPY,
 			HAS_TRIVIAL_ASSIGN,

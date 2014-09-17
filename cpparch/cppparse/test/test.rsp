@@ -5,6 +5,7 @@ C:\Program Files\Microsoft Visual Studio 8\VC\BIN\cl.exe
 /D WIN32
 /D _DEBUG
 #.\test\test_prepro2.cpp
+#.\test\test_prepro3.cpp
 .\test\test_expression.cpp
 .\test\test_offsetof.cpp
 .\test\test_prepro.cpp
