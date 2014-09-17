@@ -1,6 +1,8 @@
 
 namespace Temptest
 {
+
+
 #if 0
 	template<typename T>
 	T f();

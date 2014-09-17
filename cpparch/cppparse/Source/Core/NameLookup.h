@@ -173,18 +173,19 @@ inline const DeclarationInstance* findDeclaration(Scope::Declarations& declarati
 	return 0;
 }
 
+template<typename Node>
 struct RecursionGuard
 {
-	const SimpleType& instance;
-	RecursionGuard(const SimpleType& instance)
-		: instance(instance)
+	const Node& node;
+	RecursionGuard(const Node& node)
+		: node(node)
 	{
-		SYMBOLS_ASSERT(!instance.visited);
-		instance.visited = true;
+		SYMBOLS_ASSERT(!node.visited);
+		node.visited = true;
 	}
 	~RecursionGuard()
 	{
-		instance.visited = false;
+		node.visited = false;
 	}
 };
 
@@ -203,7 +204,7 @@ inline LookupResult findDeclaration(const SimpleType& instance, const Identifier
 		std::cout << std::endl;
 		return result;
 	}
-	RecursionGuard guard(instance);
+	RecursionGuard<SimpleType> guard(instance);
 
 	result.filtered = findDeclaration(instance.declaration->enclosed->declarations, id, filter);
 	if(result.filtered)
@@ -326,6 +327,7 @@ inline LookupResult findMemberDeclaration(Scope& scope, const Identifier& id, Lo
 	return result;
 }
 
+
 // find a declaration within a class or namespace
 inline LookupResult findClassOrNamespaceMemberDeclaration(Scope& scope, const Identifier& id, LookupFilter filter = IsAny())
 {
@@ -334,6 +336,9 @@ inline LookupResult findClassOrNamespaceMemberDeclaration(Scope& scope, const Id
 	printName(scope);
 	std::cout << "'" << std::endl;
 #endif
+
+	SYMBOLS_ASSERT(!scope.visited);
+	RecursionGuard<Scope> guard(scope);
 
 	LookupResult result;
 	if(result.append(findMemberDeclaration(scope, id, filter)))

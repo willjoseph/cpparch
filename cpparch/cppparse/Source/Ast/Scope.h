@@ -178,9 +178,10 @@ struct Scope : public ScopeCounter
 	typedef List<DeclarationPtr, AstAllocator<int> > DeclarationList;
 	DeclarationList declarationList;
 	size_t templateDepth; // if this scope is a template parameter scope, indicates the template nesting level, otherwise zero
+	mutable bool visited;
 
 	Scope(const AstAllocator<int>& allocator, const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN)
-		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type), bases(allocator), usingDirectives(allocator), declarationList(allocator), templateDepth(0)
+		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type), bases(allocator), usingDirectives(allocator), declarationList(allocator), templateDepth(0), visited(false)
 
 	{
 	}

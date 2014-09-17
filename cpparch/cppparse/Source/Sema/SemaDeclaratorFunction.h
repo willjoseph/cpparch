@@ -38,6 +38,7 @@ struct SemaParameterDeclarationClause : public SemaBase
 		if(templateParamScope != 0)
 		{
 			// insert the template-parameter scope to enclose the declarator scope
+			SEMANTIC_ASSERT(findScope(enclosing, templateParamScope) == 0);
 			templateParamScope->parent = enclosing->parent;
 			enclosing->parent = templateParamScope;
 			enclosing->templateDepth = templateParamScope->templateDepth;

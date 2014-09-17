@@ -1,4 +1,19 @@
 
+namespace N418
+{
+	template<typename>
+	struct B
+	{
+	};
+
+	template<typename F>
+	struct S;
+	template<typename F>
+	struct S<F()> : B<F()> // bug: incorrectly recognises the F() in the base-specifier as the definition of a template function
+	{
+	};
+}
+
 namespace N417
 {
 	class Empty
