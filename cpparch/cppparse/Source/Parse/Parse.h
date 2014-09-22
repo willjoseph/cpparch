@@ -60,6 +60,10 @@ inline void printSequence(BacktrackBuffer& buffer, BacktrackBuffer::const_iterat
 	bool endline = false;
 	for( BacktrackBuffer::const_iterator i = first; i != last; i = next(buffer, i))
 	{
+		if(isEOF((*i).id))
+		{
+			return;
+		}
 		if(space && isIdentifier(*(*i).value.c_str()))
 		{
 			std::cout << " ";

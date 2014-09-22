@@ -462,11 +462,7 @@ inline void printType(const SimpleType& type, OutputStream& out, bool escape)
 {
 	FileTokenPrinter tokenPrinter(out);
 	SymbolPrinter printer(tokenPrinter, escape);
-	printer.printName(type.declaration);
-	if(type.declaration->isTemplate)
-	{
-		printer.printTemplateArguments(type.templateArguments);
-	}
+	printer.printType(type);
 }
 
 inline void printType(UniqueTypeWrapper type, OutputStream& out, bool escape)

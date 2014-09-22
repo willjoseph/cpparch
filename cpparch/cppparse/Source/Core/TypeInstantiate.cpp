@@ -404,9 +404,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					UniqueTypeWrapper substituted = substitute(*i, childContext);
 					SYMBOLS_ASSERT(!isDependent(substituted));
 					instance.children.push_back(substituted);
-#if 0 // TODO: causes instantiation failure
 					addNonStaticMember(instance, substituted, childContext);
-#endif
 				}
 			}
 			if(!original.childExpressions.empty()

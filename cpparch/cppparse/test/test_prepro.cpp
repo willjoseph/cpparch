@@ -62,6 +62,41 @@ namespace Temptest
 #endif
 }
 
+
+namespace N421 // check that implicit instantiation is NOT done for typedefs
+{
+	template<class _Ty>
+	class allocator
+	{
+	public:
+		typedef _Ty value_type; // should not be implicitly instantiated when enclosing template class is instantiated
+		template<class _Other>
+		struct rebind
+		{
+			typedef allocator<_Other> other;
+		};
+	};
+
+
+	template<class A>
+	class C
+	{
+		struct M;
+		typedef typename A::template rebind<M>::other Type;
+		struct M
+		{
+			Type m;
+		};
+	};
+
+
+	typedef allocator<int> A;
+
+	typedef C<A>::M Node; // force instantiation
+}
+
+
+
 namespace N83 // test parse of explicit call of implicitly declared assignment operator
 {
 	class C

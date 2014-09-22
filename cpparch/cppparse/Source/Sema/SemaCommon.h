@@ -1436,6 +1436,7 @@ struct SemaBase : public SemaState
 		if(parent->type == SCOPETYPE_CLASS // just members, for now
 			&& !uniqueType.isFunction() // member functions are not instantiated when class is implicitly instantiated
 			&& !isStatic(*declaration) // static members are not instantiated when class is implicitly instantiated
+			&& !isTypedef(*declaration) // member typedefs are not instantiated when class is implicitly instantiated
 			&& type.declaration != &gCtor) // ignore constructor
 		{
 			SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
