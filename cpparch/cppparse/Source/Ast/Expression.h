@@ -138,6 +138,7 @@ struct ExpressionWrapper : ExpressionPtr
 {
 	ExpressionType type; // valid if this expression is not type-dependent
 	IntegralConstant value; // valid if this is expression is integral-constant and not value-dependent
+	bool isUnique;
 	bool isConstant;
 	bool isTypeDependent;
 	bool isValueDependent;
@@ -147,6 +148,7 @@ struct ExpressionWrapper : ExpressionPtr
 	bool isParenthesised; // true if the expression is surrounded by one or more sets of parentheses
 	ExpressionWrapper()
 		: ExpressionPtr(0)
+		, isUnique(false)
 		, isConstant(false)
 		, isTypeDependent(false)
 		, isValueDependent(false)
@@ -158,6 +160,7 @@ struct ExpressionWrapper : ExpressionPtr
 	}
 	explicit ExpressionWrapper(ExpressionNode* node, bool isConstant = true, bool isTypeDependent = false, bool isValueDependent = false)
 		: ExpressionPtr(node)
+		, isUnique(false)
 		, isConstant(isConstant)
 		, isTypeDependent(isTypeDependent)
 		, isValueDependent(isValueDependent)

@@ -1,4 +1,99 @@
 
+namespace N424
+{
+	template<int x>
+	struct B
+	{
+		static const int value = x;
+	};
+
+	template<class T>
+	struct A
+	{
+		static const T value = 0;
+		typedef B<(int)value> Type; // 'value' is type-dependent, so we don't know if it's a constant-expression
+	};
+
+	int x = A<int>::Type::value;
+}
+
+#if 0 // TODO: correct evaluation of constant-ness
+namespace N423
+{
+	template<int i>
+	struct A
+	{
+	};
+
+	int x;
+	A<(x, 0)> a; // comma operator
+	A<(true ? 0 : x)> b; // conditional
+	A<(int())> a; // default-construct
+}
+#endif
+
+namespace N422 // type-dependent expression as template-argument
+{
+	template<bool b>
+	struct A
+	{
+	};
+
+	template<typename T>
+	struct B
+	{
+		static const T value = 0; // T may be integral or not
+
+		// 'value' is a value-dependent id-expression
+		// .. which cannot be determined to be an integral-constant-expression because it is type-dependent
+		void f(A<value>);
+	};
+
+	template<typename T>
+	void B<T>::f(A<B::value>) // should match declaration in B according to the ODR
+	{
+	};
+}
+
+#if 0 // TODO: msvc 12.0 accepts this, but it appears to be non-standard
+namespace N410 // workaround implementation of boost::is_base_and_derived specifically for msvc 7.1
+{
+	struct yes_type
+	{
+		char c;
+	};
+	struct no_type
+	{
+		int m;
+	};
+
+	struct B
+	{
+	};
+
+	struct D : public B
+	{
+	};
+
+	struct bd_helper
+	{
+		static yes_type check_sig(D*, long);
+		static no_type check_sig(B* const&, int);
+	};
+
+
+	struct is_base_and_derived_impl2
+	{
+		struct Host
+		{
+			operator B* const&()const;
+			operator D*();
+		};
+		static_assert(sizeof(bd_helper::check_sig(Host(), 0)) == sizeof(yes_type), "");
+	};
+}
+#endif
+
 namespace N418
 {
 	template<typename>
@@ -114,45 +209,6 @@ namespace N412
 }
 
 
-
-#if 0 // TODO: msvc 12.0 accepts this, but it appears to be non-standard
-namespace N410 // workaround implementation of boost::is_base_and_derived specifically for msvc 7.1
-{
-	struct yes_type
-	{
-		char c;
-	};
-	struct no_type
-	{
-		int m;
-	};
-
-	struct B
-	{
-	};
-
-	struct D : public B
-	{
-	};
-
-	struct bd_helper
-	{
-		static yes_type check_sig(D*, long);
-		static no_type check_sig(B* const&, int);
-	};
-
-
-	struct is_base_and_derived_impl2
-	{
-		struct Host
-		{
-			operator B* const&()const;
-			operator D*();
-		};
-		static_assert(sizeof(bd_helper::check_sig(Host(), 0)) == sizeof(yes_type), "");
-	};
-}
-#endif
 
 namespace N408 // technique used in boost::is_base_or_derived
 {

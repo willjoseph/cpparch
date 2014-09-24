@@ -1290,8 +1290,11 @@ struct SemaBase : public SemaState
 	template<typename T>
 	ExpressionWrapper makeExpression(const T& value, bool isConstant = false, bool isTypeDependent = false, bool isValueDependent = false)
 	{
-		ExpressionNode* node = isConstant ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
+		// TODO: optimisation: if expression is not type-dependent, consider unique only if it is also an integral-constant-expression
+		bool isUnique = isUniqueExpression(value);
+		ExpressionNode* node = isUnique ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
 		ExpressionWrapper result(node, isConstant, isTypeDependent, isValueDependent);
+		result.isUnique = isUnique;
 		if(!isTypeDependent)
 		{
 #if 1 // TODO:

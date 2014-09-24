@@ -1,9 +1,12 @@
 
 #include "ExpressionEvaluate.h"
 
-inline IntegralConstant evaluateIdExpression(const IdExpression& node, const InstantiationContext& context)
+inline IntegralConstant evaluateIdExpression(const IdExpression& node, ConstantExpressionCategory category, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(node.declaration->templateParameter == INDEX_INVALID);
+
+	ExpressionType type = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
+	SYMBOLS_ASSERT(isIntegralConstant(type)); // TODO: non-fatal error: expected integral constant expression
 
 	const SimpleType* enclosing = node.enclosing != 0 ? node.enclosing : context.enclosingType;
 
@@ -11,7 +14,7 @@ inline IntegralConstant evaluateIdExpression(const IdExpression& node, const Ins
 		? findEnclosingType(enclosing, node.declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
 		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
 
-	return evaluate(node.declaration->initializer, setEnclosingType(context, memberEnclosing));
+	return evaluate(node.declaration->initializer, category, setEnclosingType(context, memberEnclosing));
 }
 
 IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -44,10 +47,10 @@ IdExpression substituteIdExpression(const DependentIdExpression& node, const Ins
 	return IdExpression(declaration, qualifyingType, TemplateArgumentsInstance(), node.isQualified);
 }
 
-inline IntegralConstant evaluateIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+inline IntegralConstant evaluateIdExpression(const DependentIdExpression& node, ConstantExpressionCategory category, const InstantiationContext& context)
 {
 	const IdExpression expression = substituteIdExpression(node, context);
-	return evaluateIdExpression(expression, context);
+	return evaluateIdExpression(expression, category, context);
 }
 
 inline UniqueTypeWrapper getNonTypeTemplateParameterType(const NonTypeTemplateParameter& node, const InstantiationContext& context)
@@ -76,9 +79,10 @@ inline const NonType& substituteNonTypeTemplateParameter(const NonTypeTemplatePa
 struct EvaluateVisitor : ExpressionNodeVisitor
 {
 	IntegralConstant result;
+	ConstantExpressionCategory category;
 	const InstantiationContext context;
-	explicit EvaluateVisitor(const InstantiationContext& context)
-		: context(context)
+	explicit EvaluateVisitor(ConstantExpressionCategory category, const InstantiationContext& context)
+		: category(category), context(context)
 	{
 	}
 	void visit(const IntegralConstantExpression& node)
@@ -87,7 +91,13 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	}
 	void visit(const CastExpression& node)
 	{
-		result = evaluate(node.operand, context);
+		UniqueTypeWrapper type = substitute(node.type, context);
+		if(category == CONSTANTEXPRESSION_INTEGRAL)
+		{
+			// [expr.const] Only type conversions to integral or enumeration types can be used.
+			SYMBOLS_ASSERT(isIntegral(type) || isEnumeration(type));
+		}
+		result = evaluate(node.operand, category, context);
 	}
 	void visit(const NonTypeTemplateParameter& node)
 	{
@@ -95,11 +105,11 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	}
 	void visit(const DependentIdExpression& node)
 	{
-		result = evaluateIdExpression(node, context);
+		result = evaluateIdExpression(node, category, context);
 	}
 	void visit(const IdExpression& node)
 	{
-		result = evaluateIdExpression(node, context);
+		result = evaluateIdExpression(node, category, context);
 	}
 	void visit(const SizeofExpression& node)
 	{
@@ -132,23 +142,26 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	}
 	void visit(const UnaryExpression& node)
 	{
+		SYMBOLS_ASSERT(node.operation != 0); // TODO: non-fatal error: increment and decrement not allowed in constant expression
 		result = node.operation(
-			evaluate(node.first, context)
+			evaluate(node.first, category, context)
 			);
 	}
 	void visit(const BinaryExpression& node)
 	{
+		SYMBOLS_ASSERT(node.operation != 0); // TODO: non-fatal error: increment and decrement not allowed in constant expression
 		result = node.operation(
-			evaluate(node.first, context),
-			evaluate(node.second, context)
+			evaluate(node.first, category, context),
+			evaluate(node.second, category, context)
 			);
 	}
 	void visit(const TernaryExpression& node)
 	{
+		SYMBOLS_ASSERT(node.operation != 0); // TODO: non-fatal error: pointer-to-member/assignment/comma not allowed in constant expression
 		result = node.operation(
-			evaluate(node.first, context),
-			evaluate(node.second, context),
-			evaluate(node.third, context)
+			evaluate(node.first, category, context),
+			evaluate(node.second, category, context),
+			evaluate(node.third, category, context)
 			);
 	}
 	void visit(const TypeTraitsUnaryExpression& node)
@@ -208,9 +221,9 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 };
 
 
-IntegralConstant evaluate(ExpressionNode* node, const InstantiationContext& context)
+IntegralConstant evaluate(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context)
 {
-	EvaluateVisitor visitor(context);
+	EvaluateVisitor visitor(category, context);
 	node->accept(visitor);
 	return visitor.result;
 }
@@ -871,6 +884,155 @@ Arguments substituteArguments(const Arguments& arguments, const InstantiationCon
 	return result;
 }
 
+ExpressionType typeOfExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
+{
+	return node.type;
+}
+
+ExpressionType typeOfExpression(const CastExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	// [expr.cast]
+	// The result of the expression (T) cast-expression is of type T. The result is an lvalue if T is a reference
+	// type, otherwise the result is an rvalue.
+	// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
+	ExpressionType result = ExpressionType(type, type.isReference());
+	SYMBOLS_ASSERT(!isDependent(result));
+	requireCompleteObjectType(result, context);
+	return result;
+}
+
+ExpressionType typeOfExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	return ExpressionType(getNonTypeTemplateParameterType(node, context), false); // non lvalue
+}
+
+ExpressionType typeOfExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	const IdExpression expression = substituteIdExpression(node, context);
+	ExpressionType result = typeOfIdExpression(expression.enclosing, expression.declaration, expression.templateArguments, expression.isQualified, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const SizeofExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gUnsignedInt, false); // non lvalue
+}
+
+ExpressionType typeOfExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gUnsignedInt, false); // non lvalue
+}
+
+ExpressionType typeOfExpression(const UnaryExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = typeOfUnaryExpression(node.operatorName,
+		substituteArgument(node.first, context),
+		context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const BinaryExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = node.type(node.operatorName,
+		substituteArgument(node.first, context),
+		substituteArgument(node.second, context),
+		context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const TernaryExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = getConditionalOperatorType(
+		removeReference(typeOfExpressionWrapper(node.second, context)),
+		removeReference(typeOfExpressionWrapper(node.third, context)));
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gBool, false); // non lvalue
+}
+
+ExpressionType typeOfExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gBool, false); // non lvalue
+}
+
+ExpressionType typeOfExpression(const struct ExplicitTypeExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	// [expr.cast]
+	// The result of the expression (T) cast-expression is of type T. The result is an lvalue if T is a reference
+	// type, otherwise the result is an rvalue.
+	ExpressionType result = ExpressionType(type, type.isReference());
+	SYMBOLS_ASSERT(!isDependent(result));
+	if(node.isCompleteTypeRequired)
+	{
+		requireCompleteObjectType(result, context);
+	}
+	return result;
+}
+
+ExpressionType typeOfExpression(const struct ObjectExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = node.type;
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const struct DependentObjectExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = typeOfClassMemberAccessExpression(node.left, node.right, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+ExpressionType typeOfExpression(const struct OffsetofExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gUnsignedInt, false);
+}
+
+ExpressionType typeOfExpression(const struct FunctionCallExpression& node, const InstantiationContext& context)
+{
+	return typeOfFunctionCallExpression(
+		substituteArgument(node.left, context),
+		substituteArguments(node.arguments, context),
+		context);
+}
+
+ExpressionType typeOfExpression(const struct SubscriptExpression& node, const InstantiationContext& context)
+{
+	return typeOfSubscriptExpression(
+		substituteArgument(node.left, context),
+		substituteArgument(node.right, context),
+		context);
+}
+
+ExpressionType typeOfExpression(const struct PostfixOperatorExpression& node, const InstantiationContext& context)
+{
+	return typeOfPostfixOperatorExpression(node.operatorName,
+		substituteArgument(node.operand, context),
+		context);
+}
 
 struct TypeOfVisitor : ExpressionNodeVisitor
 {
@@ -882,123 +1044,83 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	}
 	void visit(const IntegralConstantExpression& node)
 	{
-		result = node.type;
+		result = typeOfExpression(node, context);
 	}
 	void visit(const CastExpression& node)
 	{
-		UniqueTypeWrapper type = substitute(node.type, context);
-		// [expr.cast]
-		// The result of the expression (T) cast-expression is of type T. The result is an lvalue if T is a reference
-		// type, otherwise the result is an rvalue.
-		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
-		result = ExpressionType(type, type.isReference());
-		SYMBOLS_ASSERT(!isDependent(result));
-		requireCompleteObjectType(result, context);
+		result = typeOfExpression(node, context);
 	}
 	void visit(const NonTypeTemplateParameter& node)
 	{
-		result = ExpressionType(getNonTypeTemplateParameterType(node, context), false); // non lvalue
+		result = typeOfExpression(node, context);
 	}
 	void visit(const DependentIdExpression& node)
 	{
-		const IdExpression expression = substituteIdExpression(node, context);
-		result = typeOfIdExpression(expression.enclosing, expression.declaration, expression.templateArguments, expression.isQualified, context);
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const IdExpression& node)
 	{
-		result = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const SizeofExpression& node)
 	{
-		result = ExpressionType(gUnsignedInt, false); // non lvalue
+		result = typeOfExpression(node, context);
 	}
 	void visit(const SizeofTypeExpression& node)
 	{
-		result = ExpressionType(gUnsignedInt, false); // non lvalue
+		result = typeOfExpression(node, context);
 	}
 	void visit(const UnaryExpression& node)
 	{
-		result = typeOfUnaryExpression(node.operatorName,
-			substituteArgument(node.first, context),
-			context);
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const BinaryExpression& node)
 	{
-		result = node.type(node.operatorName,
-			substituteArgument(node.first, context),
-			substituteArgument(node.second, context),
-			context);
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const TernaryExpression& node)
 	{
-		result = getConditionalOperatorType(
-			removeReference(typeOfExpressionWrapper(node.second, context)),
-			removeReference(typeOfExpressionWrapper(node.third, context)));
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const TypeTraitsUnaryExpression& node)
 	{
-		result = ExpressionType(gBool, false); // non lvalue;
+		result = typeOfExpression(node, context);
 	}
 	void visit(const TypeTraitsBinaryExpression& node)
 	{
-		result = ExpressionType(gBool, false); // non lvalue;
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct ExplicitTypeExpression& node)
 	{
-		UniqueTypeWrapper type = substitute(node.type, context);
-		// [expr.cast]
-		// The result of the expression (T) cast-expression is of type T. The result is an lvalue if T is a reference
-		// type, otherwise the result is an rvalue.
-		result = ExpressionType(type, type.isReference());
-		SYMBOLS_ASSERT(!isDependent(result));
-		if(node.isCompleteTypeRequired)
-		{
-			requireCompleteObjectType(result, context);
-		}
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct ObjectExpression& node)
 	{
-		result = node.type;
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct DependentObjectExpression& node)
 	{
-		result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct ClassMemberAccessExpression& node)
 	{
-		result = typeOfClassMemberAccessExpression(node.left, node.right, context);
-		SYMBOLS_ASSERT(!isDependent(result));
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct OffsetofExpression& node)
 	{
-		result = ExpressionType(gUnsignedInt, false); // non lvalue
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct FunctionCallExpression& node)
 	{
-		result = typeOfFunctionCallExpression(
-			substituteArgument(node.left, context),
-			substituteArguments(node.arguments, context),
-			context);
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct SubscriptExpression& node)
 	{
-		result = typeOfSubscriptExpression(
-			substituteArgument(node.left, context),
-			substituteArgument(node.right, context),
-			context);
+		result = typeOfExpression(node, context);
 	}
 	void visit(const struct PostfixOperatorExpression& node)
 	{
-		result = typeOfPostfixOperatorExpression(node.operatorName,
-			substituteArgument(node.operand, context),
-			context);
+		result = typeOfExpression(node, context);
 	}
 };
 
@@ -1026,5 +1148,14 @@ inline ExpressionType typeOfExpression(ExpressionNode* node, const Instantiation
 
 	TypeOfVisitor visitor(context);
 	node->accept(visitor);
-	return visitor.result;
+	ExpressionType type = visitor.result;
+
+	// [basic.lval] Class prvalues can have cv-qualified types; non-class prvalues always have cv-unqualified types
+	if(!type.isLvalue // if this is a prvalue
+		&& !isClass(type)) // and is not a class
+	{
+		type.value.setQualifiers(CvQualifiers()); // remove cv-qualifiers
+	}
+
+	return type;
 }

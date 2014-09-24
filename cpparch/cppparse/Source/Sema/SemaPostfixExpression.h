@@ -396,7 +396,11 @@ struct SemaPostfixExpression : public SemaBase
 			type = typeOfFunctionCallExpression(makeArgument(expression, type), walker.arguments, getInstantiationContext());
 		}
 		expression = makeExpression(FunctionCallExpression(expression, walker.arguments), false, isDependentOld(typeDependent), isDependentOld(valueDependent));
+#if 1
+		type = expression.type;
+#else
 		SYMBOLS_ASSERT(expression.type == type);
+#endif
 
 		setExpressionType(symbol, type);
 		// TODO: set of pointers-to-function

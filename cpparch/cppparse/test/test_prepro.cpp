@@ -69,7 +69,7 @@ namespace N421 // check that implicit instantiation is NOT done for typedefs
 	class allocator
 	{
 	public:
-		typedef _Ty value_type; // should not be implicitly instantiated when enclosing template class is instantiated
+		typedef _Ty value_type; // should NOT be implicitly instantiated when enclosing template class is instantiated
 		template<class _Other>
 		struct rebind
 		{
@@ -82,7 +82,7 @@ namespace N421 // check that implicit instantiation is NOT done for typedefs
 	class C
 	{
 		struct M;
-		typedef typename A::template rebind<M>::other Type;
+		typedef typename A::template rebind<M>::other Type; // causes instantiation loop if typedef is implicitly instantiated
 		struct M
 		{
 			Type m;
@@ -92,7 +92,7 @@ namespace N421 // check that implicit instantiation is NOT done for typedefs
 
 	typedef allocator<int> A;
 
-	typedef C<A>::M Node; // force instantiation
+	typedef C<A>::M Node; // force instantiation of C<A>
 }
 
 

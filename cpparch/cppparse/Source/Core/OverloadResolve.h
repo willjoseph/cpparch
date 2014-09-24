@@ -416,7 +416,13 @@ const CandidateFunction gOverloadNull;
 typedef std::list<CandidateFunction> CandidateFunctions;
 
 // TODO: fix circular dependency!
-inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
+enum ConstantExpressionCategory
+{
+	CONSTANTEXPRESSION_INTEGRAL,
+	CONSTANTEXPRESSION_OTHER, // TODO
+};
+
+inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, ConstantExpressionCategory category, const InstantiationContext& context);
 
 struct OverloadResolver
 {
@@ -446,7 +452,7 @@ struct OverloadResolver
 	{
 		// DR 903: a value-dependent expression may or may not be a null pointer constant, but the behaviour is unspecified.
 		// simple fix: don't allow a value-dependent expression to be a null pointer constant.
-		bool isNullPointerConstant = !from.isValueDependent && from.isConstant && evaluateExpression(from, context).value == 0;
+		bool isNullPointerConstant = !from.isValueDependent && from.isConstant && evaluateExpression(from, CONSTANTEXPRESSION_OTHER, context).value == 0;
 		return makeImplicitConversionSequence(to, from, context, isNullPointerConstant, isUserDefinedConversion);
 	}
 	void add(const FunctionOverload& overload, const FunctionType& functionType, CvQualifiers qualifiers, const SimpleType* memberEnclosing, FunctionTemplate& functionTemplate = FunctionTemplate())

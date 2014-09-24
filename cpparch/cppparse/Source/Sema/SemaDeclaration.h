@@ -291,7 +291,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		if(UniqueTypeWrapper(declaration->type.unique).isFunction())
 		{
 			SEMANTIC_ASSERT(isIntegralConstantExpression(walker.expression)); // TODO: non-fatal error: expected '0'
-			SEMANTIC_ASSERT(evaluateExpression(walker.expression, getInstantiationContext()).value == 0); // TODO: non-fatal error: expected '0'
+			SEMANTIC_ASSERT(evaluateExpression(walker.expression, CONSTANTEXPRESSION_INTEGRAL, getInstantiationContext()).value == 0); // TODO: non-fatal error: expected '0'
 			declaration->specifiers.isPure = true;
 		}
 	}

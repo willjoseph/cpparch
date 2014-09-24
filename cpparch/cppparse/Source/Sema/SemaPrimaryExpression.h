@@ -34,14 +34,6 @@ struct SemaLiteral : public SemaBase
 };
 
 
-inline bool isIntegralConstant(UniqueTypeWrapper type)
-{
-	return type.isSimple()
-		&& type.value.getQualifiers().isConst
-		&& (isIntegral(type)
-		|| isEnumeration(type));
-}
-
 
 struct SemaPrimaryExpression : public SemaBase
 {
@@ -137,7 +129,9 @@ struct SemaPrimaryExpression : public SemaBase
 				// addDependent(typeDependent, enclosingDependent); // expression is dependent if 'this' is dependent
 				expression.type = typeOfExpression(expression.p, getInstantiationContext());
 			}
+#if 0
 			SEMANTIC_ASSERT(expression.type == type);
+#endif
 		}
 		return true;
 	}

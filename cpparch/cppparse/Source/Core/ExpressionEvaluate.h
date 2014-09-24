@@ -15,6 +15,20 @@
 #include "OverloadResolve.h"
 #include "Common/Util.h"
 
+
+// [expr.const]
+// An integral constant-expression can involve only ... enumerators, const variables or static
+// data members of integral or enumeration types initialized with constant expressions, non-type template
+// parameters of integral or enumeration types
+inline bool isIntegralConstant(UniqueTypeWrapper type)
+{
+	return type.isSimple()
+		&& type.value.getQualifiers().isConst
+		&& (isIntegral(type)
+		|| isEnumeration(type));
+}
+
+
 inline ExpressionWrapper makeConstantExpressionZero()
 {
 	return makeConstantExpression(IntegralConstantExpression(ExpressionType(gSignedInt, false), IntegralConstant(0)));
@@ -30,20 +44,8 @@ inline IntegralConstant identity(IntegralConstant left)
 	return left;
 }
 
-inline IntegralConstant assign(IntegralConstant left, IntegralConstant right)
-{
-	return left = right;
-}
 
 // [expr.unary.op]
-inline IntegralConstant operator++(IntegralConstant left)
-{
-	return IntegralConstant(++left.value);
-}
-inline IntegralConstant operator--(IntegralConstant left)
-{
-	return IntegralConstant(--left.value);
-}
 inline IntegralConstant operator+(IntegralConstant left)
 {
 	return IntegralConstant(+left.value);
@@ -69,12 +71,13 @@ inline IntegralConstant dereference(IntegralConstant left)
 	return IntegralConstant(0); // TODO
 }
 
+// [expr.const] assignment, increment, decrement, function-call, or comma operators shall not be used.
 inline UnaryIceOp getUnaryIceOp(cpp::unary_expression_op* symbol)
 {
 	switch(symbol->op->id)
 	{
-	case cpp::unary_operator::PLUSPLUS: return operator++;
-	case cpp::unary_operator::MINUSMINUS: return operator--;
+	case cpp::unary_operator::PLUSPLUS: return 0;
+	case cpp::unary_operator::MINUSMINUS: return 0;
 	case cpp::unary_operator::STAR: return dereference;
 	case cpp::unary_operator::AND: return addressOf;
 	case cpp::unary_operator::PLUS: return operator+;
@@ -270,7 +273,7 @@ inline BinaryIceOp getBinaryIceOp(cpp::assignment_expression_suffix* symbol)
 {
 	switch(symbol->op->id)
 	{
-	case cpp::assignment_operator::ASSIGN: return assign;
+	case cpp::assignment_operator::ASSIGN: return 0;
 	case cpp::assignment_operator::STAR: return operator*;
 	case cpp::assignment_operator::DIVIDE: return operator/;
 	case cpp::assignment_operator::PERCENT: return operator%;
@@ -298,19 +301,19 @@ inline IntegralConstant conditional(IntegralConstant first, IntegralConstant sec
 // ----------------------------------------------------------------------------
 // expression evaluation
 
-IntegralConstant evaluate(ExpressionNode* node, const InstantiationContext& context);
+IntegralConstant evaluate(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context);
 
-inline IntegralConstant evaluateExpression(ExpressionNode* node, const InstantiationContext& context)
+inline IntegralConstant evaluateExpression(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context)
 {
 	if(isDependentPointerToMemberExpression(node))
 	{
 		// TODO: check this names a valid non-static member
 		return IntegralConstant(0); // TODO: unique value for address of member
 	}
-	return evaluate(node, context);
+	return evaluate(node, category, context);
 }
 
-inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, ConstantExpressionCategory category, const InstantiationContext& context)
 {
 	if(isPointerToMemberExpression(expression))
 	{
@@ -321,7 +324,7 @@ inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, 
 		return IntegralConstant(0); // TODO: unique value for address of function
 	}
 	SYMBOLS_ASSERT(expression.isConstant);
-	return evaluateExpression(expression.p, context);
+	return evaluateExpression(expression.p, category, context);
 }
 
 inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context);
@@ -377,6 +380,7 @@ inline ExpressionType typeOfExpressionSafe(ExpressionNode* node, const Instantia
 
 inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
+	SYMBOLS_ASSERT(expression.p != 0);
 #if 0
 	return typeOfExpression(expression.p, context);
 #else
@@ -385,10 +389,12 @@ inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expressio
 	{
 		return type;
 	}
+#if 0
 	if(isMemberIdExpression(expression.p))
 	{
 		return type;
 	}
+#endif
 #if 0 // TODO: test what this change does
 	if(expression.type == gOverloadedExpressionType) // if evaluation of type of overloaded function was deferred 
 	{
@@ -396,14 +402,6 @@ inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expressio
 	}
 #endif
 	SYMBOLS_ASSERT(type == expression.type); // this expression is not type-dependent: check that the type is the same as was originally evaluated
-
-	// TODO: move into typeOfExpression?
-	// [basic.lval] Class prvalues can have cv-qualified types; non-class prvalues always have cv-unqualified types
-	if(!type.isLvalue // if this is a prvalue
-		&& !isClass(type)) // and is not a class
-	{
-		type.value.setQualifiers(CvQualifiers()); // remove cv-qualifiers
-	}
 	return type;
 #endif
 }
@@ -681,7 +679,7 @@ inline ExpressionType typeOfBinaryExpression(Name operatorName, Argument left, A
 	if(overload.declaration == &gUnknown
 		|| (overload.declaration == 0 && id.value == gOperatorAssignId)) // TODO: declare implicit assignment operator
 	{
-		return  typeOp(operatorName, left.type, right.type);
+		return typeOp(operatorName, left.type, right.type);
 	}
 
 	SYMBOLS_ASSERT(overload.declaration != 0);
@@ -691,11 +689,6 @@ inline ExpressionType typeOfBinaryExpression(Name operatorName, Argument left, A
 inline ExpressionType binaryOperatorAssignment(Name operatorName, ExpressionType left, ExpressionType right)
 {
 	return left;
-}
-
-inline ExpressionType binaryOperatorComma(Name operatorName, ExpressionType left, ExpressionType right)
-{
-	return right;
 }
 
 inline ExpressionType binaryOperatorBoolean(Name operatorName, ExpressionType left, ExpressionType right)
@@ -1286,7 +1279,7 @@ inline UniqueTypeWrapper typeOfDecltypeSpecifier(const ExpressionWrapper& expres
 			ExpressionType type = typeOfExpressionWrapper(cma.left, context);
 			SYMBOLS_ASSERT(!isDependent(type));
 			const SimpleType& classType = getSimpleType(type.value);
-			return typeOfExpressionWrapper(cma.right, setEnclosingTypeSafe(context, &classType));
+			return typeOfExpression(cma.right, setEnclosingTypeSafe(context, &classType));
 		}
 		return typeOfExpressionWrapper(expression, context); // return the type of the id-expression;
 	}
@@ -1301,7 +1294,8 @@ inline UniqueTypeWrapper typeOfDecltypeSpecifier(const ExpressionWrapper& expres
 
 inline void evaluateStaticAssert(const ExpressionWrapper& expression, const char* message, const InstantiationContext& context)
 {
-	bool failed = evaluateExpression(expression, context).value == 0;
+	// [dcl.dcl] In a static_assert-declaration the constant-expression shall be a constant expression that can be contextually converted to bool
+	bool failed = evaluateExpression(expression, CONSTANTEXPRESSION_OTHER, context).value == 0;
 	// [dcl.dcl] If the value of the expression when so converted is true, the
 	// declaration has no effect. Otherwise, the program is ill-formed, and the resulting diagnostic message (1.4)
 	// shall include the text of the string-literal

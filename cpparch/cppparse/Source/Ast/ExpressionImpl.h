@@ -40,6 +40,7 @@ inline bool operator<(const IntegralConstantExpression& left, const IntegralCons
 inline ExpressionWrapper makeConstantExpression(const IntegralConstantExpression& node)
 {
 	ExpressionWrapper result(makeUniqueExpression(node));
+	result.isUnique = true;
 	result.type = node.type;
 	result.value = node.value;
 	return result;
@@ -73,6 +74,11 @@ inline bool operator<(const CastExpression& left, const CastExpression& right)
 	return left.type != right.type
 		? left.type < right.type
 		: left.operand.p < right.operand.p;
+}
+
+inline bool isUniqueExpression(const CastExpression& e)
+{
+	return e.operand.isUnique;
 }
 
 inline bool isCastExpression(ExpressionNode* node)
@@ -112,6 +118,11 @@ inline bool operator<(const DependentIdExpression& left, const DependentIdExpres
 		: left.isQualified < right.isQualified;
 }
 
+inline bool isUniqueExpression(const DependentIdExpression& e)
+{
+	return true;
+}
+
 inline bool isDependentIdExpression(ExpressionNode* node)
 {
 	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<DependentIdExpression> >());
@@ -140,14 +151,19 @@ struct IdExpression
 
 inline bool operator<(const IdExpression& left, const IdExpression& right)
 {
-#if 1
-	// TODO: check compliance: id-expressions cannot be compared for equivalence
-	SYMBOLS_ASSERT(false);
-#else
 	return left.declaration.p != right.declaration.p
 		? left.declaration.p < right.declaration.p
-		: left.enclosing < right.enclosing;
-#endif
+		: left.enclosing != right.enclosing
+		? left.enclosing < right.enclosing
+		: left.isQualified != right.isQualified
+		? left.isQualified < right.isQualified
+		: left.templateArguments < right.templateArguments;
+}
+
+// IdExpression may name an identifier with a dependent type, which may or may not be part of an integral-constant-expression.
+inline bool isUniqueExpression(const IdExpression& e)
+{
+	return true;
 }
 
 inline bool isIdExpression(ExpressionNode* node)
@@ -182,6 +198,11 @@ inline bool operator<(const NonTypeTemplateParameter& left, const NonTypeTemplat
 		: left.type.value.getPointer() < right.type.value.getPointer(); // ignore cv-qualifiers
 }
 
+inline bool isUniqueExpression(const NonTypeTemplateParameter& e)
+{
+	return true;
+}
+
 inline bool isNonTypeTemplateParameter(ExpressionNode* node)
 {
 	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<NonTypeTemplateParameter> >());
@@ -209,6 +230,11 @@ inline bool operator<(const SizeofExpression& left, const SizeofExpression& righ
 	return left.operand.p < right.operand.p;
 }
 
+inline bool isUniqueExpression(const SizeofExpression& e)
+{
+	return true;
+}
+
 struct SizeofTypeExpression
 {
 	// [expr.sizeof] The operand is ... a parenthesized type-id
@@ -224,6 +250,10 @@ inline bool operator<(const SizeofTypeExpression& left, const SizeofTypeExpressi
 	return left.type < right.type;
 }
 
+inline bool isUniqueExpression(const SizeofTypeExpression& e)
+{
+	return true;
+}
 
 // ----------------------------------------------------------------------------
 typedef IntegralConstant (*UnaryIceOp)(IntegralConstant);
@@ -244,6 +274,11 @@ inline bool operator<(const UnaryExpression& left, const UnaryExpression& right)
 	return left.operation != right.operation
 		? left.operation < right.operation
 		: left.first.p < right.first.p;
+}
+
+inline bool isUniqueExpression(const UnaryExpression& e)
+{
+	return e.first.isUnique && e.operation != 0;
 }
 
 inline bool isUnaryExpression(ExpressionNode* node)
@@ -285,6 +320,11 @@ inline bool operator<(const BinaryExpression& left, const BinaryExpression& righ
 		: left.second.p < right.second.p;
 }
 
+inline bool isUniqueExpression(const BinaryExpression& e)
+{
+	return e.first.isUnique && e.second.isUnique && e.operation != 0;
+}
+
 // ----------------------------------------------------------------------------
 typedef IntegralConstant (*TernaryIceOp)(IntegralConstant, IntegralConstant, IntegralConstant);
 
@@ -311,6 +351,11 @@ inline bool operator<(const TernaryExpression& left, const TernaryExpression& ri
 		: left.third.p < right.third.p;
 }
 
+inline bool isUniqueExpression(const TernaryExpression& e)
+{
+	return e.first.isUnique && e.second.isUnique && e.third.isUnique != 0;
+}
+
 // ----------------------------------------------------------------------------
 typedef bool (*UnaryTypeTraitsOp)(UniqueTypeWrapper, const InstantiationContext& context);
 typedef bool (*BinaryTypeTraitsOp)(UniqueTypeWrapper, UniqueTypeWrapper, const InstantiationContext& context);
@@ -331,6 +376,11 @@ inline bool operator<(const TypeTraitsUnaryExpression& left, const TypeTraitsUna
 	return left.operation != right.operation
 		? left.operation < right.operation
 		: left.type < right.type;
+}
+
+inline bool isUniqueExpression(const TypeTraitsUnaryExpression& e)
+{
+	return true;
 }
 
 // ----------------------------------------------------------------------------
@@ -357,6 +407,11 @@ inline bool operator<(const TypeTraitsBinaryExpression& left, const TypeTraitsBi
 		: left.second < right.second;
 }
 
+inline bool isUniqueExpression(const TypeTraitsBinaryExpression& e)
+{
+	return true;
+}
+
 
 
 // ----------------------------------------------------------------------------
@@ -374,6 +429,11 @@ struct ExplicitTypeExpression
 inline bool operator<(const ExplicitTypeExpression& left, const ExplicitTypeExpression& right)
 {
 	return left.type < right.type;
+}
+
+inline bool isUniqueExpression(const ExplicitTypeExpression& e)
+{
+	return false;
 }
 
 inline bool isExplicitTypeExpression(ExpressionNode* node)
@@ -405,6 +465,11 @@ inline bool operator<(const DependentObjectExpression& left, const DependentObje
 	return false;
 }
 
+inline bool isUniqueExpression(const DependentObjectExpression& e)
+{
+	return false;
+}
+
 inline bool isDependentObjectExpression(ExpressionNode* node)
 {
 	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<DependentObjectExpression> >());
@@ -430,6 +495,11 @@ struct ObjectExpression
 inline bool operator<(const ObjectExpression& left, const ObjectExpression& right)
 {
 	SYMBOLS_ASSERT(false);
+	return false;
+}
+
+inline bool isUniqueExpression(const ObjectExpression& e)
+{
 	return false;
 }
 
@@ -459,6 +529,11 @@ struct ClassMemberAccessExpression
 inline bool operator<(const ClassMemberAccessExpression& left, const ClassMemberAccessExpression& right)
 {
 	return left.right.p < right.right.p; // a class-member-access may be an integral constant expression if the righthand side is an integral constant expression
+}
+
+inline bool isUniqueExpression(const ClassMemberAccessExpression& e)
+{
+	return false;
 }
 
 inline bool isClassMemberAccessExpression(ExpressionNode* node)
@@ -491,6 +566,11 @@ inline bool operator<(const OffsetofExpression& left, const OffsetofExpression& 
 		: left.member.p < right.member.p;
 }
 
+inline bool isUniqueExpression(const OffsetofExpression& e)
+{
+	return true;
+}
+
 // ----------------------------------------------------------------------------
 // id-expression ( expression-list )
 // overload resolution is required if the lefthand side is
@@ -512,6 +592,11 @@ inline bool operator<(const FunctionCallExpression& left, const FunctionCallExpr
 	return false;
 }
 
+inline bool isUniqueExpression(const FunctionCallExpression& e)
+{
+	return false;
+}
+
 
 // ----------------------------------------------------------------------------
 struct SubscriptExpression
@@ -530,6 +615,11 @@ inline bool operator<(const SubscriptExpression& left, const SubscriptExpression
 	return false;
 }
 
+inline bool isUniqueExpression(const SubscriptExpression& e)
+{
+	return false;
+}
+
 
 // ----------------------------------------------------------------------------
 struct PostfixOperatorExpression
@@ -545,6 +635,11 @@ struct PostfixOperatorExpression
 inline bool operator<(const PostfixOperatorExpression& left, const PostfixOperatorExpression& right)
 {
 	SYMBOLS_ASSERT(false);
+	return false;
+}
+
+inline bool isUniqueExpression(const PostfixOperatorExpression& e)
+{
 	return false;
 }
 

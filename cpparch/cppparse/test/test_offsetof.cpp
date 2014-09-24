@@ -13,8 +13,3 @@ struct S
 
 char c[offsetof(S, b)]; // offsetof should yield a constant expression
 
-template<typename T>
-struct A
-{
-	static const int i = offsetof(A, dependent); // should not be evaluated because S is dependent
-};
