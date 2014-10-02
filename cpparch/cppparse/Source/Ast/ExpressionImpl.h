@@ -449,36 +449,36 @@ inline const ExplicitTypeExpression& getExplicitTypeExpression(ExpressionNode* n
 
 
 // ----------------------------------------------------------------------------
-struct DependentObjectExpression
+struct MemberOperatorExpression
 {
 	ExpressionWrapper left;
 	bool isArrow;
-	DependentObjectExpression(ExpressionWrapper left, bool isArrow)
+	MemberOperatorExpression(ExpressionWrapper left, bool isArrow)
 		: left(left), isArrow(isArrow)
 	{
 	}
 };
 
-inline bool operator<(const DependentObjectExpression& left, const DependentObjectExpression& right)
+inline bool operator<(const MemberOperatorExpression& left, const MemberOperatorExpression& right)
 {
 	SYMBOLS_ASSERT(false);
 	return false;
 }
 
-inline bool isUniqueExpression(const DependentObjectExpression& e)
+inline bool isUniqueExpression(const MemberOperatorExpression& e)
 {
 	return false;
 }
 
 inline bool isDependentObjectExpression(ExpressionNode* node)
 {
-	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<DependentObjectExpression> >());
+	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<MemberOperatorExpression> >());
 }
 
-inline const DependentObjectExpression& getDependentObjectExpression(ExpressionNode* node)
+inline const MemberOperatorExpression& getDependentObjectExpression(ExpressionNode* node)
 {
 	SYMBOLS_ASSERT(isDependentObjectExpression(node));
-	return static_cast<const ExpressionNodeGeneric<DependentObjectExpression>*>(node)->value;
+	return static_cast<const ExpressionNodeGeneric<MemberOperatorExpression>*>(node)->value;
 }
 
 
@@ -518,7 +518,7 @@ inline const ObjectExpression& getObjectExpression(ExpressionNode* node)
 // ----------------------------------------------------------------------------
 struct ClassMemberAccessExpression
 {
-	ExpressionWrapper left; // ObjectExpression or DependentObjectExpression
+	ExpressionWrapper left; // ObjectExpression or MemberOperatorExpression
 	ExpressionWrapper right; // IdExpression or DependentIdExpression
 	ClassMemberAccessExpression(ExpressionWrapper left, ExpressionWrapper right)
 		: left(left), right(right)

@@ -134,7 +134,7 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 	{
 		// TODO
 	}
-	void visit(const struct DependentObjectExpression& node)
+	void visit(const struct MemberOperatorExpression& node)
 	{
 		// TODO
 	}

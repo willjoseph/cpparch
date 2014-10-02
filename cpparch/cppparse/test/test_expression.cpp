@@ -1,4 +1,131 @@
 
+namespace N430
+{
+	template<typename T>
+	struct A
+	{
+		enum Type { N = 0 }; // 'Type' is dependent: aka A<T>::Type
+		static const Type m = (Type)0;
+	};
+
+	template<typename T>
+	const typename A<T>::Type A<T>::m;
+
+	struct B : A<int>
+	{
+		void f()
+		{
+			int a = m;
+		}
+	};
+}
+
+namespace N142
+{
+	template<typename T>
+	struct A
+	{
+		enum Type { N = 0 }; // 'Type' is dependent: aka A<T>::Type
+		static const Type m = (Type)0;
+	};
+
+	template<typename T>
+	const typename A<T>::Type A<T>::m;
+
+	struct B : A<int>
+	{
+		void f(int a = m)
+		{
+		}
+	};
+}
+
+
+
+namespace N427
+{
+	template<typename T>
+	struct A
+	{
+	};
+
+	template<bool b>
+	struct B
+	{
+		static const int value = b;
+	};
+
+	template<>
+	struct A<const int>
+	{
+		typedef B<false> type;
+		static const int value = A::type::value;
+	};
+}
+
+namespace N403
+{
+	enum file_type
+	{
+		status_error, status_unknown=status_error, file_not_found
+	};
+}
+
+namespace N428
+{
+	struct A
+	{
+		static const int VALUE=0;
+	};
+	A a;
+	int i = a.VALUE;
+}
+
+namespace N429
+{
+	template<typename T>
+	struct A
+	{
+		static const T VALUE=0;
+	};
+	A<int> a;
+	int i = a.VALUE;
+}
+
+
+
+namespace N426
+{
+	template<class T>
+	struct A
+	{
+		static const T value = 1;
+		static char c[value];
+	};
+
+	template<class T>
+	char A<T>::c[A<T>::value];
+
+	A<int> a;
+}
+
+namespace N425
+{
+	int f(void*);
+
+	template<class T>
+	struct A
+	{
+		static const T value = 0;
+		// this is allowed by clang in C++98 mode, but not C++11?
+		// related to DR 903?
+		static const int x = sizeof(f(value)); // 'value' is type-dependent, so we don't know if it's a constant-expression
+
+	};
+
+	A<int> a;
+}
+
 namespace N424
 {
 	template<int x>
@@ -17,7 +144,7 @@ namespace N424
 	int x = A<int>::Type::value;
 }
 
-#if 0 // TODO: correct evaluation of constant-ness
+#if 0 // TODO: correct evaluation of constant-ness (C++11)
 namespace N423
 {
 	template<int i>
@@ -322,14 +449,6 @@ namespace N404
 	{
 		return N::f(a); // should NOT find '::f' via argument dependent lookup
 	}
-}
-
-namespace N403
-{
-	enum file_type
-	{
-		status_error, status_unknown=status_error, file_not_found
-	};
 }
 
 namespace N402 // test name lookup and expression evaluation in out-of-line nested class definition

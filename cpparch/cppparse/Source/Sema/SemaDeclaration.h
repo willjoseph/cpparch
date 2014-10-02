@@ -290,6 +290,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		addDependent(declaration->valueDependent, walker.valueDependent);
 		if(UniqueTypeWrapper(declaration->type.unique).isFunction())
 		{
+			// TODO: check explicitly for '0'
 			SEMANTIC_ASSERT(isIntegralConstantExpression(walker.expression)); // TODO: non-fatal error: expected '0'
 			SEMANTIC_ASSERT(evaluateExpression(walker.expression, CONSTANTEXPRESSION_INTEGRAL, getInstantiationContext()).value == 0); // TODO: non-fatal error: expected '0'
 			declaration->specifiers.isPure = true;

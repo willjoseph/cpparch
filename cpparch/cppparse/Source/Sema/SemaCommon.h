@@ -659,7 +659,6 @@ struct SemaState
 	DeclarationPtr qualifyingScope;
 	const SimpleType* qualifyingClass;
 	const SimpleType* memberClass;
-	ExpressionType memberType;
 	ExpressionWrapper objectExpression; // the lefthand side of a class member access expression
 	SafePtr<const TemplateParameters> templateParams;
 	ScopePtr templateParamScope;
@@ -1013,7 +1012,6 @@ struct SemaState
 
 	void clearMemberType()
 	{
-		memberType = gNullExpressionType;
 		objectExpression = ExpressionWrapper();
 	}
 	void clearQualifying()
@@ -1290,16 +1288,16 @@ struct SemaBase : public SemaState
 	template<typename T>
 	ExpressionWrapper makeExpression(const T& value, bool isConstant = false, bool isTypeDependent = false, bool isValueDependent = false)
 	{
-		// TODO: optimisation: if expression is not type-dependent, consider unique only if it is also an integral-constant-expression
+		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(value);
 		ExpressionNode* node = isUnique ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
 		ExpressionWrapper result(node, isConstant, isTypeDependent, isValueDependent);
 		result.isUnique = isUnique;
-		if(!isTypeDependent)
+		if(!isTypeDependent
+			&& !isMemberIdExpression(value)) // cannot evaluate type of non-static member with no context
 		{
-#if 1 // TODO:
-			result.type = typeOfExpressionSafe(node, getInstantiationContext());
-#endif
+			result.type = typeOfExpression(node, getInstantiationContext());
+			result.isConstant = isValueDependent ? false : isConstantExpression(value, getInstantiationContext());
 		}
 		return result;
 	}

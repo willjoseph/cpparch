@@ -487,8 +487,6 @@ struct SemaStaticAssertDeclaration : public SemaBase
 		const char* message = symbol->value.value.c_str();
 		// [dcl.dcl] In a static_assert-declaration the constant-expression shall be a constant expression (5.19) that can be
 		// contextually converted to bool
-		SEMANTIC_ASSERT(expression.isConstant); // TODO: report non-fatal error: "expected constant expression"
-		SEMANTIC_ASSERT(!expression.isNonStaticMemberName); // TODO: report non-fatal error: "expected expression convertible to bool"
 		if(expression.isValueDependent)
 		{
 			SEMANTIC_ASSERT(!string_equal(message, "\"?evaluated\"")); // assert if we were expecting a non-dependent expression

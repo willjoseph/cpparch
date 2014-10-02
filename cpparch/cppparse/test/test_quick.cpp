@@ -1334,27 +1334,6 @@ namespace N156
 	S<__int64> a;
 }
 
-namespace N142
-{
-	template<typename T>
-	struct A
-	{
-		enum Type { N = 0 }; // 'Type' is dependent: aka A<T>::Type
-		static const Type m = (Type)0;
-	};
-
-	template<typename T>
-	const typename A<T>::Type A<T>::m;
-
-	struct B : A<int>
-	{
-		void f(int a = m)
-		{
-		}
-	};
-}
-
-
 namespace N153
 {
 	template<typename T>

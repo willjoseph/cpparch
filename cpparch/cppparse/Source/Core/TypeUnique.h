@@ -267,7 +267,7 @@ inline std::size_t evaluateArraySize(const ExpressionWrapper& expression, const 
 		return -1;
 	}
 	SYMBOLS_ASSERT(expression.isConstant);
-	return evaluate(expression, CONSTANTEXPRESSION_INTEGRAL, context).value;
+	return evaluateExpressionImpl(expression, CONSTANTEXPRESSION_INTEGRAL, context).value;
 }
 
 struct TypeSequenceMakeUnique : TypeSequenceVisitor

@@ -1,6 +1,105 @@
 
 #include "ExpressionEvaluate.h"
 
+
+struct IsConstantExpressionVisitor : ExpressionNodeVisitor
+{
+	bool result;
+	const InstantiationContext context;
+	explicit IsConstantExpressionVisitor(const InstantiationContext& context)
+		: context(context)
+	{
+	}
+	void visit(const IntegralConstantExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const CastExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const NonTypeTemplateParameter& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const DependentIdExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const IdExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const SizeofExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const SizeofTypeExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const UnaryExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const BinaryExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const TernaryExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const TypeTraitsUnaryExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const TypeTraitsBinaryExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct ExplicitTypeExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct ObjectExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct MemberOperatorExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct ClassMemberAccessExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct OffsetofExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct FunctionCallExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct SubscriptExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+	void visit(const struct PostfixOperatorExpression& node)
+	{
+		result = isConstantExpression(node, context);
+	}
+};
+
+bool isConstantExpression(ExpressionNode* node, const InstantiationContext& context)
+{
+	IsConstantExpressionVisitor visitor(context);
+	node->accept(visitor);
+	return visitor.result;
+}
+
+
 inline IntegralConstant evaluateIdExpression(const IdExpression& node, ConstantExpressionCategory category, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(node.declaration->templateParameter == INDEX_INVALID);
@@ -14,7 +113,7 @@ inline IntegralConstant evaluateIdExpression(const IdExpression& node, ConstantE
 		? findEnclosingType(enclosing, node.declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
 		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
 
-	return evaluate(node.declaration->initializer, category, setEnclosingType(context, memberEnclosing));
+	return evaluateExpressionImpl(node.declaration->initializer, category, setEnclosingType(context, memberEnclosing));
 }
 
 IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -92,12 +191,11 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	void visit(const CastExpression& node)
 	{
 		UniqueTypeWrapper type = substitute(node.type, context);
-		if(category == CONSTANTEXPRESSION_INTEGRAL)
-		{
-			// [expr.const] Only type conversions to integral or enumeration types can be used.
-			SYMBOLS_ASSERT(isIntegral(type) || isEnumeration(type));
-		}
-		result = evaluate(node.operand, category, context);
+		// [expr.const] Only type conversions to integral or enumeration types can be used.
+		SYMBOLS_ASSERT(isIntegral(type) || isEnumeration(type) || isNullPointerCastExpression(node));
+		result = node.operand.p == 0 // if this is a default-constructor call T()
+			? IntegralConstant(0)
+			: evaluateExpressionImpl(node.operand, category, context);
 	}
 	void visit(const NonTypeTemplateParameter& node)
 	{
@@ -144,24 +242,24 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	{
 		SYMBOLS_ASSERT(node.operation != 0); // TODO: non-fatal error: increment and decrement not allowed in constant expression
 		result = node.operation(
-			evaluate(node.first, category, context)
+			evaluateExpressionImpl(node.first, category, context)
 			);
 	}
 	void visit(const BinaryExpression& node)
 	{
 		SYMBOLS_ASSERT(node.operation != 0); // TODO: non-fatal error: increment and decrement not allowed in constant expression
 		result = node.operation(
-			evaluate(node.first, category, context),
-			evaluate(node.second, category, context)
+			evaluateExpressionImpl(node.first, category, context),
+			evaluateExpressionImpl(node.second, category, context)
 			);
 	}
 	void visit(const TernaryExpression& node)
 	{
 		SYMBOLS_ASSERT(node.operation != 0); // TODO: non-fatal error: pointer-to-member/assignment/comma not allowed in constant expression
 		result = node.operation(
-			evaluate(node.first, category, context),
-			evaluate(node.second, category, context),
-			evaluate(node.third, category, context)
+			evaluateExpressionImpl(node.first, category, context),
+			evaluateExpressionImpl(node.second, category, context),
+			evaluateExpressionImpl(node.third, category, context)
 			);
 	}
 	void visit(const TypeTraitsUnaryExpression& node)
@@ -186,17 +284,17 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	}
 	void visit(const struct ObjectExpression& node)
 	{
-		// occurs when this within the offsetof macro
-		result = IntegralConstant(0);
-	}
-	void visit(const struct DependentObjectExpression& node)
-	{
 		// cannot be a constant expression
 		SYMBOLS_ASSERT(false);
 	}
+	void visit(const struct MemberOperatorExpression& node)
+	{
+		// occurs within the offsetof macro
+		result = IntegralConstant(0);
+	}
 	void visit(const struct ClassMemberAccessExpression& node)
 	{
-		// occurs when this within the offsetof macro
+		// occurs within the offsetof macro
 		result = IntegralConstant(0);
 	}
 	void visit(const struct OffsetofExpression& node)
@@ -221,7 +319,7 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 };
 
 
-IntegralConstant evaluate(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context)
+IntegralConstant evaluateExpressionImpl(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context)
 {
 	EvaluateVisitor visitor(category, context);
 	node->accept(visitor);
@@ -992,7 +1090,7 @@ ExpressionType typeOfExpression(const struct ObjectExpression& node, const Insta
 	return result;
 }
 
-ExpressionType typeOfExpression(const struct DependentObjectExpression& node, const InstantiationContext& context)
+ExpressionType typeOfExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
 {
 	ExpressionType result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
 	SYMBOLS_ASSERT(!isDependent(result));
@@ -1098,7 +1196,7 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	{
 		result = typeOfExpression(node, context);
 	}
-	void visit(const struct DependentObjectExpression& node)
+	void visit(const struct MemberOperatorExpression& node)
 	{
 		result = typeOfExpression(node, context);
 	}

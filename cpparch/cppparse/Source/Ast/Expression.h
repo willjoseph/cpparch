@@ -26,7 +26,7 @@ struct ExpressionNodeVisitor
 	virtual void visit(const struct TypeTraitsBinaryExpression&) = 0;
 	virtual void visit(const struct ExplicitTypeExpression&) = 0;
 	virtual void visit(const struct ObjectExpression&) = 0; // transformed 'c.'
-	virtual void visit(const struct DependentObjectExpression&) = 0; // 'dependent->' or 'dependent.'
+	virtual void visit(const struct MemberOperatorExpression&) = 0; // 'dependent->' or 'dependent.'
 	virtual void visit(const struct ClassMemberAccessExpression&) = 0;
 	virtual void visit(const struct OffsetofExpression&) = 0;
 	virtual void visit(const struct FunctionCallExpression&) = 0;

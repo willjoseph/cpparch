@@ -97,6 +97,7 @@ struct SemaPrimaryExpression : public SemaBase
 		else if(expression.p != 0
 			&& !isDependentOld(typeDependent))
 		{
+#if 0
 			if(isOverloadedFunction(declaration))
 			{
 				type = gOverloadedExpressionType;
@@ -122,13 +123,18 @@ struct SemaPrimaryExpression : public SemaBase
 					expression.isConstant |= (isIntegralConstant(type) && declaration->initializer.isConstant); // TODO: determining whether the expression is constant depends on the type of the expression!
 				}
 			}
+#endif
 
+#if 1
 			if(isMemberIdExpression(expression.p))
 			{
 				// TODO: id-expression transformed into class-member-access is dependent if 'this' is dependent
 				// addDependent(typeDependent, enclosingDependent); // expression is dependent if 'this' is dependent
 				expression.type = typeOfExpression(expression.p, getInstantiationContext());
+				expression.isConstant = expression.isValueDependent ? false : isConstantExpression(expression.p, getInstantiationContext());
 			}
+#endif
+
 #if 0
 			SEMANTIC_ASSERT(expression.type == type);
 #endif
