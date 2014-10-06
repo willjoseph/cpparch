@@ -1285,20 +1285,28 @@ struct SemaBase : public SemaState
 	}
 
 	template<typename T>
-	ExpressionWrapper makeExpression(const T& value, bool isTypeDependent = false, bool isValueDependent = false)
+	ExpressionWrapper makeExpression(const T& node, bool isTypeDependent = false, bool isValueDependent = false)
 	{
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
-		bool isUnique = isUniqueExpression(value);
-		ExpressionNode* node = isUnique ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
-		ExpressionWrapper result(node, isTypeDependent, isValueDependent);
+		bool isUnique = isUniqueExpression(node);
+		ExpressionNode* p = isUnique ? makeUniqueExpression(node) : allocatorNew(context, ExpressionNodeGeneric<T>(node));
+		ExpressionWrapper result(p, isTypeDependent, isValueDependent);
 		result.isUnique = isUnique;
 		if(!result.isTypeDependent) // if the expression is not type-dependent
 		{
-			result.type = typeOfExpression(result.p, getInstantiationContext());
+			result.type = typeOfExpression(node, getInstantiationContext());
+
+			// [basic.lval] Class prvalues can have cv-qualified types; non-class prvalues always have cv-unqualified types
+			if(!result.type.isLvalue // if this is a prvalue
+				&& !isClass(result.type)) // and is not a class
+			{
+				SYMBOLS_ASSERT(result.type.value.getQualifiers() == CvQualifiers());
+			}
+
 			SEMANTIC_ASSERT(!result.isConstant);
 			if(!result.isValueDependent) // if the expression is not value-dependent
 			{
-				ExpressionValue value = evaluateExpression(result.p, getInstantiationContext());
+				ExpressionValue value = evaluateExpression(node, getInstantiationContext());
 				result.isConstant = value.isConstant;
 				result.value = value.value;
 			}

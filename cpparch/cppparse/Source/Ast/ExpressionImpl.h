@@ -646,46 +646,49 @@ inline bool isUniqueExpression(const PostfixOperatorExpression& e)
 
 
 // ----------------------------------------------------------------------------
-inline bool isPointerToMemberExpression(ExpressionNode* expression)
+inline bool isPointerToMemberExpression(const UnaryExpression& unaryExpression)
 {
-	if(!isUnaryExpression(expression))
-	{
-		return false;
-	}
-	const UnaryExpression& unary = getUnaryExpression(expression);
 	extern Name gOperatorAndId;
-	if(unary.operatorName != gOperatorAndId
-		|| !isIdExpression(unary.first))
+	if(unaryExpression.operatorName != gOperatorAndId
+		|| !isIdExpression(unaryExpression.first))
 	{
 		return false;
 	}
-	const IdExpression& idExpression = getIdExpression(unary.first);
+	const IdExpression& idExpression = getIdExpression(unaryExpression.first);
 	return idExpression.qualifying != 0 // qualified
 		&& !isStatic(*idExpression.declaration) // non static
 		&& isMember(*idExpression.declaration); // member
 }
 
-inline bool isPointerToFunctionExpression(ExpressionNode* expression)
+inline bool isPointerToMemberExpression(ExpressionNode* node)
 {
-	if(isUnaryExpression(expression))
-	{
-		expression = getUnaryExpression(expression).first;
-	}
-	if(!isIdExpression(expression))
-	{
-		return false;
-	}
-	const IdExpression node = getIdExpression(expression);
-	return UniqueTypeWrapper(node.declaration->type.unique).isFunction();
+	return isUnaryExpression(node)
+		&& isPointerToMemberExpression(getUnaryExpression(node));
 }
 
-inline bool isDependentPointerToMemberExpression(ExpressionNode* expression)
+inline bool isPointerToFunctionExpression(const IdExpression& idExpression)
+{
+	return UniqueTypeWrapper(idExpression.declaration->type.unique).isFunction();
+}
+
+inline bool isPointerToFunctionExpression(const UnaryExpression& unaryExpression)
+{
+	return isIdExpression(unaryExpression.first)
+		&& isPointerToFunctionExpression(getIdExpression(unaryExpression.first));
+}
+
+inline bool isPointerToFunctionExpression(ExpressionNode* node)
+{
+	return isUnaryExpression(node)
+		&& isPointerToFunctionExpression(getUnaryExpression(node));
+}
+
+inline bool isDependentPointerToMemberExpression(const UnaryExpression& unaryExpression)
 {
 	extern Name gOperatorAndId;
 
-	return isUnaryExpression(expression)
-		&& getUnaryExpression(expression).operatorName == gOperatorAndId
-		&& isDependentIdExpression(getUnaryExpression(expression).first);
+	return unaryExpression.operatorName == gOperatorAndId
+		&& isDependentIdExpression(unaryExpression.first);
 }
 
 inline bool isLiteralZeroExpression(ExpressionNode* expression)

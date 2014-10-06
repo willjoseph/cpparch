@@ -303,25 +303,6 @@ inline IntegralConstant conditional(IntegralConstant first, IntegralConstant sec
 
 ExpressionValue evaluateExpressionImpl(ExpressionNode* node, const InstantiationContext& context);
 
-inline ExpressionValue evaluateExpression(ExpressionNode* node, const InstantiationContext& context)
-{
-	SYMBOLS_ASSERT(node != 0);
-	if(isPointerToMemberExpression(node))
-	{
-		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
-	}
-	if(isPointerToFunctionExpression(node))
-	{
-		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
-	}
-	if(isDependentPointerToMemberExpression(node))
-	{
-		// TODO: check this names a valid non-static member
-		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
-	}
-	return evaluateExpressionImpl(node, context);
-}
-
 inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(expression.p != 0);
@@ -329,7 +310,7 @@ inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, c
 	{
 		return ExpressionValue(expression.value, expression.isConstant);
 	}
-	return evaluateExpression(expression.p, context);
+	return evaluateExpressionImpl(expression.p, context);
 }
 
 inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context);
@@ -344,16 +325,6 @@ inline bool isOverloadedFunction(const DeclarationInstance& declaration)
 inline bool isOverloadedFunctionIdExpression(const IdExpression& idExpression)
 {
 	return isOverloadedFunction(idExpression.declaration); // true if this id-expression names an overloaded function
-}
-
-inline bool isOverloadedFunctionIdExpression(ExpressionNode* node)
-{
-	if(!isIdExpression(node))
-	{
-		return false;
-	}
-
-	return isOverloadedFunctionIdExpression(getIdExpression(node));
 }
 
 inline bool isLvalue(const Declaration& declaration)
@@ -1259,6 +1230,213 @@ inline UniqueTypeWrapper typeOfDecltypeSpecifier(const ExpressionWrapper& expres
 	return result;
 }
 
+
+inline ExpressionWrapper substituteArgument(ExpressionWrapper expression, const InstantiationContext& context)
+{
+	return makeArgument(expression, removeReference(typeOfExpressionWrapper(expression, context)));
+}
+
+inline Arguments substituteArguments(const Arguments& arguments, const InstantiationContext& context)
+{
+	Arguments result;
+	result.reserve(arguments.size());
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		result.push_back(substituteArgument(*i, context));
+	}
+	return result;
+}
+
+
+inline ExpressionType getAdjustedExpressionType(ExpressionType type)
+{
+	// [basic.lval] Class prvalues can have cv-qualified types; non-class prvalues always have cv-unqualified types
+	if(!type.isLvalue // if this is a prvalue
+		&& !isClass(type)) // and is not a class
+	{
+		type.value.setQualifiers(CvQualifiers()); // remove cv-qualifiers
+	}
+	return type;
+}
+
+inline ExpressionType typeOfExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
+{
+	return node.type;
+}
+
+inline ExpressionType typeOfExpression(const CastExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	// [expr.cast]
+	// The result of the expression (T) cast-expression is of type T. The result is an lvalue if T is a reference
+	// type, otherwise the result is an rvalue.
+	// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
+	ExpressionType result = ExpressionType(type, type.isReference());
+	SYMBOLS_ASSERT(!isDependent(result));
+	requireCompleteObjectType(result, context);
+	return getAdjustedExpressionType(result);
+}
+
+
+inline UniqueTypeWrapper getNonTypeTemplateParameterType(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper result = substitute(node.type, context); // perform substitution if type is dependent
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+inline ExpressionType typeOfExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	return getAdjustedExpressionType(ExpressionType(getNonTypeTemplateParameterType(node, context), false)); // non lvalue
+}
+
+inline ExpressionType typeOfExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	if(node.qualifying == gOverloaded) // if this name was undeclared at point of parse
+	{
+		// e.g. dependent call to named function f(d), find 'f' via ADL
+		// must defer evaluation until enclosing expression is evaluated
+		return gNullExpressionType; // do not evaluate the type!
+	}
+	const IdExpression expression = substituteIdExpression(node, context);
+	ExpressionType result = typeOfIdExpression(expression.qualifying, expression.declaration, expression.templateArguments, expression.isQualified, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	if(isOverloadedFunctionIdExpression(node))
+	{
+		// can't evaluate id-expression within function-call-expression
+		return gOverloadedExpressionType; // do not evaluate the type!
+	}
+	ExpressionType result = typeOfIdExpression(node.qualifying, node.declaration, node.templateArguments, node.isQualified, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const SizeofExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gUnsignedInt, false); // non lvalue
+}
+
+inline ExpressionType typeOfExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gUnsignedInt, false); // non lvalue
+}
+
+inline ExpressionType typeOfExpression(const UnaryExpression& node, const InstantiationContext& context)
+{
+#if 0
+	if(isPointerToMemberExpression(node)
+		|| isDependentPointerToMemberExpression(node))
+	{
+		return gNullExpressionType; // TODO
+	}
+#endif
+
+	ExpressionType result = typeOfUnaryExpression(node.operatorName,
+		substituteArgument(node.first, context),
+		context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const BinaryExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = node.type(node.operatorName,
+		substituteArgument(node.first, context),
+		substituteArgument(node.second, context),
+		context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const TernaryExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = getConditionalOperatorType(
+		removeReference(typeOfExpressionWrapper(node.second, context)),
+		removeReference(typeOfExpressionWrapper(node.third, context)));
+	SYMBOLS_ASSERT(!isDependent(result));
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gBool, false); // non lvalue
+}
+
+inline ExpressionType typeOfExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gBool, false); // non lvalue
+}
+
+inline ExpressionType typeOfExpression(const struct ExplicitTypeExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	// [expr.cast]
+	// The result of the expression (T) cast-expression is of type T. The result is an lvalue if T is a reference
+	// type, otherwise the result is an rvalue.
+	ExpressionType result = ExpressionType(type, type.isReference());
+	SYMBOLS_ASSERT(!isDependent(result));
+	if(node.isCompleteTypeRequired)
+	{
+		requireCompleteObjectType(result, context);
+	}
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const struct ObjectExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = node.type;
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+inline ExpressionType typeOfExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return result;
+}
+
+inline ExpressionType typeOfExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
+{
+	ExpressionType result = typeOfClassMemberAccessExpression(node.left, node.right, context);
+	SYMBOLS_ASSERT(!isDependent(result));
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const struct OffsetofExpression& node, const InstantiationContext& context)
+{
+	return ExpressionType(gUnsignedInt, false);
+}
+
+inline ExpressionType typeOfExpression(const struct FunctionCallExpression& node, const InstantiationContext& context)
+{
+	return getAdjustedExpressionType(typeOfFunctionCallExpression(
+		substituteArgument(node.left, context),
+		substituteArguments(node.arguments, context),
+		context));
+}
+
+inline ExpressionType typeOfExpression(const struct SubscriptExpression& node, const InstantiationContext& context)
+{
+	return getAdjustedExpressionType(typeOfSubscriptExpression(
+		substituteArgument(node.left, context),
+		substituteArgument(node.right, context),
+		context));
+}
+
+inline ExpressionType typeOfExpression(const struct PostfixOperatorExpression& node, const InstantiationContext& context)
+{
+	return getAdjustedExpressionType(typeOfPostfixOperatorExpression(node.operatorName,
+		substituteArgument(node.operand, context),
+		context));
+}
+
 inline void evaluateStaticAssert(const ExpressionWrapper& expression, const char* message, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(!expression.isNonStaticMemberName); // TODO: report non-fatal error: "expected expression convertible to bool"
@@ -1297,6 +1475,292 @@ inline bool isNullPointerCastExpression(const ExpressionWrapper& expression)
 		return false;
 	}
 	return isNullPointerCastExpression(getCastExpression(expression));
+}
+
+
+inline ExpressionValue evaluateIdExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(node.declaration->templateParameter == INDEX_INVALID);
+
+	if(isPointerToFunctionExpression(node))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
+	}
+
+	if(isOverloadedFunctionIdExpression(node))
+	{
+		return EXPRESSIONRESULT_INVALID; // TODO: overload resolution when function name used as template argument
+	}
+
+	if(node.declaration->initializer.p == 0)
+	{
+		return EXPRESSIONRESULT_INVALID; // constant expression must have an initializer
+	}
+
+	ExpressionType type = typeOfIdExpression(node.qualifying, node.declaration, node.templateArguments, node.isQualified, context);
+	if(!isIntegralConstant(type))
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+
+	const SimpleType* enclosing = node.qualifying != 0 ? node.qualifying : context.enclosingType;
+
+	const SimpleType* memberEnclosing = isMember(*node.declaration) // if the declaration is a class member
+		? findEnclosingType(enclosing, node.declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
+		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
+
+	return evaluateExpressionImpl(node.declaration->initializer, setEnclosingType(context, memberEnclosing));
+}
+
+inline IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(node.qualifying != gOverloaded); // assert that this is not the name of an undeclared identifier (to be looked up via ADL)
+	SYMBOLS_ASSERT(context.enclosingType != 0);
+
+	UniqueTypeWrapper substituted = node.qualifying == gUniqueTypeNull // if this id-expression is part of class-member-access
+		? makeUniqueSimpleType(*context.enclosingType) // else in a dependent class-member-access 'd.m', enclosingType contains the class type of the object expression
+		: substitute(node.qualifying, context);
+	const SimpleType* qualifyingType = substituted.isSimple() ? &getSimpleType(substituted.value) : 0;
+
+	if(qualifyingType == 0
+		|| !isClass(*qualifyingType->declaration))
+	{
+		throw QualifyingIsNotClassError(context.source, node.qualifying);
+	}
+
+	instantiateClass(*qualifyingType, context);
+	Identifier id;
+	id.value = node.name;
+	std::size_t visibility = qualifyingType->instantiating ? context.enclosingType->instantiation.pointOfInstantiation : VISIBILITY_ALL;
+	LookupResultRef declaration = findDeclaration(*qualifyingType, id, IsAny(visibility));
+	if(declaration == 0)
+	{
+		throw MemberNotFoundError(context.source, node.name, node.qualifying);
+	}
+
+	// TODO: substitute template arguments, in case of template-id when making pointer-to-function
+	return IdExpression(declaration, qualifyingType, TemplateArgumentsInstance(), node.isQualified);
+}
+
+inline ExpressionValue evaluateIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	const IdExpression expression = substituteIdExpression(node, context);
+	return evaluateIdExpression(expression, context);
+}
+
+inline const NonType& substituteNonTypeTemplateParameter(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	size_t index = node.declaration->templateParameter;
+	SYMBOLS_ASSERT(index != INDEX_INVALID);
+	const SimpleType* enclosingType = findEnclosingTemplate(context.enclosingType, node.declaration->scope);
+	SYMBOLS_ASSERT(enclosingType != 0);
+	SYMBOLS_ASSERT(!isDependent(*enclosingType)); // assert that the enclosing type is not dependent
+	SYMBOLS_ASSERT(!enclosingType->declaration->isSpecialization || enclosingType->instantiated); // a specialization must be instantiated (or in the process of instantiating)
+	const TemplateArgumentsInstance& templateArguments = enclosingType->declaration->isSpecialization
+		? enclosingType->deducedArguments : enclosingType->templateArguments;
+	SYMBOLS_ASSERT(index < templateArguments.size());
+	UniqueTypeWrapper argument = templateArguments[index];
+	SYMBOLS_ASSERT(argument.isNonType());
+	return getNonTypeValue(argument.value);
+}
+
+
+inline ExpressionValue evaluateExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
+{
+	return makeConstantResult(node.value);
+}
+
+inline ExpressionValue evaluateExpression(const CastExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	// [expr.const] Only type conversions to integral or enumeration types can be used.
+	if(isNullPointerCastExpression(node)) // (T*)0
+	{
+		return EXPRESSIONRESULT_ZERO; // occurs in offsetof
+	}
+	if(isIntegral(type)
+		|| isEnumeration(type))
+	{
+		return node.operand.p == 0 // if this is a default-constructor call T()
+			? EXPRESSIONRESULT_ZERO
+			: evaluateExpressionImpl(node.operand, context);
+	}
+	return EXPRESSIONRESULT_INVALID;
+}
+
+inline ExpressionValue evaluateExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	return makeConstantResult(substituteNonTypeTemplateParameter(node, context));
+}
+
+inline ExpressionValue evaluateExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	return evaluateIdExpression(node, context);
+}
+
+inline ExpressionValue evaluateExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	return evaluateIdExpression(node, context);
+}
+
+inline ExpressionValue evaluateExpression(const SizeofExpression& node, const InstantiationContext& context)
+{
+	if(isPointerToMemberExpression(node.operand))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO
+	}
+	if(isPointerToFunctionExpression(node.operand))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO
+	}
+
+	ExpressionType type = typeOfExpressionWrapper(node.operand, context);
+	// [expr] If an expression initially has the type "reference to T", the type is adjusted to "T" prior to any further analysis.
+	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type.
+	return makeConstantResult(IntegralConstant(requireCompleteObjectType(removeReference(type), context).size));
+}
+
+inline ExpressionValue evaluateExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
+{
+	// TODO: type-substitution for dependent node.type
+	// [expr] If an expression initially has the type "reference to T", the type is adjusted to "T" prior to any further analysis.
+	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type... or to the parenthesized name of such types.
+	return ExpressionValue(IntegralConstant(requireCompleteObjectType(removeReference(node.type), context).size), true);
+}
+
+inline ExpressionValue evaluateExpression(const UnaryExpression& node, const InstantiationContext& context)
+{
+	if(isPointerToMemberExpression(node))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
+	}
+	if(isPointerToFunctionExpression(node))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
+	}
+	if(isDependentPointerToMemberExpression(node))
+	{
+		// TODO: check this names a valid non-static member
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
+	}
+
+	if(node.operation == 0)
+	{
+		return EXPRESSIONRESULT_INVALID; // increment and decrement not allowed in constant expression
+	}
+	ExpressionValue first = evaluateExpressionImpl(node.first, context);
+	if(!first.isConstant)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	return ExpressionValue(node.operation(first.value), true);
+}
+
+inline ExpressionValue evaluateExpression(const BinaryExpression& node, const InstantiationContext& context)
+{
+	if(node.operation == 0)
+	{
+		return EXPRESSIONRESULT_INVALID; // TODO: non-fatal error: pointer-to-member/assignment/comma not allowed in constant expression
+	}
+	ExpressionValue first = evaluateExpressionImpl(node.first, context);
+	if(!first.isConstant)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	ExpressionValue second = evaluateExpressionImpl(node.second, context);
+	if(!second.isConstant)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	return ExpressionValue(node.operation(first.value, second.value), true);
+}
+
+inline ExpressionValue evaluateExpression(const TernaryExpression& node, const InstantiationContext& context)
+{
+	if(node.operation == 0)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	ExpressionValue first = evaluateExpressionImpl(node.first, context);
+	if(!first.isConstant)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	ExpressionValue second = evaluateExpressionImpl(node.second, context);
+	if(!second.isConstant)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	ExpressionValue third = evaluateExpressionImpl(node.third, context);
+	if(!third.isConstant)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
+	return ExpressionValue(node.operation(first.value, second.value, third.value), true);
+}
+
+inline ExpressionValue evaluateExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
+{
+	return ExpressionValue(IntegralConstant(node.operation(
+		substitute(node.type, context),
+		context
+		)), true);
+}
+
+inline ExpressionValue evaluateExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
+{
+	return ExpressionValue(IntegralConstant(node.operation(
+		substitute(node.first, context),
+		substitute(node.second, context),
+		context
+		)), true);
+}
+
+inline ExpressionValue evaluateExpression(const struct ExplicitTypeExpression& node, const InstantiationContext& context)
+{
+	// cannot be a constant expression
+	return EXPRESSIONRESULT_INVALID;
+}
+
+inline ExpressionValue evaluateExpression(const struct ObjectExpression& node, const InstantiationContext& context)
+{
+	// cannot be a constant expression
+	return EXPRESSIONRESULT_INVALID;
+}
+
+inline ExpressionValue evaluateExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
+{
+	// occurs within the offsetof macro
+	return ExpressionValue(IntegralConstant(0), evaluateExpression(node.left, context).isConstant);
+}
+
+inline ExpressionValue evaluateExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
+{
+	// occurs within the offsetof macro
+	return ExpressionValue(IntegralConstant(0), evaluateExpression(node.left, context).isConstant);
+}
+
+inline ExpressionValue evaluateExpression(const struct OffsetofExpression& node, const InstantiationContext& context)
+{
+	return EXPRESSIONRESULT_ZERO; // TODO
+}
+
+inline ExpressionValue evaluateExpression(const struct FunctionCallExpression& node, const InstantiationContext& context)
+{
+	// cannot be a constant expression
+	return EXPRESSIONRESULT_INVALID;
+}
+
+inline ExpressionValue evaluateExpression(const struct SubscriptExpression& node, const InstantiationContext& context)
+{
+	// cannot be a constant expression
+	return EXPRESSIONRESULT_INVALID;
+}
+
+inline ExpressionValue evaluateExpression(const struct PostfixOperatorExpression& node, const InstantiationContext& context)
+{
+	// cannot be a constant expression
+	return EXPRESSIONRESULT_INVALID;
 }
 
 

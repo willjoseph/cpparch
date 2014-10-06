@@ -94,7 +94,7 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 			}
 			else
 			{
-				ExpressionValue value = evaluateExpression(expression, context);
+				ExpressionValue value = evaluateExpressionImpl(expression, context);
 				SYMBOLS_ASSERT(value.isConstant);
 				result = pushType(gUniqueTypeNull, NonType(value.value));
 			}

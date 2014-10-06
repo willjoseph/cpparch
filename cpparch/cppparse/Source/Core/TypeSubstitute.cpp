@@ -250,7 +250,7 @@ struct SubstituteVisitor : TypeElementVisitor
 		}
 
 		// TODO: SFINAE for expressions: check that type of template argument matches template parameter
-		ExpressionValue result = evaluateExpression(element.expression, context);
+		ExpressionValue result = evaluateExpressionImpl(element.expression, context);
 		SYMBOLS_ASSERT(result.isConstant);
 		type.push_front(NonType(result.value));
 	}

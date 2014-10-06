@@ -1,13 +1,34 @@
 
-namespace N432
+namespace N433
 {
-	struct S
+	template<typename T, void(*)(T*)>
+	struct A
 	{
-		int m;
 	};
 
-	S s;
-	int i = s.m;
+	void f(int*);
+
+	void g()
+	{
+		A<int, f> a;
+	}
+}
+
+namespace N432
+{
+	template<typename T>
+	void f(T*);
+
+	template<typename T, void(*)(T*)>
+	struct A
+	{
+	};
+
+	template<typename T>
+	void g()
+	{
+		A<T, f> a;
+	}
 }
 
 namespace N427
@@ -823,6 +844,7 @@ namespace N383
 
 	int f();
 	int& r();
+	const int cf();
 	int i;
 	const int ci = 0;
 	A a;
@@ -889,6 +911,7 @@ namespace N383
 	// postfix expressions
 	ASSERT_EXPRESSION_TYPE(p[0], A&); // lvalue
 	ASSERT_EXPRESSION_TYPE(f(), int); // not an lvalue
+	ASSERT_EXPRESSION_TYPE(cf(), int); // not an lvalue
 	ASSERT_EXPRESSION_TYPE(r(), int&); // lvalue
 	ASSERT_EXPRESSION_TYPE(c.f(), void); // not an lvalue
 	ASSERT_EXPRESSION_TYPE(int(), int);
@@ -901,6 +924,9 @@ namespace N383
 	ASSERT_EXPRESSION_TYPE(p--, A*);
 	ASSERT_EXPRESSION_TYPE(i++, int);
 	ASSERT_EXPRESSION_TYPE(i--, int);
+	ASSERT_EXPRESSION_TYPE(int(0), int); // not an lvalue
+	ASSERT_EXPRESSION_TYPE((int)0, int); // not an lvalue
+	ASSERT_EXPRESSION_TYPE((const int)0, int); // not an lvalue
 
 	struct B : A
 	{
