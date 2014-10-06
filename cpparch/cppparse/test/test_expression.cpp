@@ -1,4 +1,37 @@
 
+namespace N432
+{
+	struct S
+	{
+		int m;
+	};
+
+	S s;
+	int i = s.m;
+}
+
+namespace N427
+{
+	template<typename T>
+	struct A
+	{
+	};
+
+	template<bool b>
+	struct B
+	{
+		static const int value = b;
+	};
+
+	template<>
+	struct A<const int>
+	{
+		typedef B<false> type;
+		static const int value = A::type::value;
+	};
+}
+
+
 #if 0 // TODO
 namespace N431
 {
@@ -56,27 +89,6 @@ namespace N142
 }
 
 
-
-namespace N427
-{
-	template<typename T>
-	struct A
-	{
-	};
-
-	template<bool b>
-	struct B
-	{
-		static const int value = b;
-	};
-
-	template<>
-	struct A<const int>
-	{
-		typedef B<false> type;
-		static const int value = A::type::value;
-	};
-}
 
 namespace N403
 {

@@ -710,7 +710,7 @@ struct SemaState
 			SEMANTIC_ASSERT(declaration != 0);
 			SEMANTIC_ASSERT(isClass(*declaration));
 			Type type(declaration, context);
-			context.typeInfoType = ExpressionType(makeUniqueType(type, InstantiationContext(Location(), 0, 0, 0), false), true); // lvalue
+			context.typeInfoType = ExpressionType(makeUniqueType(type, InstantiationContext(), false), true); // lvalue
 			context.typeInfoType.value.setQualifiers(CvQualifiers(true, false));
 		}
 		return context.typeInfoType;
@@ -1272,7 +1272,7 @@ inline void evaluateNonDependentExpression(ExpressionWrapper& expression, const 
 	if(!expression.isTypeDependent)
 	{
 		expression.type = typeOfExpression(expression.p, context);
-		expression.isConstant = false;
+		SEMANTIC_ASSERT(!expression.isConstant);
 		if(!expression.isValueDependent)
 		{
 			ExpressionValue value = evaluateExpression(expression.p, context);
@@ -1307,10 +1307,7 @@ struct SemaBase : public SemaState
 		ExpressionNode* node = isUnique ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
 		ExpressionWrapper result(node, isTypeDependent, isValueDependent);
 		result.isUnique = isUnique;
-		if(!isMemberIdExpression(value)) // cannot evaluate type of non-static member with no context
-		{
-			evaluateNonDependentExpression(result, getInstantiationContext());
-		}
+		evaluateNonDependentExpression(result, getInstantiationContext());
 		return result;
 	}
 
@@ -1980,7 +1977,6 @@ struct SemaPolicyParameterDeclaration : SemaPolicyGeneric<SemaPush<SemaT, Commit
 struct SemaExpressionResult
 {
 	IdentifierPtr id; // only valid when the expression is a (parenthesised) id-expression
-	ExpressionType type;
 	ExpressionWrapper expression;
 	/* 14.6.2.2-1
 	...an expression is type-dependent if any subexpression is type-dependent.

@@ -380,29 +380,12 @@ inline bool isLvalue(const Declaration& declaration)
 inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(expression.p != 0);
-#if 0
-	return typeOfExpression(expression.p, context);
-#else
-	ExpressionType type = typeOfExpression(expression.p, context);
 	if(expression.isTypeDependent)
 	{
-		return type;
+		return typeOfExpression(expression.p, context);
 	}
-#if 0
-	if(isMemberIdExpression(expression.p))
-	{
-		return type;
-	}
-#endif
-#if 0 // TODO: test what this change does
-	if(expression.type == gOverloadedExpressionType) // if evaluation of type of overloaded function was deferred 
-	{
-		return type; // evaluate it now
-	}
-#endif
-	SYMBOLS_ASSERT(type == expression.type); // this expression is not type-dependent: check that the type is the same as was originally evaluated
-	return type;
-#endif
+	// this expression is not type-dependent
+	return expression.type;
 }
 
 inline bool isSpecialMember(const Declaration& declaration)

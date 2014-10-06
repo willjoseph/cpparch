@@ -314,6 +314,10 @@ struct DependencyBuilder
 	{
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
 		UniqueTypeWrapper type = getExpressionType(symbol);
+		if(type == gUniqueTypeNull) // if the expression was type-dependent
+		{
+			return;
+		}
 		type.pop_front();
 		addTypeDependency(type, makeVisitable(symbol)->source.absolute);
 	}

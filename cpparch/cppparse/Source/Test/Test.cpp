@@ -1243,14 +1243,12 @@ IcsRank getArithmeticIcsRank(BuiltInType to, BuiltInType from)
 	return ICSRANK_STANDARDCONVERSION;
 }
 
-const InstantiationContext gDefaultInstantiationContext = InstantiationContext(Location(), 0, 0, 0);
-
 template<typename To, typename From, typename Matched = void>
 struct TestIcsRank
 {
 	static void apply(IcsRank expected, bool isNullPointerConstant = false, bool isLvalue = true)
 	{
-		IcsRank rank = getIcsRank(MakeType<To>::apply(), MakeType<From>::apply(), gDefaultInstantiationContext, isNullPointerConstant, isLvalue);
+		IcsRank rank = getIcsRank(MakeType<To>::apply(), MakeType<From>::apply(), InstantiationContext(), isNullPointerConstant, isLvalue);
 		SYMBOLS_ASSERT(rank == expected);
 	}
 	static void match(IcsRank expected)
@@ -1258,7 +1256,7 @@ struct TestIcsRank
 		UniqueTypeWrapper from = MakeType<From>::apply();
 		ExpressionNodeGeneric<ExplicitTypeExpression> transientExpression = ExplicitTypeExpression(from);
 		Argument argument = makeArgument(ExpressionWrapper(&transientExpression), ExpressionType(from, true));
-		ImplicitConversion conversion = makeImplicitConversionSequence(TargetType(MakeType<To>::apply()), argument, gDefaultInstantiationContext);
+		ImplicitConversion conversion = makeImplicitConversionSequence(TargetType(MakeType<To>::apply()), argument, InstantiationContext());
 		IcsRank rank = getIcsRank(conversion.sequence.rank);
 		SYMBOLS_ASSERT(rank == expected);
 		if(expected != ICSRANK_INVALID)
@@ -1279,7 +1277,7 @@ inline void testIcsRank()
 		{
 			BuiltInType from = *i;
 			IcsRank expected = getArithmeticIcsRank(to, from);
-			IcsRank rank = getIcsRank(to, from, gDefaultInstantiationContext);
+			IcsRank rank = getIcsRank(to, from, InstantiationContext());
 			SYMBOLS_ASSERT(expected == rank);
 		}
 	}
@@ -1292,11 +1290,11 @@ inline void testIcsRank()
 		{
 			BuiltInType other = *i;
 			{
-				IcsRank rank = getIcsRank(other, type, gDefaultInstantiationContext, true);
+				IcsRank rank = getIcsRank(other, type, InstantiationContext(), true);
 				SYMBOLS_ASSERT(rank == ICSRANK_STANDARDCONVERSION);
 			}
 			{
-				IcsRank rank = getIcsRank(other, type, gDefaultInstantiationContext, false);
+				IcsRank rank = getIcsRank(other, type, InstantiationContext(), false);
 				SYMBOLS_ASSERT(rank == ICSRANK_INVALID);
 			}
 		}
@@ -1309,13 +1307,13 @@ inline void testIcsRank()
 		for(const BuiltInType* i = gPointerTypes; i != ARRAY_END(gPointerTypes); ++i)
 		{
 			BuiltInType other = *i;
-			IcsRank rank = getIcsRank(type, other, gDefaultInstantiationContext);
+			IcsRank rank = getIcsRank(type, other, InstantiationContext());
 			SYMBOLS_ASSERT(rank == (type == gBool ? ICSRANK_STANDARDCONVERSION : ICSRANK_INVALID));
 		}
 		for(const BuiltInType* i = gMemberPointerTypes; i != ARRAY_END(gMemberPointerTypes); ++i)
 		{
 			BuiltInType other = *i;
-			IcsRank rank = getIcsRank(type, other, gDefaultInstantiationContext);
+			IcsRank rank = getIcsRank(type, other, InstantiationContext());
 			SYMBOLS_ASSERT(rank == (type == gBool ? ICSRANK_STANDARDCONVERSION : ICSRANK_INVALID));
 		}
 	}
@@ -1325,11 +1323,11 @@ inline void testIcsRank()
 	{
 		BuiltInType type = *i;
 		{
-			IcsRank rank = getIcsRank(gVoidPointer, type, gDefaultInstantiationContext);
+			IcsRank rank = getIcsRank(gVoidPointer, type, InstantiationContext());
 			SYMBOLS_ASSERT(rank == ICSRANK_STANDARDCONVERSION);
 		}
 		{
-			IcsRank rank = getIcsRank(gConstVoidPointer, type, gDefaultInstantiationContext);
+			IcsRank rank = getIcsRank(gConstVoidPointer, type, InstantiationContext());
 			SYMBOLS_ASSERT(rank == ICSRANK_STANDARDCONVERSION);
 		}
 	}
@@ -1337,11 +1335,11 @@ inline void testIcsRank()
 	{
 		BuiltInType type = *i;
 		{
-			IcsRank rank = getIcsRank(gVoidPointer, type, gDefaultInstantiationContext, true);
+			IcsRank rank = getIcsRank(gVoidPointer, type, InstantiationContext(), true);
 			SYMBOLS_ASSERT(rank == ICSRANK_INVALID);
 		}
 		{
-			IcsRank rank = getIcsRank(type, gVoidPointer, gDefaultInstantiationContext, true);
+			IcsRank rank = getIcsRank(type, gVoidPointer, InstantiationContext(), true);
 			SYMBOLS_ASSERT(rank == ICSRANK_INVALID);
 		}
 	}
@@ -1473,7 +1471,7 @@ struct TestDeduction
 	}
 	static bool deduceFunctionCallWrapper(const ParameterTypes& parameters, const UniqueTypeArray& arguments, TemplateArgumentsInstance& result)
 	{
-		return deduceFunctionCall(parameters, arguments, result, gDefaultInstantiationContext);
+		return deduceFunctionCall(parameters, arguments, result, InstantiationContext());
 	}
 
 	static void apply(UniqueTypeWrapper expected, DeduceFunction deduce = deducePairs)
@@ -1699,7 +1697,7 @@ struct TestSubstitution
 		enclosing.instantiated = true;
 		try
 		{
-			UniqueTypeWrapper result = substitute(MakeType<P>::apply(), setEnclosingTypeSafe(gDefaultInstantiationContext, &enclosing));
+			UniqueTypeWrapper result = substitute(MakeType<P>::apply(), setEnclosingTypeSafe(InstantiationContext(), &enclosing));
 			SYMBOLS_ASSERT(result == expected);
 		}
 		catch(TypeError&)
