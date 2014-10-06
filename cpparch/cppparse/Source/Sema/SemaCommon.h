@@ -1267,21 +1267,6 @@ inline const char* getIdentifierType(IdentifierFunc func)
 	return "<unknown>";
 }
 
-inline void evaluateNonDependentExpression(ExpressionWrapper& expression, const InstantiationContext& context)
-{
-	if(!expression.isTypeDependent)
-	{
-		expression.type = typeOfExpression(expression.p, context);
-		SEMANTIC_ASSERT(!expression.isConstant);
-		if(!expression.isValueDependent)
-		{
-			ExpressionValue value = evaluateExpression(expression.p, context);
-			expression.isConstant = value.isConstant;
-			expression.value = value.value;
-		}
-	}
-}
-
 struct SemaBase : public SemaState
 {
 	typedef SemaBase Base;
@@ -1307,7 +1292,17 @@ struct SemaBase : public SemaState
 		ExpressionNode* node = isUnique ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
 		ExpressionWrapper result(node, isTypeDependent, isValueDependent);
 		result.isUnique = isUnique;
-		evaluateNonDependentExpression(result, getInstantiationContext());
+		if(!result.isTypeDependent) // if the expression is not type-dependent
+		{
+			result.type = typeOfExpression(result.p, getInstantiationContext());
+			SEMANTIC_ASSERT(!result.isConstant);
+			if(!result.isValueDependent) // if the expression is not value-dependent
+			{
+				ExpressionValue value = evaluateExpression(result.p, getInstantiationContext());
+				result.isConstant = value.isConstant;
+				result.value = value.value;
+			}
+		}
 		return result;
 	}
 

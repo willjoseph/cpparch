@@ -100,9 +100,9 @@ ExpressionValue evaluateExpression(const CastExpression& node, const Instantiati
 {
 	UniqueTypeWrapper type = substitute(node.type, context);
 	// [expr.const] Only type conversions to integral or enumeration types can be used.
-	if(isNullPointerCastExpression(node))
+	if(isNullPointerCastExpression(node)) // (T*)0
 	{
-		return EXPRESSIONRESULT_ZERO;
+		return EXPRESSIONRESULT_ZERO; // occurs in offsetof
 	}
 	if(isIntegral(type)
 		|| isEnumeration(type))

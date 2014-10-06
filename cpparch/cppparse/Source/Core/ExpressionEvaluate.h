@@ -305,6 +305,15 @@ ExpressionValue evaluateExpressionImpl(ExpressionNode* node, const Instantiation
 
 inline ExpressionValue evaluateExpression(ExpressionNode* node, const InstantiationContext& context)
 {
+	SYMBOLS_ASSERT(node != 0);
+	if(isPointerToMemberExpression(node))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
+	}
+	if(isPointerToFunctionExpression(node))
+	{
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
+	}
 	if(isDependentPointerToMemberExpression(node))
 	{
 		// TODO: check this names a valid non-static member
@@ -315,13 +324,10 @@ inline ExpressionValue evaluateExpression(ExpressionNode* node, const Instantiat
 
 inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
-	if(isPointerToMemberExpression(expression))
+	SYMBOLS_ASSERT(expression.p != 0);
+	if(!expression.isValueDependent)
 	{
-		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
-	}
-	if(isPointerToFunctionExpression(expression))
-	{
-		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
+		return ExpressionValue(expression.value, expression.isConstant);
 	}
 	return evaluateExpression(expression.p, context);
 }
@@ -350,26 +356,6 @@ inline bool isOverloadedFunctionIdExpression(ExpressionNode* node)
 	return isOverloadedFunctionIdExpression(getIdExpression(node));
 }
 
-inline bool isMemberIdExpression(const IdExpression& idExpression)
-{
-	return isMember(*idExpression.declaration); // true if this id-expression names a member
-}
-
-template<typename T>
-inline bool isMemberIdExpression(const T&)
-{
-	return false;
-}
-
-inline bool isMemberIdExpression(ExpressionNode* node)
-{
-	if(!isIdExpression(node))
-	{
-		return false;
-	}
-	return isMemberIdExpression(getIdExpression(node));
-}
-
 inline bool isLvalue(const Declaration& declaration)
 {
 	return isObject(declaration) // functions, variables and data members are lvalues
@@ -380,12 +366,11 @@ inline bool isLvalue(const Declaration& declaration)
 inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(expression.p != 0);
-	if(expression.isTypeDependent)
+	if(!expression.isTypeDependent) // if this expression is not type-dependent
 	{
-		return typeOfExpression(expression.p, context);
+		return expression.type;
 	}
-	// this expression is not type-dependent
-	return expression.type;
+	return typeOfExpression(expression.p, context);
 }
 
 inline bool isSpecialMember(const Declaration& declaration)

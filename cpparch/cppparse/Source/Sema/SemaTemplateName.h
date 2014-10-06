@@ -43,6 +43,7 @@ struct SemaTemplateArgumentList : public SemaBase
 		argument.type = &gNonType;
 		argument.expression = walker.expression;
 		argument.source = getLocation();
+		SEMANTIC_ASSERT(isDependentOld(argument.valueDependent) || argument.expression.isConstant);
 		return true;
 	}
 	SEMA_POLICY(cpp::template_argument_list, SemaPolicyPushCommit<struct SemaTemplateArgumentList>)
