@@ -1,4 +1,19 @@
 
+#if 0 // TODO
+namespace N431
+{
+	void f(int);
+	void f(float);
+
+	template<void(int)>
+	struct S
+	{
+	};
+
+	typedef S<f> Type; // overload resolution selects 'f'
+}
+#endif
+
 namespace N430
 {
 	template<typename T>

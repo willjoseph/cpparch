@@ -81,7 +81,7 @@ struct SemaSizeofTypeExpression : public SemaBase
 
 		UniqueTypeId type = getUniqueTypeSafe(walker.type);
 
-		expression = makeExpression(SizeofTypeExpression(type), true, false, isDependentOld(valueDependent));
+		expression = makeExpression(SizeofTypeExpression(type), false, isDependentOld(valueDependent));
 		SYMBOLS_ASSERT(expression.type == gUnsignedInt);
 		setExpressionType(symbol, type);
 	}
@@ -141,7 +141,6 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		BinaryIceOp iceOp = getBinaryIceOp(symbol);
 		ExpressionWrapper leftExpression = expression;
 		expression = makeExpression(BinaryExpression(getOverloadedOperatorId(symbol), iceOp, typeOfBinaryExpression<typeOp>, expression, walker.expression),
-			expression.isConstant && walker.expression.isConstant && iceOp != 0,
 			isDependentOld(typeDependent),
 			isDependentOld(valueDependent)
 		);
@@ -194,7 +193,6 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
 		expression = makeExpression(TernaryExpression(conditional, expression, walker.left, walker.right),
-			expression.isConstant && walker.left.isConstant && walker.right.isConstant,
 			isDependentOld(typeDependent),
 			isDependentOld(valueDependent)
 		);
@@ -309,7 +307,6 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 
 		UnaryIceOp iceOp = getUnaryIceOp(symbol);
 		expression = makeExpression(UnaryExpression(getOverloadedOperatorId(symbol->op), iceOp, expression),
-			expression.isConstant && iceOp != 0,
 			isDependentOld(typeDependent),
 			isDependentOld(valueDependent)
 		);
@@ -366,7 +363,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		type.push_front(PointerType());
 		addDependent(typeDependent, walker.typeDependent);
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
-		expression = makeExpression(ExplicitTypeExpression(type, true), false, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type, true), isDependentOld(typeDependent));
 		if(!expression.isTypeDependent)
 		{
 			SYMBOLS_ASSERT(expression.type == type);
@@ -380,7 +377,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
 		type.push_front(PointerType());
 		addDependent(typeDependent, walker.typeDependent);
-		expression = makeExpression(ExplicitTypeExpression(type, true), false, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type, true), isDependentOld(typeDependent));
 		if(!expression.isTypeDependent)
 		{
 			SYMBOLS_ASSERT(expression.type == type);
@@ -395,7 +392,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression), walker.expression.isConstant, isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 		if(!expression.isTypeDependent)
 		{
 			SYMBOLS_ASSERT(expression.type == type);
@@ -432,7 +429,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		// [temp.dep.constexpr] Expressions of the following form [sizeof(expr)] are value-dependent if the unary-expression is type-dependent
 		addDependent(valueDependent, walker.typeDependent);
 		type = ExpressionType(gUnsignedInt, false); // non lvalue
-		expression = makeExpression(SizeofExpression(walker.expression), true, false, isDependentOld(valueDependent));
+		expression = makeExpression(SizeofExpression(walker.expression), false, isDependentOld(valueDependent));
 		if(!expression.isTypeDependent)
 		{
 			SYMBOLS_ASSERT(expression.type == type);

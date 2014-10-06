@@ -53,8 +53,9 @@ inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argu
 		{
 			return pushType(gUniqueTypeNull, DependentNonType(argument.expression));
 		}
-		IntegralConstant value = evaluateExpression(argument.expression, CONSTANTEXPRESSION_OTHER, context);
-		return pushType(gUniqueTypeNull, NonType(value));
+		ExpressionValue result = evaluateExpression(argument.expression, context);
+		SYMBOLS_ASSERT(result.isConstant);
+		return pushType(gUniqueTypeNull, NonType(result.value));
 	}
 
 	return getUniqueType(argument.type, context, allowDependent && argument.type.isDependent);
@@ -93,8 +94,9 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 			}
 			else
 			{
-				IntegralConstant value = evaluateExpression(expression, CONSTANTEXPRESSION_OTHER, context);
-				result = pushType(gUniqueTypeNull, NonType(value));
+				ExpressionValue value = evaluateExpression(expression, context);
+				SYMBOLS_ASSERT(value.isConstant);
+				result = pushType(gUniqueTypeNull, NonType(value.value));
 			}
 		}
 		arguments.push_back(result);
@@ -267,7 +269,9 @@ inline std::size_t evaluateArraySize(const ExpressionWrapper& expression, const 
 		return -1;
 	}
 	SYMBOLS_ASSERT(expression.isConstant);
-	return evaluateExpressionImpl(expression, CONSTANTEXPRESSION_INTEGRAL, context).value;
+	ExpressionValue result = evaluateExpressionImpl(expression, context);
+	SYMBOLS_ASSERT(result.isConstant);
+	return result.value.value;
 }
 
 struct TypeSequenceMakeUnique : TypeSequenceVisitor

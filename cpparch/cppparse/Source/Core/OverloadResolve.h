@@ -217,7 +217,7 @@ ImplicitConversion makeImplicitConversionSequence(To to, Argument from, const In
 inline IcsRank getIcsRank(UniqueTypeWrapper to, UniqueTypeWrapper from, const InstantiationContext& context, bool isNullPointerConstant = false, bool isLvalue = false)
 {
 	ExpressionNodeGeneric<ExplicitTypeExpression> transientExpression = ExplicitTypeExpression(from);
-	Argument argument = makeArgument(ExpressionWrapper(&transientExpression, false), ExpressionType(from, isLvalue));
+	Argument argument = makeArgument(ExpressionWrapper(&transientExpression), ExpressionType(from, isLvalue));
 	ImplicitConversion conversion = makeImplicitConversionSequence(to, argument, context, isNullPointerConstant);
 	return getIcsRank(conversion.sequence.rank);
 }
@@ -415,14 +415,32 @@ inline bool isBetter(const CandidateFunction& l, const CandidateFunction& r)
 const CandidateFunction gOverloadNull;
 typedef std::list<CandidateFunction> CandidateFunctions;
 
-// TODO: fix circular dependency!
-enum ConstantExpressionCategory
+struct ExpressionValue
 {
-	CONSTANTEXPRESSION_INTEGRAL,
-	CONSTANTEXPRESSION_OTHER, // TODO
+	IntegralConstant value;
+	bool isConstant;
+	ExpressionValue(IntegralConstant value, bool isConstant)
+		: value(value), isConstant(isConstant)
+	{
+	}
 };
 
-inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, ConstantExpressionCategory category, const InstantiationContext& context);
+inline ExpressionValue makeConstantResult(IntegralConstant value)
+{
+	return ExpressionValue(value, true);
+}
+
+const ExpressionValue EXPRESSIONRESULT_INVALID = ExpressionValue(IntegralConstant(0), false);
+const ExpressionValue EXPRESSIONRESULT_ZERO = ExpressionValue(IntegralConstant(0), true);
+
+inline bool isNullPointerConstantValue(ExpressionValue value)
+{
+	return value.isConstant
+		&& value.value.value == 0;
+}
+
+// TODO: fix circular dependency!
+inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
 
 struct OverloadResolver
 {
@@ -452,7 +470,7 @@ struct OverloadResolver
 	{
 		// DR 903: a value-dependent expression may or may not be a null pointer constant, but the behaviour is unspecified.
 		// simple fix: don't allow a value-dependent expression to be a null pointer constant.
-		bool isNullPointerConstant = !from.isValueDependent && from.isConstant && evaluateExpression(from, CONSTANTEXPRESSION_OTHER, context).value == 0;
+		bool isNullPointerConstant = !from.isValueDependent && isNullPointerConstantValue(evaluateExpression(from, context));
 		return makeImplicitConversionSequence(to, from, context, isNullPointerConstant, isUserDefinedConversion);
 	}
 	void add(const FunctionOverload& overload, const FunctionType& functionType, CvQualifiers qualifiers, const SimpleType* memberEnclosing, FunctionTemplate& functionTemplate = FunctionTemplate())

@@ -300,41 +300,30 @@ inline IntegralConstant conditional(IntegralConstant first, IntegralConstant sec
 
 // ----------------------------------------------------------------------------
 // expression evaluation
-#if 0
-struct ExpressionResult
-{
-	IntegralConstant value;
-	bool isConstant;
-	ExpressionResult(IntegralConstant value, bool isConstant)
-		: value(value), isConstant(isConstant)
-	{
-	}
-};
-#endif
 
-IntegralConstant evaluateExpressionImpl(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context);
+ExpressionValue evaluateExpressionImpl(ExpressionNode* node, const InstantiationContext& context);
 
-inline IntegralConstant evaluateExpression(ExpressionNode* node, ConstantExpressionCategory category, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(ExpressionNode* node, const InstantiationContext& context)
 {
 	if(isDependentPointerToMemberExpression(node))
 	{
 		// TODO: check this names a valid non-static member
-		return IntegralConstant(0); // TODO: unique value for address of member
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
 	}
-	return evaluateExpressionImpl(node, category, context);
+	return evaluateExpressionImpl(node, context);
 }
 
-inline IntegralConstant evaluateExpression(const ExpressionWrapper& expression, ConstantExpressionCategory category, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
 	if(isPointerToMemberExpression(expression))
 	{
-		return IntegralConstant(0); // TODO: unique value for address of member
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
 	}
 	if(isPointerToFunctionExpression(expression))
 	{
-		return IntegralConstant(0); // TODO: unique value for address of function
+		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
 	}
-	return evaluateExpression(expression.p, category, context);
+	return evaluateExpression(expression.p, context);
 }
 
 inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context);
@@ -1188,7 +1177,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 				// a contrived object of type T becomes the implied object argument
 				: ExpressionType(makeUniqueSimpleType(*memberEnclosing), true);
 			transientExpression = ObjectExpression(objectExpressionType);
-			objectExpression = ExpressionWrapper(&transientExpression, false);
+			objectExpression = ExpressionWrapper(&transientExpression);
 		}
 		augmentedArguments.push_back(makeArgument(objectExpression, objectExpressionType));
 	}
@@ -1305,8 +1294,10 @@ inline UniqueTypeWrapper typeOfDecltypeSpecifier(const ExpressionWrapper& expres
 inline void evaluateStaticAssert(const ExpressionWrapper& expression, const char* message, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(!expression.isNonStaticMemberName); // TODO: report non-fatal error: "expected expression convertible to bool"
+	ExpressionValue value = evaluateExpression(expression, context);
 	// [dcl.dcl] In a static_assert-declaration the constant-expression shall be a constant expression that can be contextually converted to bool
-	bool failed = evaluateExpression(expression, CONSTANTEXPRESSION_OTHER, context).value == 0;
+	SYMBOLS_ASSERT(value.isConstant);
+	bool failed = value.value.value == 0;
 	// [dcl.dcl] If the value of the expression when so converted is true, the
 	// declaration has no effect. Otherwise, the program is ill-formed, and the resulting diagnostic message (1.4)
 	// shall include the text of the string-literal
@@ -1340,136 +1331,5 @@ inline bool isNullPointerCastExpression(const ExpressionWrapper& expression)
 	return isNullPointerCastExpression(getCastExpression(expression));
 }
 
-bool isConstantExpression(ExpressionNode* node, const InstantiationContext& context);
-
-inline bool isConstantExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
-{
-	return expression.isValueDependent ? isConstantExpression(expression.p, context) : expression.isConstant;
-}
-
-inline bool isConstantExpression(const IdExpression& node, const InstantiationContext& context)
-{
-	if(isOverloadedFunctionIdExpression(node))
-	{
-		return false;
-	}
-
-	ExpressionType type = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
-
-	const SimpleType* enclosing = node.enclosing != 0 ? node.enclosing : context.enclosingType;
-
-	const SimpleType* memberEnclosing = isMember(*node.declaration) // if the declaration is a class member
-		? findEnclosingType(enclosing, node.declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
-		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
-
-	return isIntegralConstant(type)
-		&& isConstantExpression(node.declaration->initializer, setEnclosingType(context, memberEnclosing));
-}
-
-inline bool isConstantExpression(const DependentIdExpression& node, const InstantiationContext& context)
-{
-	SYMBOLS_ASSERT(false); // expected non-dependent expression!
-	return false;
-}
-
-inline bool isConstantExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const CastExpression& node, const InstantiationContext& context)
-{
-	UniqueTypeWrapper type = substitute(node.type, context);
-	return (isIntegral(type) || isEnumeration(type))
-			&& (node.operand.p == 0 // T()
-				|| isConstantExpression(node.operand, context))
-		|| isNullPointerCastExpression(node);
-}
-
-inline bool isConstantExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const SizeofExpression& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const UnaryExpression& node, const InstantiationContext& context)
-{
-	return isConstantExpression(node.first, context)
-		&& node.operation != 0;
-}
-
-inline bool isConstantExpression(const BinaryExpression& node, const InstantiationContext& context)
-{
-	return isConstantExpression(node.first, context)
-		&& isConstantExpression(node.second, context) && node.operation != 0;
-}
-
-inline bool isConstantExpression(const TernaryExpression& node, const InstantiationContext& context)
-{
-	return isConstantExpression(node.first, context)
-		&& isConstantExpression(node.second, context)
-		&& isConstantExpression(node.third, context);
-}
-
-inline bool isConstantExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const struct ExplicitTypeExpression& node, const InstantiationContext& context)
-{
-	return false;
-}
-
-inline bool isConstantExpression(const struct ObjectExpression& node, const InstantiationContext& context)
-{
-	return false;
-}
-
-inline bool isConstantExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
-{
-	// occurs within the offsetof macro
-	return isConstantExpression(node.left, context);
-}
-
-inline bool isConstantExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
-{
-	// occurs within the offsetof macro
-	return isConstantExpression(node.left, context);
-}
-
-inline bool isConstantExpression(const struct OffsetofExpression& node, const InstantiationContext& context)
-{
-	return true;
-}
-
-inline bool isConstantExpression(const struct FunctionCallExpression& node, const InstantiationContext& context)
-{
-	return false;
-}
-
-inline bool isConstantExpression(const struct SubscriptExpression& node, const InstantiationContext& context)
-{
-	return false;
-}
-
-inline bool isConstantExpression(const struct PostfixOperatorExpression& node, const InstantiationContext& context)
-{
-	return false;
-}
 
 #endif

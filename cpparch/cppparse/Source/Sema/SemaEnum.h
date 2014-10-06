@@ -100,8 +100,9 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 			{
 				// [dcl.enum] An enumerator-definition without an initializer gives the enumerator the value obtained by increasing the value of the previous enumerator by one.
 				ExpressionWrapper one = makeConstantExpressionOne();
-				value = makeExpression(BinaryExpression(gOperatorPlusId, operator+, typeOfBinaryExpression<binaryOperatorAdditiveType>, value, one), // TODO: type of enumerator
-					true, value.isTypeDependent, value.isValueDependent
+				value = makeExpression(
+					BinaryExpression(gOperatorPlusId, operator+, typeOfBinaryExpression<binaryOperatorAdditiveType>, value, one), // TODO: type of enumerator
+					value.isTypeDependent, value.isValueDependent
 				);
 			}
 			enumerator.initializer = value;

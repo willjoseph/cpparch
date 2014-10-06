@@ -79,12 +79,12 @@ struct SemaPostfixExpressionMember : public SemaQualified
 		if(!objectExpression.isTypeDependent) // if the type of the object expression is not dependent
 		{
 			// offsetof hack: treat the object expression as constant if it is "(T*)->"
-			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow), isNullPointerCastExpression(objectExpression) && isArrow);
+			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow));
 			memberClass = &getSimpleType(objectExpression.type.value);
 		}
 		else
 		{
-			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow), false, true);
+			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow), true);
 		}
 	}
 	void action(cpp::terminal<boost::wave::T_TEMPLATE> symbol)
@@ -231,7 +231,7 @@ struct SemaPostfixExpression : public SemaBase
 		addDependent(valueDependent, walker.typeDependent);
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
 		type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
-		expression = makeExpression(CastExpression(type, walker.expression), walker.expression.isConstant, isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 		expression.isTemplateArgumentAmbiguity = symbol->args == 0;
 		if(!expression.isTypeDependent)
 		{
@@ -251,7 +251,7 @@ struct SemaPostfixExpression : public SemaBase
 		}
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression), walker.expression.isConstant, isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 		if(!expression.isTypeDependent)
 		{
 			SYMBOLS_ASSERT(expression.type == type);
@@ -309,7 +309,7 @@ struct SemaPostfixExpression : public SemaBase
 				getInstantiationContext());
 		}
 #endif
-		expression = makeExpression(SubscriptExpression(expression, walker.expression), false, isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(SubscriptExpression(expression, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 #if 1
 		type = expression.type;
 #else
@@ -404,7 +404,7 @@ struct SemaPostfixExpression : public SemaBase
 			type = typeOfFunctionCallExpression(makeArgument(expression, type), walker.arguments, getInstantiationContext());
 #endif
 		}
-		expression = makeExpression(FunctionCallExpression(expression, walker.arguments), false, isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(FunctionCallExpression(expression, walker.arguments), isDependentOld(typeDependent), isDependentOld(valueDependent));
 #if 1
 		type = expression.type;
 #else
@@ -459,7 +459,6 @@ struct SemaPostfixExpression : public SemaBase
 		SEMANTIC_ASSERT(walker.expression.p != 0);
 		expression = makeExpression(
 			ClassMemberAccessExpression(walker.objectExpression, walker.expression),
-			walker.objectExpression.isConstant, // is true when this is part of the offsetof macro
 			isDependentOld(typeDependent), isDependentOld(valueDependent)
 		);
 
@@ -508,7 +507,7 @@ struct SemaPostfixExpression : public SemaBase
 		}
 #endif
 
-		expression = makeExpression(PostfixOperatorExpression(getOverloadedOperatorId(symbol), expression), false, isDependentOld(typeDependent));
+		expression = makeExpression(PostfixOperatorExpression(getOverloadedOperatorId(symbol), expression), isDependentOld(typeDependent));
 #if 1
 		type = expression.type;
 #else
@@ -526,7 +525,7 @@ struct SemaPostfixExpression : public SemaBase
 		type = ExpressionType(gBool, false);
 		UnaryTypeTraitsOp operation = getUnaryTypeTraitsOp(symbol->trait);
 		Name name = getTypeTraitName(symbol);
-		expression = makeExpression(TypeTraitsUnaryExpression(name, operation, walker.first), true, false, isDependentOld(valueDependent));
+		expression = makeExpression(TypeTraitsUnaryExpression(name, operation, walker.first), false, isDependentOld(valueDependent));
 		SYMBOLS_ASSERT(expression.type == type);
 	}
 	SEMA_POLICY(cpp::postfix_expression_typetraits_binary, SemaPolicyPush<struct SemaTypeTraitsIntrinsic>)
@@ -536,7 +535,7 @@ struct SemaPostfixExpression : public SemaBase
 		type = ExpressionType(gBool, false);
 		BinaryTypeTraitsOp operation = getBinaryTypeTraitsOp(symbol->trait);
 		Name name = getTypeTraitName(symbol);
-		expression = makeExpression(TypeTraitsBinaryExpression(name, operation, walker.first, walker.second), true, false, isDependentOld(valueDependent));
+		expression = makeExpression(TypeTraitsBinaryExpression(name, operation, walker.first, walker.second), false, isDependentOld(valueDependent));
 		SYMBOLS_ASSERT(expression.type == type);
 	}
 	SEMA_POLICY(cpp::postfix_expression_offsetof, SemaPolicyPush<struct SemaOffsetof>)
@@ -544,7 +543,7 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		addDependent(valueDependent, walker.valueDependent);
 		type = ExpressionType(gUnsignedInt, false);
-		expression = makeExpression(OffsetofExpression(walker.type, walker.member), true, false, isDependentOld(valueDependent));
+		expression = makeExpression(OffsetofExpression(walker.type, walker.member), false, isDependentOld(valueDependent));
 		SYMBOLS_ASSERT(expression.type == type);
 	}
 };

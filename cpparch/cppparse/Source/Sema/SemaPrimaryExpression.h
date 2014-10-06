@@ -130,8 +130,7 @@ struct SemaPrimaryExpression : public SemaBase
 			{
 				// TODO: id-expression transformed into class-member-access is dependent if 'this' is dependent
 				// addDependent(typeDependent, enclosingDependent); // expression is dependent if 'this' is dependent
-				expression.type = typeOfExpression(expression.p, getInstantiationContext());
-				expression.isConstant = expression.isValueDependent ? false : isConstantExpression(expression.p, getInstantiationContext());
+				evaluateNonDependentExpression(expression, getInstantiationContext());
 			}
 #endif
 
@@ -160,7 +159,7 @@ struct SemaPrimaryExpression : public SemaBase
 		'this' is type-dependent if the class type of the enclosing member function is dependent
 		*/
 		addDependent(typeDependent, enclosingDependent);
-		expression = makeExpression(ExplicitTypeExpression(type), false, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type), isDependentOld(typeDependent));
 		if(!expression.isTypeDependent)
 		{
 			SYMBOLS_ASSERT(expression.type == type);

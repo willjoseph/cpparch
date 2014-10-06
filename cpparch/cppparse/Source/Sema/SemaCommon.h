@@ -1267,6 +1267,20 @@ inline const char* getIdentifierType(IdentifierFunc func)
 	return "<unknown>";
 }
 
+inline void evaluateNonDependentExpression(ExpressionWrapper& expression, const InstantiationContext& context)
+{
+	if(!expression.isTypeDependent)
+	{
+		expression.type = typeOfExpression(expression.p, context);
+		expression.isConstant = false;
+		if(!expression.isValueDependent)
+		{
+			ExpressionValue value = evaluateExpression(expression.p, context);
+			expression.isConstant = value.isConstant;
+			expression.value = value.value;
+		}
+	}
+}
 
 struct SemaBase : public SemaState
 {
@@ -1286,18 +1300,16 @@ struct SemaBase : public SemaState
 	}
 
 	template<typename T>
-	ExpressionWrapper makeExpression(const T& value, bool isConstant = false, bool isTypeDependent = false, bool isValueDependent = false)
+	ExpressionWrapper makeExpression(const T& value, bool isTypeDependent = false, bool isValueDependent = false)
 	{
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(value);
 		ExpressionNode* node = isUnique ? makeUniqueExpression(value) : allocatorNew(context, ExpressionNodeGeneric<T>(value));
-		ExpressionWrapper result(node, isConstant, isTypeDependent, isValueDependent);
+		ExpressionWrapper result(node, isTypeDependent, isValueDependent);
 		result.isUnique = isUnique;
-		if(!isTypeDependent
-			&& !isMemberIdExpression(value)) // cannot evaluate type of non-static member with no context
+		if(!isMemberIdExpression(value)) // cannot evaluate type of non-static member with no context
 		{
-			result.type = typeOfExpression(node, getInstantiationContext());
-			result.isConstant = isValueDependent ? false : isConstantExpression(value, getInstantiationContext());
+			evaluateNonDependentExpression(result, getInstantiationContext());
 		}
 		return result;
 	}
@@ -1558,7 +1570,7 @@ struct SemaBase : public SemaState
 		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType));
 		return makeExpression(
 			ClassMemberAccessExpression(left, expression),
-			false, expression.isTypeDependent, expression.isValueDependent);
+			expression.isTypeDependent, expression.isValueDependent);
 	}
 };
 

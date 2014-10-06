@@ -250,8 +250,9 @@ struct SubstituteVisitor : TypeElementVisitor
 		}
 
 		// TODO: SFINAE for expressions: check that type of template argument matches template parameter
-		IntegralConstant value = evaluateExpression(element.expression, CONSTANTEXPRESSION_OTHER, context);
-		type.push_front(NonType(value));
+		ExpressionValue result = evaluateExpression(element.expression, context);
+		SYMBOLS_ASSERT(result.isConstant);
+		type.push_front(NonType(result.value));
 	}
 	virtual void visit(const DependentDecltype& element)
 	{

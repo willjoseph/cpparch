@@ -231,7 +231,6 @@ struct SemaIdExpression : public SemaQualified
 			setDecoration(id, gDependentObjectInstance);
 
 			expression = makeExpression(DependentIdExpression(id->value, qualifyingType, templateArguments, isQualified),
-				true, // TODO: expression depending on template parameter may or may not be an integral constant expression
 				true,
 				true
 			);
@@ -243,7 +242,7 @@ struct SemaIdExpression : public SemaQualified
 			isUndeclared = true;
 			setDecoration(id, gDependentObjectInstance);
 
-			expression = makeExpression(DependentIdExpression(id->value, gOverloaded, TemplateArgumentsInstance(), isQualified), false, true);
+			expression = makeExpression(DependentIdExpression(id->value, gOverloaded, TemplateArgumentsInstance(), isQualified), true);
 		}
 		else
 		{
@@ -281,8 +280,8 @@ struct SemaIdExpression : public SemaQualified
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
 				// TODO: check compliance: id-expression cannot be compared for equivalence unless it names a non-type template-parameter
-				? makeExpression(IdExpression(declaration, qualifyingClass, templateArguments, isQualified), false, isDependentOld(typeDependent), isDependentOld(valueDependent))
-				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), true, isDependentOld(typeDependent), isDependentOld(valueDependent));
+				? makeExpression(IdExpression(declaration, qualifyingClass, templateArguments, isQualified), isDependentOld(typeDependent), isDependentOld(valueDependent))
+				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependentOld(typeDependent), isDependentOld(valueDependent));
 
 			expression.isNonStaticMemberName = isMember(*declaration) && !isStatic(*declaration) && !isEnumerator(*declaration);
 			expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && qualifyingType != gUniqueTypeNull;

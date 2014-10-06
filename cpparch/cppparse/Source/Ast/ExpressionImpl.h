@@ -41,6 +41,7 @@ inline ExpressionWrapper makeConstantExpression(const IntegralConstantExpression
 {
 	ExpressionWrapper result(makeUniqueExpression(node));
 	result.isUnique = true;
+	result.isConstant = true;
 	result.type = node.type;
 	result.value = node.value;
 	return result;
@@ -687,5 +688,14 @@ inline bool isDependentPointerToMemberExpression(ExpressionNode* expression)
 		&& isDependentIdExpression(getUnaryExpression(expression).first);
 }
 
+inline bool isLiteralZeroExpression(ExpressionNode* expression)
+{
+	if(!isIntegralConstantExpression(expression))
+	{
+		return false;
+	}
+	const IntegralConstantExpression& ice = getIntegralConstantExpression(expression);
+	return ice.value.value == 0;
+}
 
 #endif

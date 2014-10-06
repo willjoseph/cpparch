@@ -158,10 +158,10 @@ struct ExpressionWrapper : ExpressionPtr
 		, isParenthesised(false)
 	{
 	}
-	explicit ExpressionWrapper(ExpressionNode* node, bool isConstant = true, bool isTypeDependent = false, bool isValueDependent = false)
+	explicit ExpressionWrapper(ExpressionNode* node, bool isTypeDependent = false, bool isValueDependent = false)
 		: ExpressionPtr(node)
 		, isUnique(false)
-		, isConstant(isConstant)
+		, isConstant(false)
 		, isTypeDependent(isTypeDependent)
 		, isValueDependent(isValueDependent)
 		, isTemplateArgumentAmbiguity(false)
