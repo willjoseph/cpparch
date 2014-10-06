@@ -102,7 +102,7 @@ struct SemaControlStatement : public SemaBase
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTPAREN> symbol)
 	{
-		pushScope(newScope(enclosing->getUniqueName(), SCOPETYPE_LOCAL));
+		pushScope(newScope(enclosingScope->getUniqueName(), SCOPETYPE_LOCAL));
 	}
 	SEMA_POLICY(cpp::condition_init, SemaPolicyPush<struct SemaSimpleDeclaration>)
 	void action(cpp::condition_init* symbol, const SemaSimpleDeclarationResult& walker)
@@ -133,7 +133,7 @@ struct SemaCompoundStatement : public SemaBase
 
 	void action(cpp::terminal<boost::wave::T_LEFTBRACE> symbol)
 	{
-		pushScope(newScope(enclosing->getUniqueName(), SCOPETYPE_LOCAL));
+		pushScope(newScope(enclosingScope->getUniqueName(), SCOPETYPE_LOCAL));
 	}
 	SEMA_POLICY(cpp::statement, SemaPolicyPush<struct SemaStatement>)
 	void action(cpp::statement* symbol, const SemaStatement& walker)

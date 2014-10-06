@@ -66,7 +66,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		type(0, context),
 		declaration(0),
 		id(&gAnonymousId),
-		parent(state.enclosing),
+		parent(state.enclosingScope),
 		defaultArgument(0),
 		enclosed(0),
 		isConversionFunction(false),
@@ -104,12 +104,12 @@ struct SemaDeclarationSuffix : public SemaBase
 			}
 			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent, isDestructor);
 
-			enclosing = parent;
+			enclosingScope = parent;
 
 			if(enclosed != 0) // if the declaration has a parameter-declaration-clause
 			{
 				enclosed->name = declaration->getName();
-				enclosing = enclosed; // subsequent declarations are contained by the parameter-scope - see 3.3.2-1: parameter scope
+				enclosingScope = enclosed; // subsequent declarations are contained by the parameter-scope - see 3.3.2-1: parameter scope
 			}
 			clearTemplateParams();
 
@@ -125,7 +125,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	SEMA_POLICY(cpp::declarator, SemaPolicyPushCached<struct SemaDeclarator>)
 	void action(cpp::declarator* symbol, const SemaDeclarator& walker)
 	{
-		parent = walker.enclosing; // if the id-expression in the declarator is a qualified-id, this is the qualifying scope
+		parent = walker.enclosingScope; // if the id-expression in the declarator is a qualified-id, this is the qualifying scope
 		id = walker.id;
 		enclosed = walker.paramScope;
 		type.typeSequence = walker.typeSequence;
@@ -173,7 +173,7 @@ struct SemaDeclarationSuffix : public SemaBase
 			addDependent(type.dependent, typeDependent);
 			makeUniqueTypeSafe(type);
 
-			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, *walker.id, type, 0, seq.specifiers); // 3.3.1.1
+			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *walker.id, type, 0, seq.specifiers); // 3.3.1.1
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(instance);
 #endif
@@ -213,7 +213,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		}
 
 		// NOTE: we must ensure that symbol-table modifications within the scope of this function are undone on parse fail
-		pushScope(newScope(enclosing->getUniqueName(), SCOPETYPE_LOCAL));
+		pushScope(newScope(enclosingScope->getUniqueName(), SCOPETYPE_LOCAL));
 	}
 	void action(cpp::terminal<boost::wave::T_COMMA> symbol) // init_declarator_list, member_declarator_list, member_declaration_bitfield
 	{
@@ -456,7 +456,7 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				// template<class T> class C;
 				// template<> class C<int>;
 				// template<class T> class C<T*>;
-				DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, *seq.forward, TYPE_CLASS, 0, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, seq.type.templateArguments);
+				DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *seq.forward, TYPE_CLASS, 0, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, seq.type.templateArguments);
 #ifdef ALLOCATOR_DEBUG
 				trackDeclaration(instance);
 #endif
@@ -493,7 +493,7 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				Declaration& member = *(*i).second;
 				if(isAnonymous(member))
 				{
-					member.setName(enclosing->getUniqueName());
+					member.setName(enclosingScope->getUniqueName());
 					if(member.enclosed != 0)
 					{
 						member.enclosed->name = member.getName();
@@ -501,7 +501,7 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				}
 				else
 				{
-					const DeclarationInstance* holder = ::findDeclaration(enclosing->declarations, member.getName());
+					const DeclarationInstance* holder = ::findDeclaration(enclosingScope->declarations, member.getName());
 					if(holder != 0)
 					{
 						Declaration* declaration = *holder;
@@ -511,10 +511,10 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 						throw SemanticError();
 					}
 				}
-				member.scope = enclosing;
+				member.scope = enclosingScope;
 				Identifier* id = &member.getName();
-				enclosing->declarations.insert(DeclarationInstance(&member, context.declarationCount++));
-				enclosing->declarationList.push_back(&member);
+				enclosingScope->declarations.insert(DeclarationInstance(&member, context.declarationCount++));
+				enclosingScope->declarationList.push_back(&member);
 			}
 			declaration->enclosed = 0;
 		}

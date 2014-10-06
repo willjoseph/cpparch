@@ -22,7 +22,7 @@ struct SemaEnumeratorDefinition : public SemaBase
 		The point of declaration for an enumerator is immediately after its enumerator-definition.
 		*/
 		// TODO: give enumerators a type
-		DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, symbol->value, TYPE_ENUMERATOR, 0, DeclSpecifiers());
+		DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, symbol->value, TYPE_ENUMERATOR, 0, DeclSpecifiers());
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(instance);
 #endif
@@ -61,14 +61,14 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 		// defer declaration until '{' resolves ambiguity between enum-specifier and elaborated-type-specifier
 		if(id != 0)
 		{
-			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, *id, TYPE_ENUM, 0);
+			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_ENUM, 0);
 			setDecoration(id, instance);
 			declaration = instance;
 		}
 		if(declaration == 0)
 		{
 			// unnamed enum
-			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, enclosing->getUniqueName(), TYPE_ENUM, 0);
+			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, enclosingScope->getUniqueName(), TYPE_ENUM, 0);
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(instance);
 #endif

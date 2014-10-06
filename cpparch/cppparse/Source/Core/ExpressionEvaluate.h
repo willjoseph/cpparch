@@ -576,7 +576,7 @@ inline ExpressionType typeOfUnaryExpression(Name operatorName, Argument operand,
 			// For a qualified-id, if the member is a static member of type "T", the type of the result is plain "pointer to T."
 			// If the member is a non-static member of class C of type T, the type of the result is "pointer to member of class C of type
 			// T."
-			UniqueTypeWrapper classType = makeUniqueSimpleType(*getIdExpression(operand).enclosing);
+			UniqueTypeWrapper classType = makeUniqueSimpleType(*getIdExpression(operand).qualifying);
 			UniqueTypeWrapper type = operand.type;
 			type.push_front(MemberPointerType(classType)); // produces a non-const pointer
 			return ExpressionType(type, false); // non lvalue
@@ -1123,7 +1123,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	SYMBOLS_ASSERT(UniqueTypeWrapper(declaration->type.unique).isFunction());
 
 	// if this is a member-function-call, the type of the class containing the member
-	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.enclosing, idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);
+	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.qualifying, idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);
 
 	ExpressionNodeGeneric<ObjectExpression> transientExpression = ObjectExpression(gNullExpressionType);
 	Arguments augmentedArguments;

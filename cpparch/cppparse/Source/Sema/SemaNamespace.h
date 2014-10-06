@@ -43,8 +43,8 @@ struct SemaUsingDeclaration : public SemaQualified
 			instance.name = walker.id;
 			instance.overloaded = declaration.p;
 			instance.redeclared = declaration.p;
-			DeclarationInstanceRef redeclaration = enclosing->declarations.insert(instance);
-			enclosing->declarationList.push_back(instance);
+			DeclarationInstanceRef redeclaration = enclosingScope->declarations.insert(instance);
+			enclosingScope->declarationList.push_back(instance);
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(redeclaration);
 #endif
@@ -86,9 +86,9 @@ struct SemaUsingDirective : public SemaQualified
 	SEMA_POLICY(cpp::namespace_name, SemaPolicyPush<struct SemaNamespaceName>)
 	void action(cpp::namespace_name* symbol, const SemaNamespaceName& walker)
 	{
-		if(!findScope(enclosing, walker.declaration->enclosed))
+		if(!findScope(enclosingScope, walker.declaration->enclosed))
 		{
-			enclosing->usingDirectives.push_back(walker.declaration->enclosed);
+			enclosingScope->usingDirectives.push_back(walker.declaration->enclosed);
 		}
 	}
 };
@@ -127,7 +127,7 @@ struct SemaNamespaceAliasDefinition : public SemaQualified
 			}
 
 			// TODO: check for conflicts with earlier declarations
-			declaration = pointOfDeclaration(context, enclosing, *id, TYPE_NAMESPACE, declaration->enclosed);
+			declaration = pointOfDeclaration(context, enclosingScope, *id, TYPE_NAMESPACE, declaration->enclosed);
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(declaration);
 #endif
@@ -162,7 +162,7 @@ struct SemaNamespace : public SemaBase, SemaNamespaceResult
 	{
 		if(id != 0)
 		{
-			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, *id, TYPE_NAMESPACE, 0);
+			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_NAMESPACE, 0);
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(instance);
 #endif

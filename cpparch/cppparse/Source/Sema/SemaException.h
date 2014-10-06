@@ -15,7 +15,7 @@ struct SemaHandler : public SemaBase
 	}
 	void action(cpp::terminal<boost::wave::T_CATCH> symbol)
 	{
-		pushScope(newScope(enclosing->getUniqueName(), SCOPETYPE_LOCAL));
+		pushScope(newScope(enclosingScope->getUniqueName(), SCOPETYPE_LOCAL));
 	}
 	SEMA_POLICY(cpp::exception_declaration_default, SemaPolicyPush<struct SemaSimpleDeclaration>)
 	void action(cpp::exception_declaration_default* symbol, const SemaSimpleDeclarationResult& walker)

@@ -65,9 +65,9 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 	}
 	void visit(const IdExpression& node)
 	{
-		if(node.enclosing != 0)
+		if(node.qualifying != 0)
 		{
-			printType(*node.enclosing);
+			printType(*node.qualifying);
 			printer.out << ".";
 		}
 		printer.out << getValue(node.declaration->getName());

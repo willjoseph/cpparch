@@ -651,7 +651,7 @@ struct SemaState
 	typedef SemaState State;
 
 	SemaContext& context;
-	ScopePtr enclosing;
+	ScopePtr enclosingScope;
 	const SimpleType* enclosingType;
 	const SimpleType* enclosingFunction;
 	Dependent enclosingDependent;
@@ -668,7 +668,7 @@ struct SemaState
 
 	SemaState(SemaContext& context)
 		: context(context)
-		, enclosing(0)
+		, enclosingScope(0)
 		, enclosingType(0)
 		, enclosingFunction(0)
 		, qualifying_p(0)
@@ -692,7 +692,7 @@ struct SemaState
 	}
 	InstantiationContext getInstantiationContext() const
 	{
-		return InstantiationContext(getLocation(), enclosingType, enclosingFunction, enclosing);
+		return InstantiationContext(getLocation(), enclosingType, enclosingFunction, enclosingScope);
 	}
 
 	ExpressionType getTypeInfoType()
@@ -818,7 +818,7 @@ struct SemaState
 						return result;
 					}
 				}
-				if(result.append(::findClassOrNamespaceMemberDeclaration(*enclosing, id, filter)))
+				if(result.append(::findClassOrNamespaceMemberDeclaration(*enclosingScope, id, filter)))
 				{
 #ifdef LOOKUP_DEBUG
 					std::cout << "HIT: unqualified" << std::endl;
@@ -965,9 +965,9 @@ struct SemaState
 
 	void pushScope(Scope* scope)
 	{
-		SEMANTIC_ASSERT(findScope(enclosing, scope) == 0);
-		scope->parent = enclosing;
-		enclosing = scope;
+		SEMANTIC_ASSERT(findScope(enclosingScope, scope) == 0);
+		scope->parent = enclosingScope;
+		enclosingScope = scope;
 	}
 
 	static void addBase(Declaration* declaration, const Type& base)
@@ -1049,7 +1049,7 @@ struct SemaState
 
 	Scope* getEtsScope() const
 	{
-		Scope* scope = enclosing;
+		Scope* scope = enclosingScope;
 		for(; !enclosesEts(scope->type); scope = scope->parent)
 		{
 		}
@@ -1058,13 +1058,13 @@ struct SemaState
 
 	Scope* getFriendScope() const
 	{
-		SEMANTIC_ASSERT(enclosing->type == SCOPETYPE_CLASS);
-		Scope* scope = enclosing;
+		SEMANTIC_ASSERT(enclosingScope->type == SCOPETYPE_CLASS);
+		Scope* scope = enclosingScope;
 		for(; scope->type != SCOPETYPE_NAMESPACE; scope = scope->parent)
 		{
 			if(scope->type == SCOPETYPE_LOCAL)
 			{
-				return enclosing; // friend declaration in a local class lives in class scope
+				return enclosingScope; // friend declaration in a local class lives in class scope
 			}
 		}
 		return scope;
@@ -1072,7 +1072,7 @@ struct SemaState
 
 	Scope* getClassScope() const
 	{
-		return ::getEnclosingClass(enclosing);
+		return ::getEnclosingClass(enclosingScope);
 	}
 
 	void printScope()
@@ -1092,14 +1092,14 @@ struct SemaState
 		else
 		{
 			std::cout << "enclosing:" << std::endl;
-			::printScope(*enclosing);
+			::printScope(*enclosingScope);
 		}
 	}
 
 
 	bool isDependentImpl(Declaration* dependent) const
 	{
-		return ::isDependentImpl(dependent, enclosing, templateParamScope);
+		return ::isDependentImpl(dependent, enclosingScope, templateParamScope);
 	}
 	bool isDependentOld(const Dependent& dependent) const
 	{
@@ -1359,13 +1359,13 @@ struct SemaBase : public SemaState
 		if(templateParamScope != 0)
 		{
 			// insert the template-parameter scope to enclose the class scope
-			SEMANTIC_ASSERT(findScope(enclosing, templateParamScope) == 0);
-			templateParamScope->parent = enclosing->parent;
-			enclosing->parent = templateParamScope; // required when looking up template-parameters from within a template class
+			SEMANTIC_ASSERT(findScope(enclosingScope, templateParamScope) == 0);
+			templateParamScope->parent = enclosingScope->parent;
+			enclosingScope->parent = templateParamScope; // required when looking up template-parameters from within a template class
 		}
 		if(declaration->isTemplate)
 		{
-			enclosing->templateDepth = templateDepth; // indicates that this is a template
+			enclosingScope->templateDepth = templateDepth; // indicates that this is a template
 		}
 		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
 	}
@@ -1410,7 +1410,7 @@ struct SemaBase : public SemaState
 		// until a matching declaration is provided in that namespace scope (either before or after the class definition
 		// granting friendship).
 		if(specifiers.isFriend // is friend
-			&& parent == enclosing) // is unqualified
+			&& parent == enclosingScope) // is unqualified
 		{
 			parent = getFriendScope();
 		}

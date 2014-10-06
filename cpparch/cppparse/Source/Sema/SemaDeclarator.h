@@ -227,7 +227,7 @@ struct SemaDeclarator : public SemaBase
 		walker.pushPointerType(symbol->op);
 		id = walker.id;
 		qualifying = walker.qualifying;
-		enclosing = walker.enclosing;
+		enclosingScope = walker.enclosingScope;
 		paramScope = walker.paramScope;
 		templateParams = walker.templateParams;
 		addDependent(dependent, walker.dependent);
@@ -269,9 +269,9 @@ struct SemaDeclarator : public SemaBase
 			? gUniqueTypeNull : UniqueTypeWrapper(walker.qualifying.back().unique);
 
 		if(walker.getQualifyingScope()
-			&& enclosing->type != SCOPETYPE_CLASS) // //TODO: in 'class C { friend void Q::N(X); };' X should be looked up in the scope of Q rather than C (if Q is a class)
+			&& enclosingScope->type != SCOPETYPE_CLASS) // //TODO: in 'class C { friend void Q::N(X); };' X should be looked up in the scope of Q rather than C (if Q is a class)
 		{
-			enclosing = walker.getQualifyingScope(); // names in declarator suffix (array-size, parameter-declaration) are looked up in declarator-id's qualifying scope
+			enclosingScope = walker.getQualifyingScope(); // names in declarator suffix (array-size, parameter-declaration) are looked up in declarator-id's qualifying scope
 		}
 
 		if(qualifying != gUniqueTypeNull)// if the declarator is qualified by a class-name
@@ -338,7 +338,7 @@ struct SemaDeclarator : public SemaBase
 	{
 		id = walker.id;
 		qualifying = walker.qualifying;
-		enclosing = walker.enclosing;
+		enclosingScope = walker.enclosingScope;
 		paramScope = walker.paramScope;
 		templateParams = walker.templateParams;
 		addDependent(dependent, walker.dependent);

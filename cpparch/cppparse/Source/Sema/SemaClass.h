@@ -58,7 +58,7 @@ struct SemaClassHead : public SemaBase
 	bool isUnion;
 	bool isSpecialization;
 	SemaClassHead(const SemaState& state)
-		: SemaBase(state), declaration(0), id(0), parent(enclosing), arguments(context), isUnion(false), isSpecialization(false)
+		: SemaBase(state), declaration(0), id(0), parent(enclosingScope), arguments(context), isUnion(false), isSpecialization(false)
 	{
 	}
 
@@ -99,7 +99,7 @@ struct SemaClassHead : public SemaBase
 		// defer class declaration until we know this is a class-specifier - it may be an elaborated-type-specifier until ':' is discovered
 		// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
 		declaration = declareClass(parent, id, isUnion, isSpecialization, arguments);
-		enclosing = parent;
+		enclosingScope = parent;
 		beginClassDefinition(declaration);
 	}
 	SEMA_POLICY(cpp::base_specifier, SemaPolicyPush<struct SemaBaseSpecifier>)
@@ -173,7 +173,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		isUnion = walker.isUnion;
 		isSpecialization = walker.isSpecialization;
 		arguments = walker.arguments;
-		enclosing = walker.parent;
+		enclosingScope = walker.parent;
 		enclosingType = walker.enclosingType;
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 	}
@@ -183,7 +183,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		if(declaration == 0)
 		{
 			// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
-			declaration = declareClass(enclosing, id, isUnion, isSpecialization, arguments);
+			declaration = declareClass(enclosingScope, id, isUnion, isSpecialization, arguments);
 		}
 		SEMANTIC_ASSERT(declaration->enclosed != 0); // the existing declaration should be the result of declareClass
 		

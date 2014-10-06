@@ -140,12 +140,12 @@ inline const DependentIdExpression& getDependentIdExpression(ExpressionNode* nod
 struct IdExpression
 {
 	DeclarationInstanceRef declaration;
-	const SimpleType* enclosing;
+	const SimpleType* qualifying;
 	// TODO: handle empty template-argument list '<>'. If specified, overload resolution should ignore non-templates
 	TemplateArgumentsInstance templateArguments;
 	bool isQualified;
-	IdExpression(DeclarationInstanceRef declaration, const SimpleType* enclosing, const TemplateArgumentsInstance& templateArguments, bool isQualified)
-		: declaration(declaration), enclosing(enclosing), templateArguments(templateArguments), isQualified(isQualified)
+	IdExpression(DeclarationInstanceRef declaration, const SimpleType* qualifying, const TemplateArgumentsInstance& templateArguments, bool isQualified)
+		: declaration(declaration), qualifying(qualifying), templateArguments(templateArguments), isQualified(isQualified)
 	{
 	}
 };
@@ -154,8 +154,8 @@ inline bool operator<(const IdExpression& left, const IdExpression& right)
 {
 	return left.declaration.p != right.declaration.p
 		? left.declaration.p < right.declaration.p
-		: left.enclosing != right.enclosing
-		? left.enclosing < right.enclosing
+		: left.qualifying != right.qualifying
+		? left.qualifying < right.qualifying
 		: left.isQualified != right.isQualified
 		? left.isQualified < right.isQualified
 		: left.templateArguments < right.templateArguments;
@@ -660,7 +660,7 @@ inline bool isPointerToMemberExpression(ExpressionNode* expression)
 		return false;
 	}
 	const IdExpression& idExpression = getIdExpression(unary.first);
-	return idExpression.enclosing != 0 // qualified
+	return idExpression.qualifying != 0 // qualified
 		&& !isStatic(*idExpression.declaration) // non static
 		&& isMember(*idExpression.declaration); // member
 }

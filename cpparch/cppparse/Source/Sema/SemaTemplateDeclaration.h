@@ -23,7 +23,7 @@ struct SemaTypeParameter : public SemaBase
 	{
 		committed();
 		SEMANTIC_ASSERT(param.declaration == 0); // may only be called once, after parse of type-parameter succeeds
-		DeclarationInstanceRef instance = pointOfDeclaration(context, enclosing, *id, TYPE_PARAM, 0, DECLSPEC_TYPEDEF, !params.empty(), params, false, TEMPLATEARGUMENTS_NULL, templateParameter);
+		DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_PARAM, 0, DECLSPEC_TYPEDEF, !params.empty(), params, false, TEMPLATEARGUMENTS_NULL, templateParameter);
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(instance);
 #endif
@@ -136,7 +136,7 @@ struct SemaTemplateParameterClause : public SemaBase, SemaTemplateParameterClaus
 		}
 		pushScope(newScope(makeIdentifier("$template"), SCOPETYPE_TEMPLATE));
 		clearTemplateParams();
-		enclosing->templateDepth = templateDepth;
+		enclosingScope->templateDepth = templateDepth;
 		enclosingDeferred = 0; // don't defer parse of default-argument for non-type template-parameter
 	}
 	SEMA_POLICY_ARGS(cpp::template_parameter_list, SemaPolicyPushIndexCommit<struct SemaTemplateParameterList>, 0)
@@ -161,8 +161,8 @@ struct SemaTemplateDeclaration : public SemaBase, SemaDeclarationResult
 	SEMA_POLICY(cpp::template_parameter_clause, SemaPolicyPush<struct SemaTemplateParameterClause>)
 	void action(cpp::template_parameter_clause* symbol, const SemaTemplateParameterClause& walker)
 	{
-		templateParamScope = walker.enclosing;
-		enclosing = walker.enclosing->parent;
+		templateParamScope = walker.enclosingScope;
+		enclosingScope = walker.enclosingScope->parent;
 		params = walker.params;
 		templateParams = &params;
 	}

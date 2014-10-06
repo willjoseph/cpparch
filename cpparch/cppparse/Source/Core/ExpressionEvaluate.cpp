@@ -16,13 +16,13 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 		return EXPRESSIONRESULT_INVALID; // constant expression must have an initializer
 	}
 
-	ExpressionType type = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
+	ExpressionType type = typeOfIdExpression(node.qualifying, node.declaration, node.templateArguments, node.isQualified, context);
 	if(!isIntegralConstant(type))
 	{
 		return EXPRESSIONRESULT_INVALID;
 	}
 
-	const SimpleType* enclosing = node.enclosing != 0 ? node.enclosing : context.enclosingType;
+	const SimpleType* enclosing = node.qualifying != 0 ? node.qualifying : context.enclosingType;
 
 	const SimpleType* memberEnclosing = isMember(*node.declaration) // if the declaration is a class member
 		? findEnclosingType(enclosing, node.declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
@@ -1056,14 +1056,14 @@ ExpressionType typeOfExpression(const NonTypeTemplateParameter& node, const Inst
 ExpressionType typeOfExpression(const DependentIdExpression& node, const InstantiationContext& context)
 {
 	const IdExpression expression = substituteIdExpression(node, context);
-	ExpressionType result = typeOfIdExpression(expression.enclosing, expression.declaration, expression.templateArguments, expression.isQualified, context);
+	ExpressionType result = typeOfIdExpression(expression.qualifying, expression.declaration, expression.templateArguments, expression.isQualified, context);
 	SYMBOLS_ASSERT(!isDependent(result));
 	return result;
 }
 
 ExpressionType typeOfExpression(const IdExpression& node, const InstantiationContext& context)
 {
-	ExpressionType result = typeOfIdExpression(node.enclosing, node.declaration, node.templateArguments, node.isQualified, context);
+	ExpressionType result = typeOfIdExpression(node.qualifying, node.declaration, node.templateArguments, node.isQualified, context);
 	SYMBOLS_ASSERT(!isDependent(result));
 	return result;
 }

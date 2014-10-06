@@ -38,10 +38,10 @@ struct SemaParameterDeclarationClause : public SemaBase
 		if(templateParamScope != 0)
 		{
 			// insert the template-parameter scope to enclose the declarator scope
-			SEMANTIC_ASSERT(findScope(enclosing, templateParamScope) == 0);
-			templateParamScope->parent = enclosing->parent;
-			enclosing->parent = templateParamScope;
-			enclosing->templateDepth = templateParamScope->templateDepth;
+			SEMANTIC_ASSERT(findScope(enclosingScope, templateParamScope) == 0);
+			templateParamScope->parent = enclosingScope->parent;
+			enclosingScope->parent = templateParamScope;
+			enclosingScope->templateDepth = templateParamScope->templateDepth;
 		}
 		clearTemplateParams();
 	}
@@ -110,7 +110,7 @@ struct SemaDeclaratorFunction : public SemaBase
 	SEMA_POLICY(cpp::parameter_declaration_clause, SemaPolicyPush<struct SemaParameterDeclarationClause>)
 	void action(cpp::parameter_declaration_clause* symbol, const SemaParameterDeclarationClause& walker)
 	{
-		paramScope = walker.enclosing; // store reference for later resumption
+		paramScope = walker.enclosingScope; // store reference for later resumption
 		parameters = walker.parameters;
 	}
 	SEMA_POLICY(cpp::exception_specification, SemaPolicyPush<struct SemaExceptionSpecification>)
