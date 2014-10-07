@@ -76,7 +76,6 @@ struct SemaPostfixExpressionMember : public SemaQualified
 		SEMANTIC_ASSERT(objectExpression.p != 0);
 		if(!objectExpression.isTypeDependent) // if the type of the object expression is not dependent
 		{
-			// offsetof hack: treat the object expression as constant if it is "(T*)->"
 			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow));
 			memberClass = &getSimpleType(objectExpression.type.value);
 			enclosingType = memberClass; // when evaluating the type of the following id-expression, use the object-expression class in the instantiation context
@@ -211,13 +210,17 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
 		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
+		// [temp.dep.expr]
+		// Expressions of the following forms are type-dependent only if the type specified by
+		// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
+		//  simple-type-specifier ( expression-list )
+		addDependent(typeDependent, walker.type);
 		// [temp.dep.constexpr]
 		// Expressions of the following form are value-dependent if either the type-id or simple-type-specifier is dependent
 		// or the expression or cast-expression is value-dependent:
 		//	simple-type-specifier ( expression-list )
-		addDependent(typeDependent, walker.typeDependent);
+		addDependent(valueDependent, walker.type.dependent);
 		addDependent(valueDependent, walker.valueDependent);
-		addDependent(valueDependent, walker.typeDependent);
 		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 		expression.isTemplateArgumentAmbiguity = symbol->args == 0;
 		setExpressionType(symbol, expression.type);
@@ -228,11 +231,24 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
 		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
+		// [temp.dep.expr]
+		// Expressions of the following forms are type-dependent only if the type specified by
+		// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
+		//  dynamic_cast < type-id > ( expression )
+		//  static_cast <type-id> (expression)
+		//  const_cast <type-id> (expression)
+		//  reinterpret_cast <type-id> (expression)
+		addDependent(typeDependent, walker.type);
+		// [temp.dep.constexpr]
+		// Expressions of the following form are value-dependent if either the type-id or simple-type-specifier is dependent
+		// or the expression or cast-expression is value-dependent:
+		//  static_cast <type-id> (expression)
+		//  const_cast <type-id> (expression)
+		//  reinterpret_cast <type-id> (expression)
 		if(symbol->op->id != cpp::cast_operator::DYNAMIC)
 		{
 			addDependent(valueDependent, walker.typeDependent);
 		}
-		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
 		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);

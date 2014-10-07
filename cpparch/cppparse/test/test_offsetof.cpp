@@ -13,3 +13,5 @@ struct S
 
 char c[offsetof(S, b)]; // offsetof should yield a constant expression
 
+
+

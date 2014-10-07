@@ -22,14 +22,12 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 		{
 			type = getFundamentalType(walker.fundamental);
 		}
-		addDependent(typeDependent, type);
 		makeUniqueTypeSafe(type);
 	}
 	SEMA_POLICY(cpp::typename_specifier, SemaPolicyPush<struct SemaTypenameSpecifier>)
 	void action(cpp::typename_specifier* symbol, const SemaTypenameSpecifierResult& walker)
 	{
 		type = walker.type;
-		addDependent(typeDependent, type);
 		makeUniqueTypeSafe(type);
 	}
 	SEMA_POLICY(cpp::type_id, SemaPolicyPushCommit<struct SemaTypeId>)
@@ -37,26 +35,25 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 	{
 		walker.committed.test();
 		type = walker.type;
-		addDependent(typeDependent, type);
 	}
 	SEMA_POLICY(cpp::new_type, SemaPolicyPush<struct SemaNewType>)
 	void action(cpp::new_type* symbol, const SemaNewTypeResult& walker)
 	{
 		type = walker.type;
-		addDependent(typeDependent, type);
-		addDependent(typeDependent, walker.valueDependent);
 		makeUniqueTypeSafe(type);
 	}
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		expression = walker.expression;
+		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
 	}
 	SEMA_POLICY(cpp::cast_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::cast_expression* symbol, const SemaExpressionResult& walker)
 	{
 		expression = walker.expression;
+		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
 	}
 };
@@ -309,7 +306,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
 		type.push_front(PointerType());
-		addDependent(typeDependent, walker.typeDependent);
+		addDependent(typeDependent, walker.type);
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
 		expression = makeExpression(ExplicitTypeExpression(type, true), isDependentOld(typeDependent));
 		setExpressionType(symbol, expression.type);
@@ -320,7 +317,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
 		type.push_front(PointerType());
-		addDependent(typeDependent, walker.typeDependent);
+		addDependent(typeDependent, walker.type);
 		expression = makeExpression(ExplicitTypeExpression(type, true), isDependentOld(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
@@ -329,8 +326,16 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
 		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.typeDependent);
+		// [temp.dep.expr]
+		// Expressions of the following forms are type-dependent only if the type specified by
+		// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
+		//  ( type-id ) cast-expression
+		addDependent(typeDependent, walker.type);
+		// [temp.dep.constexpr]
+		// Expressions of the following form are value-dependent if either the type-id or simple-type-specifier is dependent
+		// or the expression or cast-expression is value-dependent:
+		//  ( type-id ) cast-expression
+		addDependent(valueDependent, walker.type.dependent);
 		addDependent(valueDependent, walker.valueDependent);
 		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
@@ -361,8 +366,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::unary_expression_sizeof, SemaPolicyPushSrc<struct SemaExpression>)
 	void action(cpp::unary_expression_sizeof* symbol, const SemaExpressionResult& walker)
 	{
-		// [temp.dep.expr] Expressions of the following form [sizeof(expr)] are never type-dependent (because the type of the expression cannot be dependent)
-		// [temp.dep.constexpr] Expressions of the following form [sizeof(expr)] are value-dependent if the unary-expression is type-dependent
+		// [temp.dep.expr] Expressions of the following form [sizeof unary-expression] are never type-dependent (because the type of the expression cannot be dependent)
+		// [temp.dep.constexpr] Expressions of the following form [sizeof unary-expression] are value-dependent if the unary-expression is type-dependent
 		addDependent(valueDependent, walker.typeDependent);
 		expression = makeExpression(SizeofExpression(walker.expression), false, isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
@@ -370,6 +375,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::unary_expression_sizeoftype, SemaPolicyPushSrc<struct SemaSizeofTypeExpression>)
 	void action(cpp::unary_expression_sizeoftype* symbol, const SemaSizeofTypeExpression& walker)
 	{
+		// [temp.dep.expr] Expressions of the following form [sizeof(type-id)] are never type-dependent (because the type of the expression cannot be dependent)
+		// [temp.dep.constexpr] Expressions of the following form [sizeof(type-id)] are value-dependent if the unary-expression is type-dependent
 		addDependent(valueDependent, walker.valueDependent);
 		expression = walker.expression;
 		setExpressionType(symbol, expression.type);

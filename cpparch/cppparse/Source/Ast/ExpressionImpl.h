@@ -484,6 +484,7 @@ inline const MemberOperatorExpression& getDependentObjectExpression(ExpressionNo
 
 
 // ----------------------------------------------------------------------------
+// (*this)
 struct ObjectExpression
 {
 	ExpressionType type;

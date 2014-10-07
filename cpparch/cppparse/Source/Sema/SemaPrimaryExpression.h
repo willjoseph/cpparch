@@ -93,9 +93,8 @@ struct SemaPrimaryExpression : public SemaBase
 	{
 		SEMANTIC_ASSERT(enclosingType != 0);
 		ExpressionType type = ExpressionType(pushType(typeOfEnclosingClass(getInstantiationContext()), PointerType()), false); // non lvalue
-		/* 14.6.2.2-2
-		'this' is type-dependent if the class type of the enclosing member function is dependent
-		*/
+		// [temp.dep.expr]
+		// 'this' is type-dependent if the class type of the enclosing member function is dependent
 		addDependent(typeDependent, enclosingDependent);
 		expression = makeExpression(ExplicitTypeExpression(type), isDependentOld(typeDependent));
 		setExpressionType(symbol, expression.type);

@@ -140,15 +140,15 @@ typedef SafePtr<Scope> ScopePtr;
 const size_t INDEX_INVALID = size_t(-1);
 
 
-// refers to the innermost template scope that a name/type/expression depends on
-struct Dependent : DeclarationPtr
+struct Dependent
 {
+	DeclarationPtr declaration; // refers to the innermost template scope that a name/type/expression depends on
 	Dependent()
-		: DeclarationPtr(0)
+		: declaration(0)
 	{
 	}
 	explicit Dependent(Declaration* p)
-		: DeclarationPtr(p)
+		: declaration(p)
 	{
 	}
 };

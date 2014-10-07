@@ -53,7 +53,7 @@ namespace N427
 }
 
 
-#if 0 // TODO
+#if 0 // TODO: perform overload resolution when name of overloaded function is used as template parameter
 namespace N431
 {
 	void f(int);
@@ -800,6 +800,23 @@ namespace N382
 	STATIC_ASSERT_IS_DIFFERENT(int, unsigned int);
 }
 
+#if 0 // TODO: offsetof expression should be usable in a template argument
+namespace N434
+{
+	struct S
+	{
+		int m;
+	};
+
+	template<int>
+	struct A
+	{
+	};
+
+	STATIC_ASSERT_IS_SAME(A<(int)&(((S*)0)->m)>, A<(int)&(((S*)0)->m)>); // offsetof should produce a unique expression
+}
+#endif
+
 namespace N383
 {
 	ASSERT_EXPRESSION_TYPE(true, bool);
@@ -1056,6 +1073,8 @@ namespace N394
 	ASSERT_EXPRESSION_TYPE(A<int>::m, int);
 	ASSERT_EXPRESSION_TYPE(a.m, int);
 }
+
+
 
 #if 0 // TODO: determine type of template-id which identifies a single function template specialization
 namespace N395 // [temp.arg.explicit]

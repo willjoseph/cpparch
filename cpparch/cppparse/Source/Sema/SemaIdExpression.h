@@ -254,17 +254,24 @@ struct SemaIdExpression : public SemaQualified
 				return false;
 			}
 
-			// [temp.dep.expr] An id-expression is type-dependent if it contains:- an identifier that was declared with a dependent type
+			// [temp.dep.expr]
+			// An id-expression is type-dependent if it contains
+			// - an identifier associated by name lookup with one or more declarations declared with a dependent type,
+			// - a template-id that is dependent,
+			// - a conversion-function-id that specifies a dependent type, or
+			// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
+			// or if it names a static data member of the current instantiation that has type "array of unknown bound of
+			// T" for some T.
 			addDependentType(typeDependent, declaration);
-			// [temp.dep.expr] An id-expression is type-dependent if it contains: - a template-id that is dependent
 			setDependent(typeDependent, arguments); // the id-expression may have an explicit template argument list
-			// [temp.dep.expr] An id-expression is type-dependent if it contains: - an identifier associated by name lookup with one or more declarations declared with a dependent type,
 			addDependentOverloads(typeDependent, declaration);
 
-			// [temp.dep.constexpr] An identifier is value-dependent if it is:- a name declared with a dependent type
+			// [temp.dep.constexpr]
+			// An identifier is value-dependent if it is:
+			//  - a name declared with a dependent type,
+			// 	- the name of a non-type template parameter,
+			// 	- a constant with literal type and is initialized with an expression that is value-dependent.
 			addDependentType(valueDependent, declaration);
-			// [temp.dep.constexpr] An identifier is value-dependent if it is:- the name of a non-type template parameter,
-			// - a constant with integral or enumeration type and is initialized with an expression that is value-dependent.
 			addDependentName(valueDependent, declaration); // adds 'declaration' if it names a non-type template-parameter; adds a dependent initializer
 
 			if(id != &gAnonymousId) // e.g. ~decltype(x)

@@ -1103,8 +1103,8 @@ struct SemaState
 	}
 	bool isDependentOld(const Dependent& dependent) const
 	{
-		bool result = isDependentImpl(dependent);
-		SEMANTIC_ASSERT(result == (dependent.p != 0));
+		bool result = (dependent.declaration.p != 0);
+		SEMANTIC_ASSERT(result == isDependentImpl(dependent.declaration));
 		return result;
 	}
 	bool isDependentOld(const Type& type) const
@@ -1132,18 +1132,23 @@ struct SemaState
 	// the dependent-scope is the outermost template-definition
 	void setDependentImpl(Dependent& dependent, Declaration* candidate) const
 	{
-		SEMANTIC_ASSERT(dependent == DeclarationPtr(0) || isDependentOld(dependent));
+		SEMANTIC_ASSERT(candidate == 0 || candidate->templateParameter != INDEX_INVALID);
+		SEMANTIC_ASSERT(dependent.declaration == DeclarationPtr(0) || isDependentOld(dependent));
 		if(!isDependentImpl(candidate))
 		{
 			return;
 		}
 		SEMANTIC_ASSERT(candidate->scope->type != SCOPETYPE_NAMESPACE);
-		if(dependent != 0
-			&& findScope(candidate->scope, dependent->scope)) // if the candidate template-parameter's template-definition is within the current dependent-scope
+		if(dependent.declaration.p != 0
+			&& findScope(candidate->scope, dependent.declaration->scope)) // if the candidate template-parameter's template-definition is within the current dependent-scope
 		{
 			return; // already dependent on outer template
 		}
 		dependent = Dependent(candidate); // the candidate template-parameter is within the current dependent-scope
+	}
+	void setDependentImpl(Dependent& dependent, const Dependent& other) const
+	{
+		setDependentImpl(dependent, other.declaration);
 	}
 	void setDependentEnclosingTemplate(Dependent& dependent, Declaration* enclosingTemplate) const
 	{
@@ -1225,15 +1230,15 @@ struct SemaState
 
 	void addDependent(Dependent& dependent, const Dependent& other)
 	{
-		Declaration* old = dependent.p;
+		Declaration* old = dependent.declaration.p;
 		setDependentImpl(dependent, other);
-		SEMANTIC_ASSERT(old == 0 || dependent.p != 0);
+		SEMANTIC_ASSERT(old == 0 || dependent.declaration.p != 0);
 	}
 	void addDependentName(Dependent& dependent, Declaration* declaration)
 	{
-		Declaration* old = dependent.p;
+		Declaration* old = dependent.declaration.p;
 		setDependent(dependent, *declaration);
-		SEMANTIC_ASSERT(old == 0 || dependent.p != 0);
+		SEMANTIC_ASSERT(old == 0 || dependent.declaration.p != 0);
 	}
 	void addDependentType(Dependent& dependent, Declaration* declaration)
 	{
@@ -1287,6 +1292,9 @@ struct SemaBase : public SemaState
 	template<typename T>
 	ExpressionWrapper makeExpression(const T& node, bool isTypeDependent = false, bool isValueDependent = false)
 	{
+#if 0
+		checkDependent(node, isTypeDependent, isValueDependent);
+#endif
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(node);
 		ExpressionNode* p = isUnique ? makeUniqueExpression(node) : allocatorNew(context, ExpressionNodeGeneric<T>(node));

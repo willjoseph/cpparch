@@ -1730,8 +1730,12 @@ inline ExpressionValue evaluateExpression(const struct ObjectExpression& node, c
 
 inline ExpressionValue evaluateExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
 {
-	// occurs within the offsetof macro
-	return ExpressionValue(IntegralConstant(0), evaluateExpression(node.left, context).isConstant);
+	// offsetof hack: treat the object expression as constant if it is "(T*)->"
+	if(isNullPointerCastExpression(node.left))
+	{
+		return ExpressionValue(IntegralConstant(0), evaluateExpression(node.left, context).isConstant);
+	}
+	return EXPRESSIONRESULT_INVALID;
 }
 
 inline ExpressionValue evaluateExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
