@@ -591,10 +591,12 @@ struct DependentDecltype
 
 inline bool operator<(const DependentDecltype& left, const DependentDecltype& right)
 {
-	// [temp.type]`
+	// [temp.type]
 	// If an expression e involves a template parameter, decltype(e) denotes a unique dependent type. Two such
 	// decltype-specifiers refer to the same type only if their expressions are equivalent
-	return left.expression.p < right.expression.p;
+	return left.expression.isParenthesised != right.expression.isParenthesised
+		? left.expression.isParenthesised < right.expression.isParenthesised
+		: left.expression.p < right.expression.p;
 }
 
 

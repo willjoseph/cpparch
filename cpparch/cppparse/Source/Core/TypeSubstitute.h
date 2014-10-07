@@ -40,22 +40,23 @@ struct TypeErrorBase : TypeError
 struct MemberNotFoundError : TypeErrorBase
 {
 	Name name;
-	UniqueTypeWrapper qualifying;
-	MemberNotFoundError(Location source, Name name, UniqueTypeWrapper qualifying)
+	const SimpleType* qualifying;
+	MemberNotFoundError(Location source, Name name, const SimpleType* qualifying)
 		: TypeErrorBase(source), name(name), qualifying(qualifying)
 	{
+		SYMBOLS_ASSERT(qualifying != 0);
 	}
 	void report()
 	{
 		TypeErrorBase::report();
 		std::cout << "member '" << name.c_str() << "' not found in ";
 #if 1
-		if(getSimpleType(qualifying.value).instantiating)
+		if(qualifying->instantiating)
 		{
 			std::cout << "(partially instantiated) ";
 		}
 #endif
-		printType(qualifying);
+		printType(*qualifying);
 		std::cout << std::endl;
 	}
 };

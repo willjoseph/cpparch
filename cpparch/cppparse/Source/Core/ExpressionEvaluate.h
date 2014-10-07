@@ -956,6 +956,13 @@ inline ExpressionType typeOfSubscriptExpression(Argument left, Argument right, c
 
 IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context);
 
+inline IdExpression substituteIdExpression(ExpressionNode* node, const InstantiationContext& context)
+{
+	return isDependentIdExpression(node)
+		? substituteIdExpression(getDependentIdExpression(node), context)
+		: getIdExpression(node);
+}
+
 inline ExpressionType typeOfFunctionCallExpression(Argument left, const Arguments& arguments, const InstantiationContext& context)
 {
 	ExpressionWrapper expression = left;
@@ -1051,9 +1058,14 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 		return getFunctionCallExpressionType(popType(type)); // get the return type: T
 	}
 
-	IdExpression idExpression = isDependentId
-		? substituteIdExpression(getDependentIdExpression(expression), context)
-		: getIdExpression(isClassMemberAccess ? getClassMemberAccessExpression(expression).right : expression);
+	// if this is a qualified member-function-call, the class type of the object-expression
+	ExpressionWrapper objectExpression = isClassMemberAccess ? getClassMemberAccessExpression(expression).left : ExpressionWrapper();
+	ExpressionType objectExpressionType = isClassMemberAccess ? typeOfExpressionWrapper(objectExpression, context) : gNullExpressionType;
+	const SimpleType* memberClass = isClassMemberAccess ? &getSimpleType(objectExpressionType.value) : 0;
+
+	IdExpression idExpression = substituteIdExpression(
+		isClassMemberAccess ? getClassMemberAccessExpression(expression).right : expression,
+		isClassMemberAccess ? setEnclosingTypeSafe(context, memberClass) : context);
 
 	DeclarationInstanceRef declaration = idExpression.declaration;
 	TemplateArgumentsInstance templateArguments;
@@ -1061,11 +1073,6 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 
 	// [over.call.func] Call to named function
 	SYMBOLS_ASSERT(declaration.p != 0);
-
-	// if this is a qualified member-function-call, the class type of the object-expression
-	ExpressionWrapper objectExpression = isClassMemberAccess ? getClassMemberAccessExpression(expression).left : ExpressionWrapper();
-	ExpressionType objectExpressionType = isClassMemberAccess ? typeOfExpressionWrapper(objectExpression, context) : gNullExpressionType;
-	const SimpleType* memberClass = isClassMemberAccess ? &getSimpleType(objectExpressionType.value) : 0;
 
 	if(declaration.p == &gDestructorInstance)
 	{
@@ -1176,16 +1183,25 @@ inline ExpressionType typeOfClassMemberAccessExpression(const ExpressionWrapper&
 	// If E2 is declared to have type "reference to T," then E1.E2 is an lvalue; the type of E1.E2 is T. Otherwise,
 	// one of the following rules applies.
 	//	- If E2 is a static data member and the type of E2 is T, then E1.E2 is an lvalue; the expression designates
-	//	the named member of the class. The type of E1.E2 is T.
+	//	  the named member of the class. The type of E1.E2 is T.
 	//	- If E2 is a non-static data member and the type of E1 is "cq1 vq1 X", and the type of E2 is "cq2 vq2 T",
-	//		the expression designates the named member of the object designated by the first expression. If E1 is
-	//		an lvalue, then E1.E2 is an lvalue; if E1 is an xvalue, then E1.E2 is an xvalue; otherwise, it is a prvalue.
-	//		Let the notation vq12 stand for the "union" of vq1 and vq2 ; that is, if vq1 or vq2 is volatile, then
-	//		vq12 is volatile. Similarly, let the notation cq12 stand for the "union" of cq1 and cq2 ; that is, if cq1
-	//		or cq2 is const, then cq12 is const. If E2 is declared to be a mutable member, then the type of E1.E2
-	//		is "vq12 T". If E2 is not declared to be a mutable member, then the type of E1.E2 is "cq12 vq12 T".
+	//	  the expression designates the named member of the object designated by the first expression. If E1 is
+	//	  an lvalue, then E1.E2 is an lvalue; if E1 is an xvalue, then E1.E2 is an xvalue; otherwise, it is a prvalue.
+	//	  Let the notation vq12 stand for the "union" of vq1 and vq2 ; that is, if vq1 or vq2 is volatile, then
+	//	  vq12 is volatile. Similarly, let the notation cq12 stand for the "union" of cq1 and cq2 ; that is, if cq1
+	//	  or cq2 is const, then cq12 is const. If E2 is declared to be a mutable member, then the type of E1.E2
+	//	  is "vq12 T". If E2 is not declared to be a mutable member, then the type of E1.E2 is "cq12 vq12 T".
 	//	- If E2 is a (possibly overloaded) member function, function overload resolution (13.3) is used to determine
-	//		whether E1.E2 refers to a static or a non-static member function.
+	//	  whether E1.E2 refers to a static or a non-static member function.
+	//	  - If it refers to a static member function and the type of E2 is "function of parameter-type-list
+	//	    returning T", then E1.E2 is an lvalue; the expression designates the static member function. The
+	//	    type of E1.E2 is the same type as that of E2, namely "function of parameter-type-list returning T".
+	//	  - Otherwise, if E1.E2 refers to a non-static member function and the type of E2 is "function of
+	//	    parameter-type-list cv [ref-qualifier] returning T", then E1.E2 is a prvalue. The expression
+	//	    designates a non-static member function.The expression can be used only as the left-hand
+	//	    operand of a member function call(9.3).[Note: Any redundant set of parentheses surrounding
+	//	    the expression is ignored(5.1).-end note] The type of E1.E2 is "function of parameter-type-list
+	//	    cv returning T".
 	ExpressionType type = typeOfExpressionWrapper(left, context);
 	SYMBOLS_ASSERT(!isDependent(type));
 	const SimpleType& classType = getSimpleType(type.value);
@@ -1222,7 +1238,7 @@ inline UniqueTypeWrapper typeOfDecltypeSpecifier(const ExpressionWrapper& expres
 		return typeOfExpressionWrapper(expression, context); // return the type of the id-expression;
 	}
 	ExpressionType result = typeOfExpressionWrapper(expression, context);
-	if(result.isLvalue
+	if(result.isLvalue // if the expression is an lvalue
 		&& !result.isReference())
 	{
 		result = ExpressionType(pushType(result, ReferenceType()), true);
@@ -1535,7 +1551,7 @@ inline IdExpression substituteIdExpression(const DependentIdExpression& node, co
 	LookupResultRef declaration = findDeclaration(*qualifyingType, id, IsAny(visibility));
 	if(declaration == 0)
 	{
-		throw MemberNotFoundError(context.source, node.name, node.qualifying);
+		throw MemberNotFoundError(context.source, node.name, qualifyingType);
 	}
 
 	// TODO: substitute template arguments, in case of template-id when making pointer-to-function
@@ -1567,7 +1583,7 @@ inline const NonType& substituteNonTypeTemplateParameter(const NonTypeTemplatePa
 
 inline ExpressionValue evaluateExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
 {
-	return makeConstantResult(node.value);
+	return makeConstantValue(node.value);
 }
 
 inline ExpressionValue evaluateExpression(const CastExpression& node, const InstantiationContext& context)
@@ -1590,7 +1606,7 @@ inline ExpressionValue evaluateExpression(const CastExpression& node, const Inst
 
 inline ExpressionValue evaluateExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
 {
-	return makeConstantResult(substituteNonTypeTemplateParameter(node, context));
+	return makeConstantValue(substituteNonTypeTemplateParameter(node, context));
 }
 
 inline ExpressionValue evaluateExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -1617,15 +1633,15 @@ inline ExpressionValue evaluateExpression(const SizeofExpression& node, const In
 	ExpressionType type = typeOfExpressionWrapper(node.operand, context);
 	// [expr] If an expression initially has the type "reference to T", the type is adjusted to "T" prior to any further analysis.
 	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type.
-	return makeConstantResult(IntegralConstant(requireCompleteObjectType(removeReference(type), context).size));
+	return makeConstantValue(IntegralConstant(requireCompleteObjectType(removeReference(type), context).size));
 }
 
 inline ExpressionValue evaluateExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
 {
-	// TODO: type-substitution for dependent node.type
+	UniqueTypeWrapper type = substitute(node.type, context);
 	// [expr] If an expression initially has the type "reference to T", the type is adjusted to "T" prior to any further analysis.
 	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type... or to the parenthesized name of such types.
-	return ExpressionValue(IntegralConstant(requireCompleteObjectType(removeReference(node.type), context).size), true);
+	return ExpressionValue(IntegralConstant(requireCompleteObjectType(removeReference(type), context).size), true);
 }
 
 inline ExpressionValue evaluateExpression(const UnaryExpression& node, const InstantiationContext& context)
@@ -1672,6 +1688,14 @@ inline ExpressionValue evaluateExpression(const BinaryExpression& node, const In
 	{
 		return EXPRESSIONRESULT_INVALID;
 	}
+#if 1 // TODO: disallow divide-by-zero!
+	if((node.operation == operator/
+		|| node.operation == operator%)
+		&& second.value.value == 0)
+	{
+		return EXPRESSIONRESULT_ZERO;
+	}
+#endif
 	return ExpressionValue(node.operation(first.value, second.value), true);
 }
 

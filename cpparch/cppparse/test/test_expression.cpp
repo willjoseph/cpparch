@@ -1,4 +1,30 @@
 
+#if 0 // TODO:
+namespace N434
+{
+	template<typename T>
+	struct alignment_of_hack
+	{
+		char c;
+		T t;
+		alignment_of_hack();
+	};
+	template<unsigned A, unsigned S>
+	struct alignment_logic
+	{
+		static const int value=A<S?A: S;
+	};
+	template<typename T>
+	struct alignment_of_impl
+	{
+		static const int value=(alignment_logic<sizeof(alignment_of_hack<T>)-sizeof(T), 4>::value);
+	};
+
+	static_assert(alignment_of_impl<char>::value == 1, "");
+	static_assert(alignment_of_impl<int>::value == 4, "");
+}
+#endif
+
 namespace N433
 {
 	template<typename T, void(*)(T*)>
@@ -1155,8 +1181,7 @@ namespace N397 // [temp.arg.explicit] test evaluation of type of dependent funct
 
 #endif
 
-#if 0 // TODO: defer evaluation of type of dependent expression to point of instantiation
-namespace N384
+namespace N384 // defer evaluation of type of dependent expression to point of instantiation
 {
 	int f(int);
 	int& fr(int);
@@ -1191,7 +1216,7 @@ namespace N384
 		ASSERT_EXPRESSION_TYPE(c.m, int); // TODO: fails
 		ASSERT_EXPRESSION_TYPE(pc->m, int);
 		ASSERT_EXPRESSION_TYPE(rc.m, int);
-		ASSERT_EXPRESSION_TYPE(c.smf, int());
+		//ASSERT_EXPRESSION_TYPE(c.smf, int()); // illegal: type is 'unresolved function overload set'
 
 		ASSERT_EXPRESSION_TYPE((i), int); // not lvalue
 		ASSERT_EXPRESSION_TYPE((m), int&);
@@ -1200,7 +1225,7 @@ namespace N384
 		ASSERT_EXPRESSION_TYPE((c.m), int&);
 		ASSERT_EXPRESSION_TYPE((pc->m), int&);
 		ASSERT_EXPRESSION_TYPE((rc.m), int&);
-		ASSERT_EXPRESSION_TYPE((c.smf), int());
+		//ASSERT_EXPRESSION_TYPE((c.smf), int()); // illegal: type is 'unresolved function overload set'
 
 		int mf()
 		{
@@ -1232,6 +1257,7 @@ namespace N384
 	int j = a.mfc();
 }
 
+#if 0 // TODO: defer evaluation of type of dependent pointer to member
 namespace N392
 {
 	struct C

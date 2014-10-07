@@ -425,7 +425,7 @@ struct ExpressionValue
 	}
 };
 
-inline ExpressionValue makeConstantResult(IntegralConstant value)
+inline ExpressionValue makeConstantValue(IntegralConstant value)
 {
 	return ExpressionValue(value, true);
 }

@@ -196,7 +196,7 @@ struct SubstituteVisitor : TypeElementVisitor
 					// [temp.deduct]
 					// - Attempting to use a type in the qualifier portion of a qualified name that names a type when that
 					//   type does not contain the specified member
-					throw MemberNotFoundError(context.source, element.name, qualifying);
+					throw MemberNotFoundError(context.source, element.name, enclosing);
 				}
 
 				declaration = result;
