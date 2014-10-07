@@ -266,7 +266,7 @@ inline TypeLayout addBase(SimpleType& instance, UniqueTypeWrapper base, const In
 	instance.isAbstract |= objectType.isAbstract;
 	instance.isEmpty &= objectType.isEmpty; // TODO: virtual base
 	instance.isPod = false;
-	return layout;
+	return TypeLayout(evaluateSizeof(layout), layout.align);
 }
 
 inline bool isTemplate(const SimpleType& instance)

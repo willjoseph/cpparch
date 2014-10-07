@@ -352,6 +352,12 @@ struct ChildInstantiations : std::vector<ChildInstantiation>
 };
 
 
+inline std::size_t alignTo(std::size_t size, std::size_t align)
+{
+	std::size_t mask = align - 1;
+	return ~mask & (size + mask);
+}
+
 struct TypeLayout
 {
 	std::size_t size;
@@ -364,7 +370,7 @@ struct TypeLayout
 inline TypeLayout addMember(const TypeLayout& layout, const TypeLayout& member)
 {
 	return TypeLayout(
-		layout.size + member.size, // temporary hack: produce consistent sizeof while ignoring alignment
+		alignTo(layout.size, member.align) + member.size, // pad to alignment required by member
 		std::max(layout.align, member.align));
 }
 
@@ -373,6 +379,10 @@ inline TypeLayout makeArray(const TypeLayout& layout, std::size_t count)
 	return TypeLayout(layout.size * count, layout.align);
 }
 
+inline std::size_t evaluateSizeof(const TypeLayout& layout)
+{
+	return alignTo(layout.size, layout.align);
+}
 
 const TypeLayout TYPELAYOUT_NONE = TypeLayout(0, 0);
 

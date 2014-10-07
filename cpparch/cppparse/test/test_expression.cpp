@@ -1,5 +1,36 @@
 
-#if 0 // TODO: implement sizeof for struct: padding and alignment
+namespace N435 // evaluation of sizeof for struct: padding and alignment
+{
+	struct A
+	{
+		char c;
+		int t;
+	};
+
+	struct B
+	{
+		int t;
+		char c;
+	};
+
+	struct C 
+	{
+		B b;
+		char c;
+	};
+
+	struct D : B
+	{
+		char c;
+	};
+
+	static_assert(sizeof(A) == 8, "");
+	static_assert(sizeof(B) == 8, "");
+	static_assert(sizeof(C) == 12, "");
+	static_assert(sizeof(D) == 12, "");
+}
+
+#if 0 // TODO: implement deferred evaluation of sizeof for struct: padding and alignment
 namespace N434
 {
 	template<typename T>

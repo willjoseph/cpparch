@@ -32,7 +32,8 @@ inline TypeLayout requireCompleteObjectType(UniqueTypeWrapper type, const Instan
 		const SimpleType& objectType = getSimpleType(type.value);
 		if(isClass(*objectType.declaration))
 		{
-			return instantiateClass(objectType, context);
+			TypeLayout layout = instantiateClass(objectType, context);
+			return TypeLayout(evaluateSizeof(layout), layout.align);
 		}
 		if(isEnum(*objectType.declaration))
 		{
