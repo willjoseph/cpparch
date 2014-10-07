@@ -1,5 +1,5 @@
 
-#if 0 // TODO:
+#if 0 // TODO: implement sizeof for struct: padding and alignment
 namespace N434
 {
 	template<typename T>
