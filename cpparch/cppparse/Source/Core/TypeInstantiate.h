@@ -10,14 +10,34 @@
 TypeLayout instantiateClass(const SimpleType& instanceConst, const InstantiationContext& context, bool allowDependent = false);
 
 
-inline TypeLayout requireCompleteObjectType(UniqueTypeWrapper type, const InstantiationContext& context)
+inline void requireCompleteObjectType(UniqueTypeWrapper type, const InstantiationContext& context)
 {
+	SYMBOLS_ASSERT(!isDependent(type));
+	if(type.isArray()
+		&& getArrayType(type.value).size != 0)
+	{
+		type.pop_front(); // arrays of known size are complete object types
+		requireCompleteObjectType(type, context);
+	}
+	else if(type.isSimple())
+	{
+		const SimpleType& objectType = getSimpleType(type.value);
+		if(isClass(*objectType.declaration))
+		{
+			instantiateClass(objectType, context);
+		}
+	}
+}
+
+inline TypeLayout getTypeLayout(UniqueTypeWrapper type)
+{
+	SYMBOLS_ASSERT(!isDependent(type));
 	if(type.isArray()
 		&& getArrayType(type.value).size != 0)
 	{
 		std::size_t count = getArrayType(type.value).size;
-		type.pop_front(); // arrays of known size are complete object types
-		return makeArray(requireCompleteObjectType(type, context), count);
+		type.pop_front();
+		return makeArray(getTypeLayout(type), count);
 	}
 	else if(type.isPointer())
 	{
@@ -30,21 +50,19 @@ inline TypeLayout requireCompleteObjectType(UniqueTypeWrapper type, const Instan
 	else if(type.isSimple())
 	{
 		const SimpleType& objectType = getSimpleType(type.value);
-		if(isClass(*objectType.declaration))
-		{
-			TypeLayout layout = instantiateClass(objectType, context);
-			return TypeLayout(evaluateSizeof(layout), layout.align);
-		}
 		if(isEnum(*objectType.declaration))
 		{
 			return TypeLayout(4, 4); // TODO: x64, variable enum size
 		}
-		return objectType.layout;
+		if(isClass(*objectType.declaration))
+		{
+			SYMBOLS_ASSERT(objectType.instantiated);
+			return TypeLayout(evaluateSizeof(objectType.layout), objectType.layout.align);
+		}
+		return objectType.layout; // built-in type
 	}
 	return TYPELAYOUT_NONE; // this type has no meaningful layout (e.g. incomplete array, reference, function)
 }
-
-
 
 inline bool findBase(const SimpleType& other, const SimpleType& type)
 {
@@ -139,14 +157,17 @@ inline bool isEmpty(const SimpleType& classType)
 	return classType.isEmpty;
 }
 
+const bool TYPETRAITS_ISEMPTY_NONCLASS = false;
+
 // returns true if type is a non-union class with no members (other than bitfield size zero), no virtual functions, no virtual base classes, no non-empty base classes
 inline bool isEmpty(UniqueTypeWrapper type, const InstantiationContext& context)
 {
 	if(!isClass(type))
 	{
-		return false;
+		return TYPETRAITS_ISEMPTY_NONCLASS;
 	}
 	const SimpleType& classType = getSimpleType(type.value);
+	instantiateClass(classType, context); // requires a complete type
 	return isEmpty(classType);
 }
 
@@ -162,12 +183,14 @@ inline bool isPod(const SimpleType& classType)
 	return classType.isPod;
 }
 
+const bool TYPETRAITS_ISPOD_NONCLASS = true; // TODO: MSVC returns false for non-class non-union types, GCC returns true
+
 // returns true if type is a class or union with no non-pod members, no base classes, no virtual functions, no constructor or destructor
 inline bool isPod(UniqueTypeWrapper type, const InstantiationContext& context)
 {
 	if(!isClass(type))
 	{
-		return true; // TODO: MSVC returns false for non-class non-union types, GCC returns true
+		return TYPETRAITS_ISPOD_NONCLASS;
 	}
 	const SimpleType& classType = getSimpleType(type.value);
 	instantiateClass(classType, context); // requires a complete type
@@ -181,6 +204,19 @@ inline bool isAnonymousUnion(const SimpleType& classType)
 		&& classType.declaration->getName().value.c_str()[0] == '$';
 }
 
+inline bool isNonStaticDataMember(const Declaration& declaration)
+{
+	return isMember(declaration) // just members, for now
+		&& !isClass(declaration)
+		&& !isEnum(declaration)
+		&& !isEnumerator(declaration)
+		&& !UniqueTypeWrapper(declaration.type.unique).isFunction() // member functions are not instantiated when class is implicitly instantiated
+		&& !isStatic(declaration) // static members are not instantiated when class is implicitly instantiated
+		&& !isTypedef(declaration); // member typedefs are not instantiated when class is implicitly instantiated
+}
+
+
+
 inline void addNonStaticMember(const SimpleType& classType, bool isPod, bool isEmpty)
 {
 	const_cast<SimpleType&>(classType).isPod &= isPod;
@@ -191,13 +227,13 @@ inline void addNonStaticMember(const SimpleType& classType, bool isPod, bool isE
 	}
 }
 
-inline void addNonStaticMember(const SimpleType& classType, UniqueTypeWrapper type, const InstantiationContext& context)
+inline void addNonStaticMember(const SimpleType& classType, UniqueTypeWrapper type)
 {
-	TypeLayout layout = requireCompleteObjectType(type, context);
+	TypeLayout layout = getTypeLayout(type);
 	const_cast<SimpleType&>(classType).layout = addMember(const_cast<SimpleType&>(classType).layout, layout);
 	addNonStaticMember(classType,
-		isPod(type, context),
-		isEmpty(type, context)); // TODO: ignore bitfield with size zero!
+		isClass(type) ? isPod(getSimpleType(type.value)) : TYPETRAITS_ISPOD_NONCLASS,
+		isClass(type) ? isEmpty(getSimpleType(type.value)) : TYPETRAITS_ISEMPTY_NONCLASS); // TODO: ignore bitfield with size zero!
 }
 
 inline bool isPolymorphic(const SimpleType& classType)

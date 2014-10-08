@@ -1,4 +1,5 @@
 
+
 namespace N435 // evaluation of sizeof for struct: padding and alignment
 {
 	struct A
@@ -30,31 +31,27 @@ namespace N435 // evaluation of sizeof for struct: padding and alignment
 	static_assert(sizeof(D) == 12, "");
 }
 
-#if 0 // TODO: implement deferred evaluation of sizeof for struct: padding and alignment
-namespace N434
+namespace N434 // deferred evaluation of sizeof for struct: padding and alignment
 {
 	template<typename T>
-	struct alignment_of_hack
+	struct A
 	{
 		char c;
 		T t;
-		alignment_of_hack();
-	};
-	template<unsigned A, unsigned S>
-	struct alignment_logic
-	{
-		static const int value=A<S?A: S;
-	};
-	template<typename T>
-	struct alignment_of_impl
-	{
-		static const int value=(alignment_logic<sizeof(alignment_of_hack<T>)-sizeof(T), 4>::value);
 	};
 
-	static_assert(alignment_of_impl<char>::value == 1, "");
-	static_assert(alignment_of_impl<int>::value == 4, "");
+	template<typename T>
+	struct B
+	{
+		T t;
+		char c;
+	};
+
+	static_assert(sizeof(A<char>) == 2, "");
+	static_assert(sizeof(A<int>) == 8, "");
+	static_assert(sizeof(B<char>) == 2, "");
+	static_assert(sizeof(B<int>) == 8, "");
 }
-#endif
 
 namespace N433
 {

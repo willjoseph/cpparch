@@ -392,6 +392,30 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 		instance.allowLookup = true; // prevent searching bases during lookup within incomplete instantiation
 		if(!allowDependent)
 		{
+#if 1
+			InstanceLocations::const_iterator l = original.childLocations.begin();
+			const Scope::DeclarationList& members = instance.declaration->enclosed->declarationList;
+			for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
+			{
+				Declaration& declaration = *(*i);
+				if(!isNonStaticDataMember(declaration))
+				{
+					continue;
+				}
+				UniqueTypeWrapper type = UniqueTypeWrapper(declaration.type.unique);
+				if(declaration.type.isDependent)
+				{
+					SYMBOLS_ASSERT(l != original.childLocations.end());
+					InstantiationContext childContext(*l, &instance, 0, context.enclosingScope);
+					type = substitute(type, childContext);
+					requireCompleteObjectType(type, childContext);
+					++l;
+				}
+				addNonStaticMember(instance, type);
+			}
+#endif
+			
+#if 0
 			if(!original.children.empty()
 				&& &instance != &original) // TODO: this will be an assert when instantiateClass is no longer called at the beginning of a template-definition
 			{
@@ -407,6 +431,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					addNonStaticMember(instance, substituted, childContext);
 				}
 			}
+#endif
 			if(!original.childExpressions.empty()
 				&& &instance != &original) // TODO: this will be an assert when instantiateClass is no longer called at the beginning of a template-definition
 			{

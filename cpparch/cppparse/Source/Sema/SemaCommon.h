@@ -1453,27 +1453,21 @@ struct SemaBase : public SemaState
 		// a member's type must be instantiated before the point of declaration of the member, to prevent the member being found by name lookup during the instantiation
 		SEMANTIC_ASSERT(type.unique != 0);
 		UniqueTypeWrapper uniqueType = UniqueTypeWrapper(type.unique);
-		// NOTE: these checks must occur after the declaration because an out-of-line definition of a static member is otherwise not known to be static
-		if(parent->type == SCOPETYPE_CLASS // just members, for now
-			&& !uniqueType.isFunction() // member functions are not instantiated when class is implicitly instantiated
-			&& !isStatic(*declaration) // static members are not instantiated when class is implicitly instantiated
-			&& !isTypedef(*declaration) // member typedefs are not instantiated when class is implicitly instantiated
-			&& type.declaration != &gCtor) // ignore constructor
+		SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
+		// NOTE: this check must occur after the declaration because an out-of-line definition of a static member is otherwise not known to be static
+		if(enclosingClass != 0 // if the enclosing class is not an anonymous union
+			&& isNonStaticDataMember(*declaration)) // and the declaration is a non-static data member
 		{
-			SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
 			if(!type.isDependent)
 			{
-				if(!(parent->type == SCOPETYPE_CLASS && isStatic(*declaration)) // ignore static member
-					&& !specifiers.isTypedef // ignore typedef
-					&& (uniqueType.isSimple() || uniqueType.isArray()))
+				const InstantiationContext& context = getInstantiationContext();
+				requireCompleteObjectType(uniqueType, context);
+				if(!enclosingClass->declaration->isTemplate)
 				{
-					// TODO: accurate sizeof
-					const InstantiationContext& context = getInstantiationContext();
-					addNonStaticMember(*enclosingType, uniqueType, context);
+					addNonStaticMember(*enclosingClass, uniqueType);
 				}
 			}
-			else if(enclosingClass != 0
-				&& templateParams == 0) // ignore template member functions, for now
+			else
 			{
 				enclosingClass->children.push_back(uniqueType);
 				// TODO: check compliance: the point of instantiation of a type used in a member declaration is the point of declaration of the member

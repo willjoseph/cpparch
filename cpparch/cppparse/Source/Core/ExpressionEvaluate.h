@@ -1632,17 +1632,22 @@ inline ExpressionValue evaluateExpression(const SizeofExpression& node, const In
 
 	ExpressionType type = typeOfExpressionWrapper(node.operand, context);
 	// [expr] If an expression initially has the type "reference to T", the type is adjusted to "T" prior to any further analysis.
+	type = removeReference(type);
 	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type.
-	return makeConstantValue(IntegralConstant(requireCompleteObjectType(removeReference(type), context).size));
+	requireCompleteObjectType(type, context);
+	TypeLayout layout = getTypeLayout(type);
+	return makeConstantValue(IntegralConstant(layout.size));
 }
 
 inline ExpressionValue evaluateExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
 {
 	UniqueTypeWrapper type = substitute(node.type, context);
 	// [expr] If an expression initially has the type "reference to T", the type is adjusted to "T" prior to any further analysis.
+	type = removeReference(type);
 	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type... or to the parenthesized name of such types.
-	TypeLayout layout = requireCompleteObjectType(removeReference(type), context);
-	return ExpressionValue(IntegralConstant(evaluateSizeof(layout)), true);
+	requireCompleteObjectType(type, context);
+	TypeLayout layout = getTypeLayout(type);
+	return makeConstantValue(IntegralConstant(layout.size));
 }
 
 inline ExpressionValue evaluateExpression(const UnaryExpression& node, const InstantiationContext& context)

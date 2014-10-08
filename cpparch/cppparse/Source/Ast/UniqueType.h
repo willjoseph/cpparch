@@ -299,4 +299,5 @@ inline bool isEqualCvQualification(UniqueTypeWrapper to, UniqueTypeWrapper from)
 	return to.value.getQualifiers() == from.value.getQualifiers();
 }
 
+
 #endif
