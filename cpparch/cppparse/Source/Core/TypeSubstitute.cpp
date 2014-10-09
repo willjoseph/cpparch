@@ -251,12 +251,26 @@ struct SubstituteVisitor : TypeElementVisitor
 
 		// TODO: SFINAE for expressions: check that type of template argument matches template parameter
 		ExpressionValue result = evaluateExpressionImpl(element.expression, context);
-		SYMBOLS_ASSERT(result.isConstant);
+		SYMBOLS_ASSERT(result.isConstant); // TODO: non-fatal error: expected integral constant expression
 		type.push_front(NonType(result.value));
 	}
 	virtual void visit(const DependentDecltype& element)
 	{
 		type = typeOfDecltypeSpecifier(element.expression, context);
+	}
+	virtual void visit(const DependentArrayType& element)
+	{
+		// TODO: unify DependentNonType and DependentArrayType?
+		if(isDependent(*context.enclosingType))
+		{
+			// TODO: occurs when substituting with a dependent template argument list, if a template function is called with an empty (or partial) explicit template argument list.
+			type.push_front(element);
+			return;
+		}
+
+		ExpressionValue value = evaluateExpressionImpl(element.expression, context);
+		SYMBOLS_ASSERT(value.isConstant); // TODO: non-fatal error: expected integral constant expression
+		type.push_front(ArrayType(value.value.value));
 	}
 	virtual void visit(const TemplateTemplateArgument& element)
 	{
@@ -301,7 +315,7 @@ struct SubstituteVisitor : TypeElementVisitor
 		{
 			throw InvalidArrayError(context.source);
 		}
-		type.push_front(element); // TODO substitute dependent expressions
+		type.push_front(element);
 	}
 	virtual void visit(const MemberPointerType& element)
 	{

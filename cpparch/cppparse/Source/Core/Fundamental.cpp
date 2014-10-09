@@ -65,7 +65,3 @@ BuiltInTypeId gLongDouble(&gLongDoubleDeclaration, AST_ALLOCATOR_NULL, LAYOUT_DO
 Identifier gVoidId = makeIdentifier("void");
 BuiltInTypeDeclaration gVoidDeclaration(gVoidId, TYPE_SPECIAL);
 BuiltInTypeId gVoid(&gVoidDeclaration, AST_ALLOCATOR_NULL, TYPELAYOUT_NONE);
-
-StringLiteralTypeId gStringLiteral(&gCharDeclaration, AST_ALLOCATOR_NULL);
-StringLiteralTypeId gWideStringLiteral(&gWCharTDeclaration, AST_ALLOCATOR_NULL);
-

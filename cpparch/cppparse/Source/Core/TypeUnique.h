@@ -264,11 +264,6 @@ inline std::size_t evaluateArraySize(const ExpressionWrapper& expression, const 
 	{
 		return 0;
 	}
-	if(expression.isValueDependent) // TODO
-	{
-		return -1;
-	}
-	SYMBOLS_ASSERT(expression.isConstant);
 	ExpressionValue result = evaluateExpressionImpl(expression, context);
 	SYMBOLS_ASSERT(result.isConstant);
 	return result.value.value;
@@ -296,7 +291,16 @@ struct TypeSequenceMakeUnique : TypeSequenceVisitor
 	{
 		for(ArrayRank::const_reverse_iterator i = element.rank.rbegin(); i != element.rank.rend(); ++i)
 		{
-			pushUniqueType(type, ArrayType(evaluateArraySize(*i, context)));
+			const ExpressionWrapper& expression = *i;
+			if(expression.isValueDependent)
+			{
+				SYMBOLS_ASSERT(expression.isUnique);
+				pushUniqueType(type, DependentArrayType(expression));
+			}
+			else
+			{
+				pushUniqueType(type, ArrayType(evaluateArraySize(expression, context)));
+			}
 		}
 	}
 	void visit(const DeclaratorMemberPointerType& element)

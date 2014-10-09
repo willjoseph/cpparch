@@ -367,11 +367,12 @@ struct TypeLayout
 	}
 };
 
-inline TypeLayout addMember(const TypeLayout& layout, const TypeLayout& member)
+inline TypeLayout addMember(const TypeLayout& layout, const TypeLayout& member, bool isUnion = false)
 {
-	return TypeLayout(
-		alignTo(layout.size, member.align) + member.size, // pad to alignment required by member
-		std::max(layout.align, member.align));
+	std::size_t size = isUnion
+		? std::max(layout.size, member.size) // size of largest member
+		: alignTo(layout.size, member.align) + member.size; // pad to alignment required by member
+	return TypeLayout(size, std::max(layout.align, member.align));
 }
 
 inline TypeLayout makeArray(const TypeLayout& layout, std::size_t count)
@@ -381,7 +382,9 @@ inline TypeLayout makeArray(const TypeLayout& layout, std::size_t count)
 
 inline std::size_t evaluateSizeof(const TypeLayout& layout)
 {
-	return alignTo(layout.size, layout.align);
+	return layout.size == 0 // if the class is empty
+		? 1 // single byte
+		: alignTo(layout.size, layout.align); // round up to alignment
 }
 
 const TypeLayout TYPELAYOUT_NONE = TypeLayout(0, 0);
@@ -425,7 +428,7 @@ struct SimpleType
 	Location instantiation;
 	ChildInstantiations childInstantiations; // not copied by copy-constructor
 
-	SimpleType(Declaration* declaration, const SimpleType* enclosing, TypeLayout layout = TYPELAYOUT_NONE)
+	SimpleType(Declaration* declaration, const SimpleType* enclosing, TypeLayout layout = TypeLayout(0, 1))
 		: uniqueId(0), primary(declaration), declaration(declaration), enclosing(enclosing), layout(layout),
 		instantiated(false), instantiating(false), allowLookup(false),
 		hasCopyAssignmentOperator(false), hasVirtualDestructor(false), isPolymorphic(false), isAbstract(false), isCStyle(false),
@@ -722,6 +725,28 @@ inline const ArrayType& getArrayType(UniqueType type)
 }
 
 // ----------------------------------------------------------------------------
+// Can be combined with other types to form T[expr]
+struct DependentArrayType
+{
+	UniqueExpression expression;
+	DependentArrayType(UniqueExpression expression)
+		: expression(expression)
+	{
+	}
+};
+
+inline bool operator<(const DependentArrayType& left, const DependentArrayType& right)
+{
+	return left.expression < right.expression;
+}
+
+inline const DependentArrayType& getDependentArrayType(UniqueType type)
+{
+	SYMBOLS_ASSERT(isEqual(getTypeInfo(*type), getTypeInfo<TypeElementGeneric<DependentArrayType> >()));
+	return static_cast<const TypeElementGeneric<DependentArrayType>*>(type.getPointer())->value;
+}
+
+// ----------------------------------------------------------------------------
 struct Parameter
 {
 	DeclarationPtr declaration;
@@ -924,6 +949,10 @@ inline bool isDependent(const DependentNonType&)
 	return true;
 }
 inline bool isDependent(const DependentDecltype&)
+{
+	return true;
+}
+inline bool isDependent(const DependentArrayType&)
 {
 	return true;
 }

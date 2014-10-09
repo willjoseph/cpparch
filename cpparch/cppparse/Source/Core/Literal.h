@@ -157,10 +157,79 @@ inline IntegralConstantExpression parseNumericLiteral(cpp::numeric_literal* symb
 	throw SymbolsError();
 }
 
-inline const UniqueTypeId& getStringLiteralType(cpp::string_literal* symbol)
+inline bool isOctal(char c)
+{
+	return (c >= '0' && c <= '7');
+}
+
+inline bool isHexadecimal(char c)
+{
+	return isNumber(c)
+		|| (c >= 'a' && c <= 'f')
+		|| (c >= 'A' && c <= 'F');
+}
+
+struct StringLiteral
+{
+	std::size_t length;
+	bool isWide;
+	StringLiteral(std::size_t length, bool isWide)
+		: length(length), isWide(isWide)
+	{
+	}
+};
+
+inline StringLiteral parseStringLiteral(cpp::string_literal* symbol, StringLiteral preceding)
 {
 	const char* value = symbol->value.value.c_str();
-	return *value == 'L' ? gWideStringLiteral : gStringLiteral;
+	bool isWide = false;
+	std::size_t length = 0;
+	const char* p = value;
+	if(*p == 'L')
+	{
+		isWide = true;
+		++p;
+	}
+	SYMBOLS_ASSERT(*p == '"'); // TODO: non-fatal error: expected '"'
+	++p;
+	for(; *p != '"';)
+	{
+		SYMBOLS_ASSERT(*p != '\0'); // TODO: non-fatal error: unterminated string literal
+		if(*p != '\\')
+		{
+			++p; // normal character
+		}
+		else
+		{
+			++p; // escape character
+			if(*p == 'n' || *p == 't' || *p == 'v' || *p == 'b' || *p == 'r' || *p == 'f'
+				|| *p == 'a' || *p == '\\' || *p == '?' || *p == '\'' || *p == '"')
+			{
+				++p; // code
+			}
+			else if(*p == 'x')
+			{
+				++p; // x
+				SYMBOLS_ASSERT(isHexadecimal(*p)); // TODO: non-fatal error: invalid escape sequence
+				if(isHexadecimal(*++p) // if the second is hex
+					&& isHexadecimal(*++p)) // and the third is hex
+				{
+					++p; // skip the third
+				}
+			}
+			else
+			{
+				SYMBOLS_ASSERT(isOctal(*p)); // TODO: non-fatal error: invalid escape sequence
+				if(isOctal(*++p) // if the second is octal
+					&& isOctal(*++p)) // and the third is octal
+				{
+					++p; // skip the third
+				}
+			}
+		}
+		++length;
+	}
+	return StringLiteral(preceding.length + length, preceding.isWide | isWide);
 }
 
 #endif

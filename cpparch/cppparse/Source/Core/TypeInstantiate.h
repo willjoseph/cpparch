@@ -230,7 +230,7 @@ inline void addNonStaticMember(const SimpleType& classType, bool isPod, bool isE
 inline void addNonStaticMember(const SimpleType& classType, UniqueTypeWrapper type)
 {
 	TypeLayout layout = getTypeLayout(type);
-	const_cast<SimpleType&>(classType).layout = addMember(const_cast<SimpleType&>(classType).layout, layout);
+	const_cast<SimpleType&>(classType).layout = addMember(const_cast<SimpleType&>(classType).layout, layout, isUnion(classType));
 	addNonStaticMember(classType,
 		isClass(type) ? isPod(getSimpleType(type.value)) : TYPETRAITS_ISPOD_NONCLASS,
 		isClass(type) ? isEmpty(getSimpleType(type.value)) : TYPETRAITS_ISEMPTY_NONCLASS); // TODO: ignore bitfield with size zero!

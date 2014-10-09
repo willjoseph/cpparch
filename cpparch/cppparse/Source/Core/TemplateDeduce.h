@@ -105,6 +105,11 @@ struct DeduceVisitor : TypeElementVisitor
 	}
 	virtual void visit(const DependentNonType& element)
 	{
+		if(!argument.isNonType())
+		{
+			result = false; // deduction fails
+			return;
+		}
 		// if this expression is of the form 'i' where 'i' is a non-type template parameter
 		if(isNonTypeTemplateParameter(element.expression))
 		{
@@ -115,6 +120,21 @@ struct DeduceVisitor : TypeElementVisitor
 	virtual void visit(const DependentDecltype& element)
 	{
 		// cannot deduce from decltype(e)
+	}
+	virtual void visit(const DependentArrayType& element)
+	{
+		// if this expression is of the form 'T[i]' where 'i' is a non-type template parameter
+		if(!argument.isArray())
+		{
+			result = false; // deduction fails
+			return;
+		}
+		if(isNonTypeTemplateParameter(element.expression))
+		{
+			argument = pushType(gUniqueTypeNull, NonType(IntegralConstant(getArrayType(argument.value).size)));
+			// deduce the argument from the name of the non-type template parameter
+			commit(getNonTypeTemplateParameter(element.expression).declaration->templateParameter);
+		}
 	}
 	virtual void visit(const TemplateTemplateArgument& element)
 	{

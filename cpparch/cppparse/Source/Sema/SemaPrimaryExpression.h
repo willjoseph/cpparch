@@ -6,6 +6,21 @@
 #include "SemaIdExpression.h"
 #include "Core/Literal.h"
 
+struct SemaStringLiteral : public SemaBase
+{
+	SEMA_BOILERPLATE;
+
+	StringLiteral string;
+	SemaStringLiteral(const SemaState& state)
+		: SemaBase(state), string(0, false)
+	{
+	}
+	SEMA_POLICY(cpp::string_literal, SemaPolicyIdentity)
+	void action(cpp::string_literal* symbol)
+	{
+		string = parseStringLiteral(symbol, string);
+	}
+};
 
 struct SemaLiteral : public SemaBase
 {
@@ -25,11 +40,13 @@ struct SemaLiteral : public SemaBase
 		}
 		expression = makeConstantExpression(parseNumericLiteral(symbol));
 	}
-	SEMA_POLICY(cpp::string_literal, SemaPolicyIdentity)
-	void action(cpp::string_literal* symbol)
+	SEMA_POLICY(cpp::string_literal, SemaPolicyPush<struct SemaStringLiteral>)
+	void action(cpp::string_literal* symbol, const SemaStringLiteral& walker)
 	{
+		StringLiteral string = parseStringLiteral(symbol, walker.string);
+		UniqueTypeWrapper type = pushType(string.isWide ? gWCharT : gChar, ArrayType(string.length + 1));
 		// [expr.prim.general] A string literal is an lvalue
-		expression = makeConstantExpression(IntegralConstantExpression(ExpressionType(getStringLiteralType(symbol), true), IntegralConstant()));
+		expression = makeConstantExpression(IntegralConstantExpression(ExpressionType(type, true), IntegralConstant()));
 	}
 };
 

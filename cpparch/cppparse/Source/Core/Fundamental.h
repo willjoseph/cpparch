@@ -109,18 +109,6 @@ inline bool isVoidParameter(const TypeId& type)
 }
 
 
-struct StringLiteralTypeId : BuiltInTypeId
-{
-	StringLiteralTypeId(Declaration* declaration, const AstAllocator<int>& allocator)
-		: BuiltInTypeId(declaration, allocator)
-	{
-		value = pushBuiltInType(value, ArrayType(0));
-	}
-};
-
-extern StringLiteralTypeId gStringLiteral;
-extern StringLiteralTypeId gWideStringLiteral;
-
 inline unsigned combineFundamental(unsigned fundamental, unsigned token)
 {
 	unsigned mask = 1 << token;

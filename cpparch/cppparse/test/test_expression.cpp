@@ -1,4 +1,88 @@
 
+#if 0
+namespace N442 // TODO: correct sizeof!
+{
+	static int data[] = { 0, 1, 2 };
+	static_assert(sizeof(data) == sizeof(int) * 3, "");
+}
+#endif
+
+namespace N441 // test deduction of non-type template parameter
+{
+	template<typename T, int N>
+	int f(T(&)[N])
+	{
+	}
+
+	static_assert(sizeof(f("..")) == sizeof(int), "");
+}
+
+namespace N440 // test deduction of non-type template parameter
+{
+	template<typename T>
+	struct is_array
+	{
+		static const bool value = false;
+	};
+	template<typename T, int N>
+	struct is_array<T[N]>
+	{
+		static const bool value = true;
+	};
+
+	static_assert(is_array<char[3]>::value, "");
+}
+
+namespace N438 // evaluation of sizeof for string literals
+{
+	static_assert(sizeof("" "") == sizeof(char[1]), "");
+	static_assert(sizeof(L"" "") == sizeof(wchar_t[1]), "");
+	static_assert(sizeof("\n") == sizeof(char[2]), "");
+	static_assert(sizeof("\t") == sizeof(char[2]), "");
+	static_assert(sizeof("\v") == sizeof(char[2]), "");
+	static_assert(sizeof("\b") == sizeof(char[2]), "");
+	static_assert(sizeof("\r") == sizeof(char[2]), "");
+	static_assert(sizeof("\f") == sizeof(char[2]), "");
+	static_assert(sizeof("\a") == sizeof(char[2]), "");
+	static_assert(sizeof("\\") == sizeof(char[2]), "");
+	static_assert(sizeof("\?") == sizeof(char[2]), "");
+	static_assert(sizeof("\'") == sizeof(char[2]), "");
+	static_assert(sizeof("\"") == sizeof(char[2]), "");
+	static_assert(sizeof("\xA") == sizeof(char[2]), "");
+	static_assert(sizeof("\xAx") == sizeof(char[3]), "");
+	static_assert(sizeof("\xAAx") == sizeof(char[3]), "");
+	static_assert(sizeof(L"\xAAAx") == sizeof(wchar_t[3]), "");
+}
+
+namespace N437 // evaluation of sizeof for literals
+{
+	static_assert(sizeof("" "") == sizeof(char[1]), "");
+	static_assert(sizeof('c') == sizeof(char), "");
+	static_assert(sizeof(L'c') == sizeof(wchar_t), "");
+	static_assert(sizeof(0) == sizeof(int), "");
+	static_assert(sizeof(0.f) == sizeof(float), "");
+	static_assert(sizeof(0.) == sizeof(double), "");
+	static_assert(sizeof("") == sizeof(char[1]), "");
+	static_assert(sizeof(L"") == sizeof(wchar_t[1]), "");
+}
+
+namespace N436 // evaluation of sizeof for union
+{
+	union A
+	{
+		char c;
+		int i;
+	};
+
+	union B
+	{
+		char c;
+		char d;
+	};
+
+	static_assert(sizeof(A) == 4, "");
+	static_assert(sizeof(B) == 1, "");
+}
 
 namespace N435 // evaluation of sizeof for struct: padding and alignment
 {

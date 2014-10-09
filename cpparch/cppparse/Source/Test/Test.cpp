@@ -912,6 +912,26 @@ struct MakeType<T[size]>
 	}
 };
 
+struct MakeDependentArray
+{
+	static BuiltInType apply(BuiltInType inner)
+	{
+		return BuiltInType(pushBuiltInType(inner, DependentArrayType(makeBuiltInExpression(NonTypeTemplateParameter(&gNonTypeTemplateParameterDeclaration, gSignedInt)))));
+	}
+};
+
+
+
+template<typename T>
+struct MakeType<T[NONTYPE_PARAM]>
+{
+	static BuiltInType apply()
+	{
+		return MakeDependentArray::apply(MakeType<T>::apply());
+	}
+};
+
+
 struct MakeFunction
 {
 	static BuiltInType apply(BuiltInType inner)
@@ -1584,10 +1604,9 @@ void testDeduction()
 	const int i = NONTYPE_PARAM;
 
 	TestDeduction<Template<T, i>, Template<int, 1> >::apply(gSignedInt, gOne);
+	TestDeduction<T[i], int[1]>::apply(gSignedInt, gOne);
 	TestDeduction<TT<int, i>, Template<int, 1> >::apply(gTemplateTemplateArgument, gOne);
 	TestDeduction<TT<int, 1>, Template<int, 1> >::apply(gTemplateTemplateArgument);
-
-	// TODO: type[i]
 
 	// expected to fail because T cannot be deduced
 	TestDeduction<int, int>::apply(gUniqueTypeNull);
@@ -1612,6 +1631,8 @@ void testDeduction()
 	TestDeduction<T, int[1], int*>::applyFunction();
 	TestDeduction<T, const int[1], const int*>::applyFunction();
 	TestDeduction<const Template<T, i>&, Template<int, 1> >::applyFunction(gSignedInt, gOne);
+	TestDeduction<T(&)[i], int[1]>::applyFunction(gSignedInt, gOne);
+	// TODO: TestDeduction<const T(&)[i], int[1]>::applyFunction(gSignedInt, gOne);
 
 	typedef const int ConstInt;
 	typedef int* PointerToInt;

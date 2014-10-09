@@ -236,6 +236,15 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 		printer.out << ")";
 		visitTypeElement();
 	}
+	void visit(const DependentArrayType& element)
+	{
+		pushType(false);
+		visitTypeElement();
+		printer.out << "[";
+		printExpression(element.expression);
+		printer.out << "]";
+		popType();
+	}
 	void visit(const TemplateTemplateArgument& element)
 	{
 		printName(element.declaration);

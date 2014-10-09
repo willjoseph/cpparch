@@ -1636,6 +1636,7 @@ inline ExpressionValue evaluateExpression(const SizeofExpression& node, const In
 	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type.
 	requireCompleteObjectType(type, context);
 	TypeLayout layout = getTypeLayout(type);
+	// TODO: SYMBOLS_ASSERT(layout.size != 0);
 	return makeConstantValue(IntegralConstant(layout.size));
 }
 
@@ -1647,6 +1648,7 @@ inline ExpressionValue evaluateExpression(const SizeofTypeExpression& node, cons
 	// [expr.sizeof] The sizeof operator shall not be applied to an expression that has function or incomplete type... or to the parenthesized name of such types.
 	requireCompleteObjectType(type, context);
 	TypeLayout layout = getTypeLayout(type);
+	SYMBOLS_ASSERT(layout.size != 0);
 	return makeConstantValue(IntegralConstant(layout.size));
 }
 
