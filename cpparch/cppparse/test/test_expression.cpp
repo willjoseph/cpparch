@@ -1,11 +1,9 @@
 
-#if 0
-namespace N442 // TODO: correct sizeof!
+namespace N443 // test type of array of unknown size with initializer-list
 {
-	static int data[] = { 0, 1, 2 };
-	static_assert(sizeof(data) == sizeof(int) * 3, "");
+	static int data[] ={ 0, 1, 2 };
+	static_assert(sizeof(decltype(data)) == sizeof(int) * 3, "");
 }
-#endif
 
 namespace N441 // test deduction of non-type template parameter
 {

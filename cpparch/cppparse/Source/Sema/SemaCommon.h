@@ -538,6 +538,18 @@ inline const DeclarationInstance* findRedeclared(const Declaration& declaration,
 	return 0;
 }
 
+inline UniqueTypeWrapper replaceArrayType(UniqueTypeWrapper type, std::size_t count)
+{
+	SEMANTIC_ASSERT(type.isArray());
+	std::size_t bound = getArrayType(type.value).size;
+	if(bound != 0)
+	{
+		SEMANTIC_ASSERT(count <= bound); // TODO: non-fatal error: initializer has more elements than array bound
+		return type;
+	}
+	SEMANTIC_ASSERT(getArrayType(type.value).size == 0);
+	return pushType(popType(type), ArrayType(count));
+}
 
 
 

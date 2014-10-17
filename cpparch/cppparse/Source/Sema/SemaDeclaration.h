@@ -26,8 +26,14 @@ struct SemaInitializer : public SemaBase
 
 	ExpressionWrapper expression;
 	Dependent valueDependent;
-	SemaInitializer(const SemaState& state) : SemaBase(state)
+	std::size_t count; // number of items in the initializer-list
+	SemaInitializer(const SemaState& state) : SemaBase(state), count(0)
 	{
+	}
+	SEMA_POLICY(cpp::initializer_clause, SemaPolicyPush<struct SemaInitializer>)
+	void action(cpp::initializer_clause* symbol, const SemaInitializer& walker)
+	{
+		++count;
 	}
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
@@ -272,6 +278,15 @@ struct SemaDeclarationSuffix : public SemaBase
 		SEMANTIC_ASSERT(declaration != 0);
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
+		if(walker.count != 0
+			&& UniqueTypeWrapper(declaration->type.unique).isArray())
+		{
+			// [dcl.array]
+			// ... The first constant-expression can also be omitted
+			// when the declarator is followed by an initializer. In this case the bound is calculated from the number
+			// of initial elements (say, N) supplied, and the type of the identifier of D is "array of N T."
+			declaration->type.unique = replaceArrayType(UniqueTypeWrapper(declaration->type.unique), walker.count).value;
+		}
 	}
 	// handle initializer in separate context to avoid ',' confusing recognition of declaration
 	SEMA_POLICY(cpp::expression_list, SemaPolicyPush<struct SemaInitializer>)
