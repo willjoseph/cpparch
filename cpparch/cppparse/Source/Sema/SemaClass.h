@@ -107,9 +107,8 @@ struct SemaClassHead : public SemaBase
 	{
 		SEMANTIC_ASSERT(walker.type.declaration != 0);
 		SEMANTIC_ASSERT(declaration->enclosed != 0);
-		SEMANTIC_ASSERT(walker.type.unique != 0);
 		addBase(declaration, walker.type);
-		setExpressionType(symbol, walker.type.isDependent ? gUniqueTypeNull : UniqueTypeWrapper(walker.type.unique));
+		setExpressionType(symbol, walker.type.isDependent ? gUniqueTypeNull : getUniqueType(walker.type));
 	}
 };
 

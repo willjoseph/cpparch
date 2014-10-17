@@ -125,7 +125,7 @@ struct SemaTypeTraitsIntrinsic : public SemaBase
 		walker.committed.test();
 		addDependent(valueDependent, walker.type);
 
-		UniqueTypeWrapper type = UniqueTypeWrapper(walker.type.unique);
+		UniqueTypeWrapper type = getUniqueType(walker.type);
 		setExpressionType(symbol, type);
 
 		(first == gUniqueTypeNull ? first : second) = type;
@@ -154,7 +154,7 @@ struct SemaOffsetof : public SemaBase
 		// [support.types] The expression offsetof(type, member-designator) is never type-dependent and it is value-dependent if and only if type is dependent.
 		addDependent(valueDependent, walker.type);
 
-		type = UniqueTypeWrapper(walker.type.unique);
+		type = getUniqueType(walker.type);
 		setExpressionType(symbol, type);
 	}
 	SEMA_POLICY(cpp::id_expression, SemaPolicyPush<struct SemaIdExpression>)
@@ -209,7 +209,7 @@ struct SemaPostfixExpression : public SemaBase
 	void action(cpp::postfix_expression_construct* symbol, const SemaExplicitTypeExpressionResult& walker)
 	{
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
-		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
+		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
 		// [temp.dep.expr]
 		// Expressions of the following forms are type-dependent only if the type specified by
 		// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
@@ -230,7 +230,7 @@ struct SemaPostfixExpression : public SemaBase
 	void action(cpp::postfix_expression_cast* symbol, const SemaExplicitTypeExpressionResult& walker)
 	{
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
-		ExpressionType type = ExpressionType(getUniqueTypeSafe(walker.type), false); // non lvalue
+		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
 		// [temp.dep.expr]
 		// Expressions of the following forms are type-dependent only if the type specified by
 		// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:

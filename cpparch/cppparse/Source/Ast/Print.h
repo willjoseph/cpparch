@@ -434,7 +434,7 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 			printer.out << getValue(name->getName());
 			SYMBOLS_ASSERT(!isFunction(*name) || name->type.unique != 0);
 			if(isFunction(*name)
-				&& UniqueTypeWrapper(name->type.unique).isFunction())
+				&& getUniqueType(name->type).isFunction())
 			{
 				printParameters(getParameterTypes(name->type.unique));
 			}

@@ -210,7 +210,7 @@ inline bool isNonStaticDataMember(const Declaration& declaration)
 		&& !isClass(declaration)
 		&& !isEnum(declaration)
 		&& !isEnumerator(declaration)
-		&& !UniqueTypeWrapper(declaration.type.unique).isFunction() // member functions are not instantiated when class is implicitly instantiated
+		&& !getUniqueType(declaration.type).isFunction() // member functions are not instantiated when class is implicitly instantiated
 		&& !isStatic(declaration) // static members are not instantiated when class is implicitly instantiated
 		&& !isTypedef(declaration); // member typedefs are not instantiated when class is implicitly instantiated
 }

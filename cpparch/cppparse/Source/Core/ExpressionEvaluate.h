@@ -318,7 +318,7 @@ inline bool isOverloaded(const DeclarationInstance& declaration);
 
 inline bool isOverloadedFunction(const DeclarationInstance& declaration)
 {
-	return UniqueTypeWrapper(declaration->type.unique).isFunction()
+	return getUniqueType(declaration->type).isFunction()
 		&& isOverloaded(declaration);
 }
 
@@ -331,7 +331,7 @@ inline bool isLvalue(const Declaration& declaration)
 {
 	return isObject(declaration) // functions, variables and data members are lvalues
 		&& declaration.templateParameter == INDEX_INVALID // template parameters are not lvalues
-		&& !isEnum(UniqueTypeWrapper(declaration.type.unique)); // enumerators are not lvalues
+		&& !isEnum(getUniqueType(declaration.type)); // enumerators are not lvalues
 }
 
 inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expression, const InstantiationContext& context)
@@ -389,7 +389,7 @@ inline void addUniqueOverload(OverloadSet& result, const Overload& overload)
 
 inline bool isOverloaded(const DeclarationInstance& declaration)
 {
-	SYMBOLS_ASSERT(UniqueTypeWrapper(declaration->type.unique).isFunction());
+	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
 	bool found = false;
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
@@ -416,7 +416,7 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing)
 {
-	SYMBOLS_ASSERT(UniqueTypeWrapper(declaration->type.unique).isFunction());
+	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(p->specifiers.isFriend)
@@ -430,7 +430,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const KoenigAssociated& associated = KoenigAssociated())
 {
-	SYMBOLS_ASSERT(UniqueTypeWrapper(declaration->type.unique).isFunction());
+	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		const SimpleType* memberEnclosing = 0;
@@ -1098,7 +1098,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	// the identifier names an overloadable function
 
 	SYMBOLS_ASSERT(declaration != &gDependentObject); // the id-expression should not be dependent
-	SYMBOLS_ASSERT(UniqueTypeWrapper(declaration->type.unique).isFunction());
+	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
 
 	// if this is a member-function-call, the type of the class containing the member
 	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.qualifying, idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);

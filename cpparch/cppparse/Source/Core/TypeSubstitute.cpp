@@ -232,7 +232,7 @@ struct SubstituteVisitor : TypeElementVisitor
 		// typedef
 		SYMBOLS_ASSERT(declaration->specifiers.isTypedef);
 		SYMBOLS_ASSERT(declaration->type.unique != 0);
-		type = UniqueTypeWrapper(declaration->type.unique);
+		type = getUniqueType(declaration->type);
 		if(declaration->type.isDependent)
 		{
 			SYMBOLS_ASSERT(memberEnclosing != 0);

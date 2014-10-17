@@ -402,7 +402,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				{
 					continue;
 				}
-				UniqueTypeWrapper type = UniqueTypeWrapper(declaration.type.unique);
+				UniqueTypeWrapper type = getUniqueType(declaration.type);
 				if(declaration.type.isDependent)
 				{
 					SYMBOLS_ASSERT(l != original.childLocations.end());

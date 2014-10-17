@@ -174,7 +174,12 @@ inline bool isSpecialization(const Declaration& declaration)
 	return declaration.isSpecialization;
 }
 
-
+// ----------------------------------------------------------------------------
+inline UniqueTypeWrapper getUniqueType(const Type& type)
+{
+	SYMBOLS_ASSERT(type.unique != 0);
+	return UniqueTypeWrapper(type.unique);
+}
 
 // ----------------------------------------------------------------------------
 // Returns the primary template for the given template declaration.

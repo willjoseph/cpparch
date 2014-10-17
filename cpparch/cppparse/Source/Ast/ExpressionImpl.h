@@ -669,7 +669,7 @@ inline bool isPointerToMemberExpression(ExpressionNode* node)
 
 inline bool isPointerToFunctionExpression(const IdExpression& idExpression)
 {
-	return UniqueTypeWrapper(idExpression.declaration->type.unique).isFunction();
+	return getUniqueType(idExpression.declaration->type).isFunction();
 }
 
 inline bool isPointerToFunctionExpression(const UnaryExpression& unaryExpression)

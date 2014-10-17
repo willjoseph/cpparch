@@ -271,8 +271,7 @@ struct DependencyBuilder
 				&& !(isFunctionParameter(*instance) // and the object is not a function parameter..
 					&& (!isDecorated(instance->scope->name) || !getDeclaration(instance->scope->name)->isFunctionDefinition))) // .. within a function declaration
 			{
-				REPORT_ASSERT(instance->type.unique != 0);
-				UniqueTypeId type(instance->type.unique);
+				UniqueTypeId type = getUniqueType(instance->type);
 				if(isFunctionParameter(*instance))
 				{
 					type = adjustFunctionParameter(type);
@@ -1139,9 +1138,10 @@ struct ParseTreePrinter : SymbolPrinter
 
 	static UniqueTypeId getSymbolType(cpp::identifier* symbol)
 	{
-		if(isPrimary(symbol->value))
+		if(isPrimary(symbol->value)
+			&& getDeclaration(symbol->value)->isComplete)
 		{
-			return UniqueTypeId(getDeclaration(symbol->value)->type.unique);
+			return getUniqueType(getDeclaration(symbol->value)->type);
 		}
 		return gUniqueTypeNull;
 	}

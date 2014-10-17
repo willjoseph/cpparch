@@ -502,10 +502,8 @@ inline bool isEquivalent(const Declaration& declaration, const Declaration& othe
 	}
 
 	{
-		SEMANTIC_ASSERT(declaration.type.unique != 0);
-		SEMANTIC_ASSERT(other.type.unique != 0);
-		UniqueTypeWrapper l(declaration.type.unique);
-		UniqueTypeWrapper r(other.type.unique);
+		UniqueTypeWrapper l = getUniqueType(declaration.type);
+		UniqueTypeWrapper r = getUniqueType(other.type);
 		if(l.isFunction())
 		{
 			// 13.2 [over.dcl] Two functions of the same name refer to the same function
@@ -1407,7 +1405,7 @@ struct SemaBase : public SemaState
 			return;
 		}
 		SEMANTIC_ASSERT(declaration->type.unique != 0);
-		UniqueTypeWrapper uniqueType = UniqueTypeWrapper(declaration->type.unique);
+		UniqueTypeWrapper uniqueType = getUniqueType(declaration->type);
 
 		// track whether class has (pure) virtual functions
 		if(declaration->specifiers.isVirtual
@@ -1463,8 +1461,7 @@ struct SemaBase : public SemaState
 
 		// the type of an object is required to be complete
 		// a member's type must be instantiated before the point of declaration of the member, to prevent the member being found by name lookup during the instantiation
-		SEMANTIC_ASSERT(type.unique != 0);
-		UniqueTypeWrapper uniqueType = UniqueTypeWrapper(type.unique);
+		UniqueTypeWrapper uniqueType = getUniqueType(type);
 		SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
 		// NOTE: this check must occur after the declaration because an out-of-line definition of a static member is otherwise not known to be static
 		if(enclosingClass != 0 // if the enclosing class is not an anonymous union
@@ -1566,11 +1563,6 @@ struct SemaBase : public SemaState
 	void makeUniqueTypeSafe(TypeId& type)
 	{
 		makeUniqueTypeImpl(type);
-	}
-	UniqueTypeWrapper getUniqueTypeSafe(const TypeId& type)
-	{
-		SEMANTIC_ASSERT(type.unique != 0); // type must have previously been uniqued by makeUniqueTypeImpl
-		return UniqueTypeWrapper(type.unique);
 	}
 
 	ExpressionWrapper makeTransformedIdExpression(const ExpressionWrapper& expression, Dependent& typeDependent, Dependent& valueDependent)

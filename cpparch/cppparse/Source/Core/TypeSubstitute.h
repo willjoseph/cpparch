@@ -199,8 +199,7 @@ inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationCont
 template<typename T>
 inline UniqueTypeWrapper getUniqueTypeImpl(const T& type, const InstantiationContext& context, bool allowDependent)
 {
-	SYMBOLS_ASSERT(type.unique != 0);
-	UniqueTypeWrapper result = UniqueTypeWrapper(type.unique);
+	UniqueTypeWrapper result = getUniqueType(type);
 	if(type.isDependent
 		&& !allowDependent)
 	{
@@ -219,12 +218,6 @@ inline UniqueTypeWrapper getUniqueType(const TypeId& type, const InstantiationCo
 inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationContext& context, bool allowDependent)
 {
 	return getUniqueTypeImpl(type, context, allowDependent);
-}
-
-inline UniqueTypeWrapper getUniqueType(const Type& type)
-{
-	SYMBOLS_ASSERT(type.unique != 0);
-	return UniqueTypeWrapper(type.unique);
 }
 
 
