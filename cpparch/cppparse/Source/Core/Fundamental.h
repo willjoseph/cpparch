@@ -210,9 +210,14 @@ inline bool isComplete(const UniqueTypeId& type)
 	return type.isSimple() && isComplete(getSimpleType(type.value));
 }
 
+inline bool isArithmetic(const SimpleType& classType)
+{
+	return isArithmetic(*classType.declaration);
+}
+
 inline bool isArithmetic(const UniqueTypeId& type)
 {
-	return type.isSimple() && getSimpleType(type.value).declaration->type.declaration == &gArithmetic;
+	return type.isSimple() && isArithmetic(getSimpleType(type.value));
 }
 
 inline bool isFloating(const UniqueTypeId& type)

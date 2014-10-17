@@ -1139,7 +1139,7 @@ struct ParseTreePrinter : SymbolPrinter
 	static UniqueTypeId getSymbolType(cpp::identifier* symbol)
 	{
 		if(isPrimary(symbol->value)
-			&& getDeclaration(symbol->value)->isComplete)
+			&& getDeclaration(symbol->value)->type.unique != 0)
 		{
 			return getUniqueType(getDeclaration(symbol->value)->type);
 		}

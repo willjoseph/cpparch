@@ -303,7 +303,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
-		if(getUniqueType(declaration->type).isFunction())
+		if(isFunction(*declaration))
 		{
 			SEMANTIC_ASSERT(isLiteralZeroExpression(walker.expression)); // TODO: non-fatal error: expected '0'
 			declaration->specifiers.isPure = true;

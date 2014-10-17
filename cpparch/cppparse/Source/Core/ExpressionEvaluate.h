@@ -318,7 +318,7 @@ inline bool isOverloaded(const DeclarationInstance& declaration);
 
 inline bool isOverloadedFunction(const DeclarationInstance& declaration)
 {
-	return getUniqueType(declaration->type).isFunction()
+	return isFunction(*declaration)
 		&& isOverloaded(declaration);
 }
 
@@ -389,7 +389,7 @@ inline void addUniqueOverload(OverloadSet& result, const Overload& overload)
 
 inline bool isOverloaded(const DeclarationInstance& declaration)
 {
-	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
+	SYMBOLS_ASSERT(isFunction(*declaration));
 	bool found = false;
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
@@ -416,7 +416,7 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing)
 {
-	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
+	SYMBOLS_ASSERT(isFunction(*declaration));
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(p->specifiers.isFriend)
@@ -430,7 +430,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const KoenigAssociated& associated = KoenigAssociated())
 {
-	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
+	SYMBOLS_ASSERT(isFunction(*declaration));
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		const SimpleType* memberEnclosing = 0;
@@ -1098,7 +1098,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	// the identifier names an overloadable function
 
 	SYMBOLS_ASSERT(declaration != &gDependentObject); // the id-expression should not be dependent
-	SYMBOLS_ASSERT(getUniqueType(declaration->type).isFunction());
+	SYMBOLS_ASSERT(isFunction(*declaration));
 
 	// if this is a member-function-call, the type of the class containing the member
 	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.qualifying, idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);

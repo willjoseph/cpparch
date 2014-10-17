@@ -61,18 +61,53 @@ extern Declaration gNonType;
 
 #define TYPE_PARAM TypeId(&gParam, AST_ALLOCATOR_NULL)
 
-inline bool isType(const Declaration& type)
+// ----------------------------------------------------------------------------
+inline UniqueTypeWrapper getUniqueType(const Type& type)
 {
-	return type.specifiers.isTypedef
-		|| type.type.declaration == &gArithmetic
-		|| type.type.declaration == &gSpecial
-		|| type.type.declaration == &gEnum
-		|| type.type.declaration == &gClass;
+	SYMBOLS_ASSERT(type.unique != 0);
+	return UniqueTypeWrapper(type.unique);
+}
+
+// ----------------------------------------------------------------------------
+inline bool isClass(const Declaration& declaration)
+{
+	return declaration.type.declaration == &gClass;
+}
+
+inline bool isEnum(const Declaration& declaration)
+{
+	return declaration.type.declaration == &gEnum;
+}
+
+inline bool isArithmetic(const Declaration& declaration)
+{
+	return declaration.type.declaration == &gArithmetic;
+}
+
+inline bool isTypedef(const Declaration& declaration)
+{
+	return declaration.specifiers.isTypedef;
+}
+
+inline bool isType(const Declaration& declaration)
+{
+	return isTypedef(declaration)
+		|| declaration.type.declaration == &gSpecial
+		|| isArithmetic(declaration)
+		|| isClass(declaration)
+		|| isEnum(declaration);
+}
+
+inline bool isNamespace(const Declaration& declaration)
+{
+	return declaration.type.declaration == &gNamespace;
 }
 
 inline bool isFunction(const Declaration& declaration)
 {
-	return declaration.enclosed != 0 && declaration.enclosed->type == SCOPETYPE_FUNCTION;
+	SYMBOLS_ASSERT(declaration.type.unique != 0 || isType(declaration) || isNamespace(declaration));
+	return declaration.type.unique != 0
+		&& getUniqueType(declaration.type).isFunction();
 }
 
 inline bool isMember(const Declaration& declaration)
@@ -96,12 +131,6 @@ inline bool isMemberObject(const Declaration& declaration)
 		&& !isFunction(declaration);
 }
 
-inline bool isMemberFunction(const Declaration& declaration)
-{
-	return isMember(declaration)
-		&& isFunction(declaration);
-}
-
 inline bool isStatic(const Declaration& declaration)
 {
 	return declaration.specifiers.isStatic;
@@ -113,24 +142,9 @@ inline bool isStaticMember(const Declaration& declaration)
 		&& isStatic(declaration);
 }
 
-inline bool isTypedef(const Declaration& declaration)
-{
-	return declaration.specifiers.isTypedef;
-}
-
 inline bool isClassKey(const Declaration& declaration)
 {
 	return &declaration == &gClass;
-}
-
-inline bool isClass(const Declaration& declaration)
-{
-	return declaration.type.declaration == &gClass;
-}
-
-inline bool isEnum(const Declaration& declaration)
-{
-	return declaration.type.declaration == &gEnum;
 }
 
 inline bool isEnumerator(const Declaration& declaration)
@@ -153,11 +167,6 @@ inline bool isElaboratedType(const Declaration& declaration)
 	return (isClass(declaration) || isEnum(declaration)) && isIncomplete(declaration);
 }
 
-inline bool isNamespace(const Declaration& declaration)
-{
-	return declaration.type.declaration == &gNamespace;
-}
-
 inline bool isObject(const Declaration& declaration)
 {
 	return !isType(declaration)
@@ -172,13 +181,6 @@ inline bool isExtern(const Declaration& declaration)
 inline bool isSpecialization(const Declaration& declaration)
 {
 	return declaration.isSpecialization;
-}
-
-// ----------------------------------------------------------------------------
-inline UniqueTypeWrapper getUniqueType(const Type& type)
-{
-	SYMBOLS_ASSERT(type.unique != 0);
-	return UniqueTypeWrapper(type.unique);
 }
 
 // ----------------------------------------------------------------------------
