@@ -13,8 +13,9 @@ struct FunctionOverload
 {
 	Declaration* declaration;
 	ExpressionType type;
-	FunctionOverload(Declaration* declaration, ExpressionType type)
-		: declaration(declaration), type(type)
+	const SimpleType* instance; // if this is a function template, the unique instance of the function template specialization
+	FunctionOverload(Declaration* declaration, ExpressionType type, const SimpleType* instance = 0)
+		: declaration(declaration), type(type), instance(instance)
 	{
 	}
 };
@@ -624,6 +625,7 @@ struct FunctionSignature : FunctionType, FunctionTemplate
 {
 	UniqueTypeWrapper returnType;
 	CvQualifiers qualifiers;
+	const SimpleType* instance; // if this is a function template, the unique instance of the function template specialization
 
 	const FunctionType& getFunctionType() const
 	{

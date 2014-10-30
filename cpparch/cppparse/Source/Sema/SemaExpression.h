@@ -426,9 +426,18 @@ struct SemaStaticAssertDeclaration : public SemaBase
 			SEMANTIC_ASSERT(!string_equal(message, "\"?evaluated\"")); // assert if we were expecting a non-dependent expression
 
 			// add expression to list in enclosing template class/function for evaluation during template instantiation
+#if 0
 			SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
-			enclosingClass->childExpressions.push_back(DeferredExpression(expression, TokenValue(message)));
-			enclosingClass->childExpressionLocations.push_back(getLocation());
+			if(enclosingClass != 0)
+			{
+				enclosingClass->childExpressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
+			}
+#else
+			SEMANTIC_ASSERT(enclosingScope != ScopePtr(0));
+			Scope* enclosingTemplate = findEnclosingTemplateScope(enclosingScope);
+			SEMANTIC_ASSERT(enclosingTemplate != ScopePtr(0));
+			enclosingTemplate->expressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
+#endif
 		}
 		else
 		{

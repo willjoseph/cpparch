@@ -213,7 +213,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		if(declaration->isTemplate // if this is a function template definition
 			&& !declaration->templateParams.empty()) // and is not an explicit specialization
 		{
-			SimpleType specialization(declaration, enclosingType);
+			SimpleType specialization = SimpleType(declaration, enclosingType);
 			makeUniqueTemplateParameters(declaration->templateParams, specialization.templateArguments, getInstantiationContext(), true);
 			enclosingFunction = &getSimpleType(makeUniqueSimpleType(specialization).value);
 		}

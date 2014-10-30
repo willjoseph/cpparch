@@ -1,4 +1,13 @@
 
+namespace N445
+{
+	template<typename T>
+	void f()
+	{
+		static_assert(sizeof(T) == 4, "");
+	}
+};
+
 namespace N444 // test parse of explicit specialization of function template
 {
 	template<typename T>

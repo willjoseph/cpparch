@@ -963,6 +963,16 @@ inline IdExpression substituteIdExpression(ExpressionNode* node, const Instantia
 		: getIdExpression(node);
 }
 
+
+inline void requireCompleteFunction(const SimpleType* instance)
+{
+	if(instance == 0) // if this is not a function template specialization
+	{
+		return;
+	}
+	const_cast<SimpleType*>(instance)->instantiated = true;
+}
+
 inline ExpressionType typeOfFunctionCallExpression(Argument left, const Arguments& arguments, const InstantiationContext& context)
 {
 	ExpressionWrapper expression = left;
@@ -1036,6 +1046,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 			setDecoration(&declaration->getName(), instance);
 		}
 #endif
+		requireCompleteFunction(overload.instance);
 		return overload.type;
 	}
 
@@ -1165,6 +1176,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 		setDecoration(id, instance);
 	}
 #endif
+	requireCompleteFunction(overload.instance);
 	SYMBOLS_ASSERT(!::isDependent(overload.type));
 	return overload.type;
 }

@@ -134,6 +134,33 @@ struct DeclarationInstanceRef
 	}
 };
 
+
+struct DeferredExpression : ExpressionWrapper
+{
+	DeferredExpression(const ExpressionWrapper& expression, const Location& location, TokenValue message)
+		: ExpressionWrapper(expression), location(location), message(message)
+	{
+	}
+	Location location;
+	TokenValue message; // if non-null, this is a static_assert
+};
+
+typedef ListReference<struct DeferredExpression, AstAllocator<int> > DeferredExpressions2;
+
+// wrapper to disable default-constructor
+struct DeferredExpressions : public DeferredExpressions2
+{
+	DeferredExpressions(const AstAllocator<int>& allocator)
+		: DeferredExpressions2(allocator)
+	{
+	}
+private:
+	DeferredExpressions()
+	{
+	}
+};
+
+
 struct Scope : public ScopeCounter
 {
 	ScopePtr parent;
@@ -172,7 +199,8 @@ struct Scope : public ScopeCounter
 
 	Declarations declarations;
 	ScopeType type;
-	Types bases;
+	Types bases; // the base classes (if this is a class)
+	DeferredExpressions expressions; // the expressions to evaluate on instantiation (if this is a class template or function template)
 	typedef List<ScopePtr, AstAllocator<int> > Scopes;
 	Scopes usingDirectives;
 	typedef List<DeclarationPtr, AstAllocator<int> > DeclarationList;
@@ -181,7 +209,7 @@ struct Scope : public ScopeCounter
 	mutable bool visited;
 
 	Scope(const AstAllocator<int>& allocator, const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN)
-		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type), bases(allocator), usingDirectives(allocator), declarationList(allocator), templateDepth(0), visited(false)
+		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type), bases(allocator), expressions(allocator), usingDirectives(allocator), declarationList(allocator), templateDepth(0), visited(false)
 
 	{
 	}

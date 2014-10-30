@@ -318,10 +318,7 @@ inline bool hasCopyAssignmentOperator(const SimpleType& classType, const Instant
 TypeLayout instantiateClass(const SimpleType& instanceConst, const InstantiationContext& context, bool allowDependent)
 {
 	SimpleType& instance = const_cast<SimpleType&>(instanceConst);
-	if(!isClass(*instance.declaration))
-	{
-		throw TypeErrorBase(context.source);
-	}
+	SYMBOLS_ASSERT(isClass(*instance.declaration));
 
 	if(context.enclosingType != 0)
 	{
@@ -393,7 +390,6 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 		if(!allowDependent)
 		{
 #if 1
-			InstanceLocations::const_iterator l = original.childLocations.begin();
 			const Scope::DeclarationList& members = instance.declaration->enclosed->declarationList;
 			for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
 			{
@@ -405,11 +401,12 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				UniqueTypeWrapper type = getUniqueType(declaration.type);
 				if(declaration.type.isDependent)
 				{
-					SYMBOLS_ASSERT(l != original.childLocations.end());
-					InstantiationContext childContext(*l, &instance, 0, context.enclosingScope);
+					// the member declaration should be found by name lookup during it's instantation
+					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
+					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
+					SYMBOLS_ASSERT(childContext.source.pointOfInstantiation == declaration.location.pointOfInstantiation + 1);
 					type = substitute(type, childContext);
 					requireCompleteObjectType(type, childContext);
-					++l;
 				}
 				addNonStaticMember(instance, type);
 			}
@@ -432,16 +429,34 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				}
 			}
 #endif
+
+#if 1
+			const DeferredExpressions& expressions = instance.declaration->enclosed->expressions;
+			for(DeferredExpressions::const_iterator i = expressions.begin(); i != expressions.end(); ++i)
+			{
+				const DeferredExpression& expression = *i;
+				InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
+#if 1 // TODO: evaluate type of expressions?
+				ExpressionType type = typeOfExpressionWrapper(expression, childContext);
+				SYMBOLS_ASSERT(!isDependent(type));
+#endif
+				if(expression.message != NAME_NULL)
+				{
+					evaluateStaticAssert(expression, expression.message.c_str(), childContext);
+				}
+			}
+#endif		
+
+#if 0
 			if(!original.childExpressions.empty()
 				&& &instance != &original) // TODO: this will be an assert when instantiateClass is no longer called at the beginning of a template-definition
 			{
 				SYMBOLS_ASSERT(instance.declaration->isComplete);
 				instance.childExpressions.reserve(original.childExpressions.size());
-				InstanceLocations::const_iterator l = original.childExpressionLocations.begin();
-				for(InstantiatedExpressions::const_iterator i = original.childExpressions.begin(); i != original.childExpressions.end(); ++i, ++l)
+				for(InstantiatedExpressions::const_iterator i = original.childExpressions.begin(); i != original.childExpressions.end(); ++i)
 				{
-					InstantiationContext childContext(*l, &instance, 0, context.enclosingScope);
 					const DeferredExpression& expression = *i;
+					InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
 #if 0 // TODO: evaluate type of expressions?
 					ExpressionType type = typeOfExpressionWrapper(expression, childContext);
 					SYMBOLS_ASSERT(!isDependent(type));
@@ -452,6 +467,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					}
 				}
 			}
+#endif
 
 			instance.hasCopyAssignmentOperator = hasCopyAssignmentOperator(instance, context);
 		}

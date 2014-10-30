@@ -2,9 +2,7 @@
 #ifndef INCLUDED_CPPPARSE_AST_TYPE_H
 #define INCLUDED_CPPPARSE_AST_TYPE_H
 
-#include "Declaration.h"
 #include "Scope.h"
-#include "Expression.h" // IntegralConstant
 #include "Common/Vector.h"
 
 
@@ -321,16 +319,9 @@ struct UniqueTypeArray : std::vector<UniqueTypeWrapper>
 typedef UniqueTypeArray TemplateArgumentsInstance;
 typedef std::vector<UniqueTypeWrapper> InstantiatedTypes;
 
-struct DeferredExpression : ExpressionWrapper
-{
-	DeferredExpression(const ExpressionWrapper& expression, TokenValue message)
-		: ExpressionWrapper(expression), message(message)
-	{
-	}
-	TokenValue message; // if non-null, this is a static_assert
-};
 
 typedef std::vector<DeferredExpression> InstantiatedExpressions;
+
 
 typedef std::vector<const struct SimpleType*> UniqueBases;
 
@@ -417,10 +408,8 @@ struct SimpleType
 	const SimpleType* enclosing; // the enclosing template
 	UniqueBases bases;
 	TypeLayout layout;
-	InstantiatedTypes children; // the dependent types in the specialization
-	InstantiatedExpressions childExpressions; // the dependent expressions in the specialization
-	InstanceLocations childLocations; // temporary scaffolding!
-	InstanceLocations childExpressionLocations; // temporary scaffolding!
+	InstantiatedTypes children; // the dependent types in the template
+	InstantiatedExpressions childExpressions; // the dependent expressions in the template
 	bool instantiated;
 	bool instantiating;
 	bool allowLookup;

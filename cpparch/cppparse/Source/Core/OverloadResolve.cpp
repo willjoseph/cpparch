@@ -20,6 +20,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 	result.parameterTypes = function.parameterTypes;
 	result.returnType = popType(type);
 	result.qualifiers = type.value.getQualifiers();
+	result.instance = 0;
 
 	if(!declaration.isTemplate)
 	{
@@ -102,6 +103,8 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 		substitute(result.parameterTypes, parameters, functionContext);
 		result.returnType = substitute(result.returnType, functionContext); // substitute the return type. TODO: should wait until overload is chosen?
 
+		result.instance = &getSimpleType(makeUniqueSimpleType(specialization).value);
+
 		return result;
 	}
 	catch(TypeError&)
@@ -139,7 +142,7 @@ ParameterTypes addOverload(OverloadResolver& resolver, const Overload& overload)
 		return ParameterTypes();
 	}
 
-	resolver.add(FunctionOverload(const_cast<Declaration*>(overload.declaration), getFunctionCallExpressionType(result.returnType)), result, result.qualifiers, overload.memberEnclosing, result);
+	resolver.add(FunctionOverload(const_cast<Declaration*>(overload.declaration), getFunctionCallExpressionType(result.returnType), result.instance), result, result.qualifiers, overload.memberEnclosing, result);
 	return result.parameterTypes;
 }
 

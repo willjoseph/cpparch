@@ -212,6 +212,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	SYMBOLS_ASSERT(declaration->type.declaration != &gArithmetic || tmp.enclosing == 0); // arithmetic types should not have an enclosing template!
 	if(declaration->isTemplate)
 	{
+		SYMBOLS_ASSERT(isClass(*declaration));
 		tmp.declaration = tmp.primary = findPrimaryTemplate(declaration);
 
 		bool isEnclosingSpecialization = type.isEnclosingClass && isSpecialization(*type.declaration);

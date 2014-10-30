@@ -336,6 +336,7 @@ class Declaration
 	Declaration& operator=(const Declaration&);
 #endif
 public:
+	Location location; // the point of declaration
 	std::size_t uniqueId;
 	Scope* scope;
 	TypeId type;
@@ -403,6 +404,7 @@ public:
 	void swap(Declaration& other)
 	{
 		std::swap(name, other.name);
+		std::swap(location, other.location);
 		std::swap(uniqueId, other.uniqueId);
 		std::swap(scope, other.scope);
 		type.swap(other.type);

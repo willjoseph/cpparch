@@ -583,6 +583,19 @@ inline bool findScope(Scope* scope, Scope* other)
 	return findScope(scope->parent, other);
 }
 
+inline Scope* findEnclosingTemplateScope(Scope* scope)
+{
+	if(scope == 0)
+	{
+		return 0;
+	}
+	if(isTemplate(*scope))
+	{
+		return scope;
+	}
+	return findEnclosingTemplateScope(scope->parent);
+}
+
 inline Declaration* findEnclosingClassTemplate(Declaration* dependent)
 {
 	if(dependent != 0
@@ -872,6 +885,7 @@ struct SemaState
 		SEMANTIC_ASSERT(!name.value.empty());
 		Declaration declaration(allocator, parent, name, type, enclosed, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
 		SEMANTIC_ASSERT(!isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
+		declaration.location = getLocation();
 		declaration.uniqueId = ++uniqueId;
 		DeclarationInstance instance;
 		const DeclarationInstance* existing = 0;
@@ -1479,9 +1493,6 @@ struct SemaBase : public SemaState
 			else
 			{
 				enclosingClass->children.push_back(uniqueType);
-				// TODO: check compliance: the point of instantiation of a type used in a member declaration is the point of declaration of the member
-				// .. along with the point of instantiation of types required when naming the member type. e.g. A<T>::B m; B<A<T>::value> m;
-				enclosingClass->childLocations.push_back(getLocation());
 			}
 		}
 			
