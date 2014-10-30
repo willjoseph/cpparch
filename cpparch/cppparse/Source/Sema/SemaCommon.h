@@ -288,7 +288,7 @@ inline const Declaration& getPrimaryDeclaration(const Declaration& first, const 
 	if(isStaticMember(first))
 	{
 		// TODO: disallow inline definition of static member: class C { static int i; int i; };
-		if(!isMemberObject(second))
+		if(!isDataMember(second))
 		{
 			throw DeclarationError("non-member-object already declared as static member-object");
 		}

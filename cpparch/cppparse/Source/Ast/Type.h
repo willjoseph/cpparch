@@ -125,9 +125,10 @@ inline bool isNonMember(const Declaration& declaration)
 	return !isMember(declaration);
 }
 
-inline bool isMemberObject(const Declaration& declaration)
+inline bool isDataMember(const Declaration& declaration)
 {
 	return isMember(declaration)
+		&& !isType(declaration)
 		&& !isFunction(declaration);
 }
 
@@ -138,7 +139,7 @@ inline bool isStatic(const Declaration& declaration)
 
 inline bool isStaticMember(const Declaration& declaration)
 {
-	return isMemberObject(declaration)
+	return isDataMember(declaration)
 		&& isStatic(declaration);
 }
 

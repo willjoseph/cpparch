@@ -1,4 +1,19 @@
 
+namespace N444 // test parse of explicit specialization of function template
+{
+	template<typename T>
+	int f(T);
+
+	template<>
+	int f(int); // T is deduced to be int
+
+	template<>
+	int f<>(int); // T is deduced to be int
+
+	template<>
+	int f<int>(int); // T is explicitly specified to be int
+}
+
 namespace N443 // test type of array of unknown size with initializer-list
 {
 	static int data[] ={ 0, 1, 2 };
