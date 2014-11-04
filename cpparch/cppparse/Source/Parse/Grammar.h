@@ -83,29 +83,29 @@ struct UniqueType
 		this->qualifiers.isConst |= qualifiers.isConst;
 		this->qualifiers.isVolatile |= qualifiers.isVolatile;
 	}
-	CvQualifiers getQualifiers() const
+	CPPP_INLINE CvQualifiers getQualifiers() const
 	{
 		return qualifiers;
 	}
-	uintptr_t getBits() const
+	CPPP_INLINE uintptr_t getBits() const
 	{
 		return uintptr_t(p)
 			| (uintptr_t(qualifiers.isConst) << 0)
 			| (uintptr_t(qualifiers.isVolatile) << 1);
 	}
-	bool operator<(const UniqueType& other) const
+	CPPP_INLINE bool operator<(const UniqueType& other) const
 	{
 		return getBits() < other.getBits();
 	}
-	bool operator==(const UniqueType& other) const
+	CPPP_INLINE bool operator==(const UniqueType& other) const
 	{
 		return getBits() == other.getBits();
 	}
-	const TypeElement& operator*() const
+	CPPP_INLINE const TypeElement& operator*() const
 	{
 		return *getPointer();
 	}
-	const TypeElement* operator->() const
+	CPPP_INLINE const TypeElement* operator->() const
 	{
 		return getPointer();
 	}
@@ -116,23 +116,23 @@ struct UniqueType
 	const uintptr_t POINTER = ~FLAGS;
 	uintptr_t p;
 
-	UniqueType(const TypeElement* p)
+	CPPP_INLINE UniqueType(const TypeElement* p)
 		: p(p)
 	{
 	}
-	const TypeElement* getPointer() const
+	CPPP_INLINE const TypeElement* getPointer() const
 	{
 		return reinterpret_cast<const TypeElement*>(uintptr_t(p) & POINTER);
 	}
-	bool getFlag(uintptr_t flag) const
+	CPPP_INLINE bool getFlag(uintptr_t flag) const
 	{
 		return (uintptr_t(p) & flag) != 0;
 	}
-	const TypeElement& operator*() const
+	CPPP_INLINE const TypeElement& operator*() const
 	{
 		return *getPointer();
 	}
-	const TypeElement* operator->() const
+	CPPP_INLINE const TypeElement* operator->() const
 	{
 		return getPointer();
 	}
@@ -168,24 +168,24 @@ namespace cpp
 	{
 		typedef Visitable<T> Type;
 		Type* p;
-		symbol() : p(0)
+		CPPP_INLINE symbol() : p(0)
 		{
 		}
-		explicit symbol(Type* p) : p(p)
+		CPPP_INLINE explicit symbol(Type* p) : p(p)
 		{
 		}
-		Type* get() const
+		CPPP_INLINE Type* get() const
 		{
 			return p;
 		}
-		Type* operator->()
+		CPPP_INLINE Type* operator->()
 		{
 #ifdef ALLOCATOR_DEBUG
 			ALLOCATOR_ASSERT(!isDeallocated(p));
 #endif
 			return p;
 		}
-		operator Type*()
+		CPPP_INLINE operator Type*()
 		{
 #ifdef ALLOCATOR_DEBUG
 			ALLOCATOR_ASSERT(!isDeallocated(p));
@@ -193,7 +193,7 @@ namespace cpp
 			return p;
 		}
 		template<typename Other>
-		bool isA()
+		CPPP_INLINE bool isA()
 		{
 			return typeid(*p) == typeid(Visitable<Other>);
 		}
@@ -202,10 +202,10 @@ namespace cpp
 	template<typename T, bool required>
 	struct symbol_generic : symbol<T>
 	{
-		symbol_generic()
+		CPPP_INLINE symbol_generic()
 		{
 		}
-		explicit symbol_generic(Visitable<T>* p) : symbol<T>(p)
+		CPPP_INLINE explicit symbol_generic(Visitable<T>* p) : symbol<T>(p)
 		{
 		}
 	};
@@ -213,10 +213,10 @@ namespace cpp
 	template<typename T>
 	struct symbol_required : symbol_generic<T, true>
 	{
-		symbol_required()
+		CPPP_INLINE symbol_required()
 		{
 		}
-		explicit symbol_required(Visitable<T>* p) : symbol_generic<T, true>(p)
+		CPPP_INLINE explicit symbol_required(Visitable<T>* p) : symbol_generic<T, true>(p)
 		{
 		}
 	};
@@ -224,10 +224,10 @@ namespace cpp
 	template<typename T>
 	struct symbol_optional : symbol_generic<T, false>
 	{
-		symbol_optional()
+		CPPP_INLINE symbol_optional()
 		{
 		}
-		explicit symbol_optional(Visitable<T>* p) : symbol_generic<T, false>(p)
+		CPPP_INLINE explicit symbol_optional(Visitable<T>* p) : symbol_generic<T, false>(p)
 		{
 		}
 	};
@@ -235,10 +235,10 @@ namespace cpp
 	template<typename T>
 	struct symbol_sequence : symbol<T>
 	{
-		symbol_sequence()
+		CPPP_INLINE symbol_sequence()
 		{
 		}
-		explicit symbol_sequence(Visitable<T>* p) : symbol<T>(p)
+		CPPP_INLINE explicit symbol_sequence(Visitable<T>* p) : symbol<T>(p)
 		{
 		}
 	};
@@ -246,10 +246,10 @@ namespace cpp
 	template<typename T>
 	struct symbol_next : symbol<T>
 	{
-		symbol_next()
+		CPPP_INLINE symbol_next()
 		{
 		}
-		explicit symbol_next(Visitable<T>* p) : symbol<T>(p)
+		CPPP_INLINE explicit symbol_next(Visitable<T>* p) : symbol<T>(p)
 		{
 		}
 	};

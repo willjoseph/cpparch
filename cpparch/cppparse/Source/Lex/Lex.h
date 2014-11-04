@@ -431,31 +431,31 @@ struct Lexer
 		return isEOF((*position).id) && first == last;
 	}
 
-	LexTokenId get_id()
+	CPPP_INLINE LexTokenId get_id()
 	{
 		return (*position).id;
 	}
-	const TokenValue& get_value()
+	CPPP_INLINE const TokenValue& get_value()
 	{
 		return (*position).value;
 	}
-	const FilePosition& get_position()
+	CPPP_INLINE const FilePosition& get_position()
 	{
 		return (*position).position;
 	}
-	IncludeEvents get_events()
+	CPPP_INLINE IncludeEvents get_events()
 	{
 		return (*position).events;
 	}
-	const Source& get_source()
+	CPPP_INLINE const Source& get_source()
 	{
 		return (*position).source;
 	}
-	const TokenValue& getErrorValue()
+	CPPP_INLINE const TokenValue& getErrorValue()
 	{
 		return (*error).value;
 	}
-	FilePosition getErrorPosition()
+	CPPP_INLINE FilePosition getErrorPosition()
 	{
 		return (*error).position;
 	}

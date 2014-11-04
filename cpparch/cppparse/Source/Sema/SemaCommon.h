@@ -1602,7 +1602,7 @@ template<typename A1>
 struct Args1
 {
 	A1 a1;
-	Args1(A1 a1) : a1(a1)
+	CPPP_INLINE Args1(A1 a1) : a1(a1)
 	{
 	}
 };
@@ -1612,7 +1612,7 @@ struct Args2
 {
 	A1 a1;
 	A2 a2;
-	Args2(A1 a1, A2 a2) : a1(a1), a2(a2)
+	CPPP_INLINE Args2(A1 a1, A2 a2) : a1(a1), a2(a2)
 	{
 	}
 };
@@ -1620,7 +1620,7 @@ struct Args2
 struct InvokeNone
 {
 	template<typename SemaT, typename T, typename Result>
-	static bool invokeAction(SemaT& walker, T* symbol, Result& result)
+	CPPP_INLINE static bool invokeAction(SemaT& walker, T* symbol, Result& result)
 	{
 		return true;
 	}
@@ -1680,7 +1680,7 @@ template<typename Inner, typename Commit = CommitNull, typename Args = Args0>
 struct SemaPush : Args
 {
 	typedef Args ArgsType;
-	SemaPush(const Args& args)
+	CPPP_INLINE SemaPush(const Args& args)
 		: Args(args)
 	{
 	}
@@ -1709,7 +1709,7 @@ struct HasAction<SemaT, ID, typename SfinaeNonType<void(SemaT::*)(cpp::terminal<
 
 
 template<typename SemaT, LexTokenId ID>
-typename EnableIf<!HasAction<SemaT, ID>::value>::Type
+CPPP_INLINE typename EnableIf<!HasAction<SemaT, ID>::value>::Type
 	semaAction(SemaT& walker, cpp::terminal<ID>)
 {
 	// do nothing
@@ -1724,7 +1724,7 @@ typename EnableIf<HasAction<SemaT, ID>::value>::Type
 
 
 template<typename SemaT, typename Inner, typename Args>
-void semaCommit(SemaT& walker, const SemaPush<Inner, CommitNull, Args>& inner)
+CPPP_INLINE void semaCommit(SemaT& walker, const SemaPush<Inner, CommitNull, Args>& inner)
 {
 	// do nothing
 }
@@ -1762,7 +1762,7 @@ struct SemaIdentity
 
 
 template<typename SemaT>
-void semaCommit(SemaT& walker, const SemaIdentity& inner)
+CPPP_INLINE void semaCommit(SemaT& walker, const SemaIdentity& inner)
 {
 	// do nothing
 }
@@ -1774,12 +1774,12 @@ struct Nothing
 struct AnnotateNull
 {
 	typedef Nothing Data;
-	static Data makeData(const Token& token)
+	CPPP_INLINE static Data makeData(const Token& token)
 	{
 		return Nothing();
 	}
 	template<typename T>
-	static void annotate(T* symbol, const Nothing&)
+	CPPP_INLINE static void annotate(T* symbol, const Nothing&)
 	{
 	}
 };
@@ -1787,12 +1787,12 @@ struct AnnotateNull
 struct AnnotateSrc
 {
 	typedef Source Data;
-	static Data makeData(const Token& token)
+	CPPP_INLINE static Data makeData(const Token& token)
 	{
 		return token.source;
 	}
 	template<typename T>
-	static void annotate(T* symbol, const Source& source)
+	CPPP_INLINE static void annotate(T* symbol, const Source& source)
 	{
 		symbol->source = source;
 	}
@@ -1801,12 +1801,12 @@ struct AnnotateSrc
 struct AnnotateId
 {
 	typedef Source Data;
-	static Data makeData(const Token& token)
+	CPPP_INLINE static Data makeData(const Token& token)
 	{
 		return token.source;
 	}
 	template<typename T>
-	static void annotate(T* symbol, const Source& source)
+	CPPP_INLINE static void annotate(T* symbol, const Source& source)
 	{
 		symbol->value.source = source;
 	}
@@ -1814,7 +1814,7 @@ struct AnnotateId
 
 struct SourceEvents : Source, IncludeEvents
 {
-	SourceEvents(const Source& source, const IncludeEvents& events)
+	CPPP_INLINE SourceEvents(const Source& source, const IncludeEvents& events)
 		: Source(source), IncludeEvents(events)
 	{
 	}
@@ -1823,11 +1823,11 @@ struct SourceEvents : Source, IncludeEvents
 struct AnnotateTop
 {
 	typedef SourceEvents Data;
-	static Data makeData(const Token& token)
+	CPPP_INLINE static Data makeData(const Token& token)
 	{
 		return SourceEvents(token.source, token.events);
 	}
-	static void annotate(cpp::declaration* symbol, const Data& data)
+	CPPP_INLINE static void annotate(cpp::declaration* symbol, const Data& data)
 	{
 		symbol->source = data;
 		symbol->events = data;
@@ -1840,36 +1840,32 @@ template<typename Inner, typename Annotate = AnnotateNull, typename Invoke = Inv
 struct SemaPolicyGeneric : Inner, Annotate, Invoke, Cache, Defer
 {
 	typedef typename Inner::ArgsType ArgsType;
-	SemaPolicyGeneric(const ArgsType& args = ArgsType())
+	CPPP_FORCEINLINE SemaPolicyGeneric(const ArgsType& args = ArgsType())
 		: Inner(args)
 	{
 	}
-	const Inner& getInnerPolicy() const
+	CPPP_FORCEINLINE const Inner& getInnerPolicy() const
 	{
 		return *this;
 	}
 	typedef Annotate AnnotateType;
-	const Annotate& getAnnotatePolicy() const
+	CPPP_FORCEINLINE const Annotate& getAnnotatePolicy() const
 	{
 		return *this;
 	}
-	const Cache& getCachePolicy() const
+	CPPP_FORCEINLINE const Cache& getCachePolicy() const
 	{
 		return *this;
 	}
-	const Defer& getDeferPolicy() const
+	CPPP_FORCEINLINE const Defer& getDeferPolicy() const
 	{
 		return *this;
 	}
-	const Invoke& getActionPolicy() const
+	CPPP_FORCEINLINE const Invoke& getActionPolicy() const
 	{
 		return *this;
 	}
 };
-
-#ifdef _WIN32
-#define SEMA_INLINE __forceinline 
-#endif
 
 typedef SemaPolicyGeneric<SemaIdentity, AnnotateNull, InvokeNone> SemaPolicyNone;
 typedef SemaPolicyGeneric<SemaIdentity, AnnotateNull, InvokeUnchecked> SemaPolicyIdentity;
@@ -1902,35 +1898,35 @@ struct SemaPolicyPushCachedChecked : SemaPolicyGeneric<SemaPush<SemaT>, Annotate
 template<typename SemaT>
 struct SemaPolicyPushBool : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Args1<bool> >, AnnotateNull, InvokeUncheckedResult, DisableCache>
 {
-	SemaPolicyPushBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
+	CPPP_INLINE SemaPolicyPushBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
 	{
 	}
 };
 template<typename SemaT>
 struct SemaPolicyPushCheckedBool : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Args1<bool> >, AnnotateNull, InvokeCheckedResult, DisableCache>
 {
-	SemaPolicyPushCheckedBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
+	CPPP_INLINE SemaPolicyPushCheckedBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
 	{
 	}
 };
 template<typename SemaT>
 struct SemaPolicyPushCachedBool : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Args1<bool> >, AnnotateNull, InvokeUncheckedResult, CachedWalk>
 {
-	SemaPolicyPushCachedBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
+	CPPP_INLINE SemaPolicyPushCachedBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
 	{
 	}
 };
 template<typename SemaT>
 struct SemaPolicyPushCachedCheckedBool : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Args1<bool> >, AnnotateNull, InvokeCheckedResult, CachedWalk>
 {
-	SemaPolicyPushCachedCheckedBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
+	CPPP_INLINE SemaPolicyPushCachedCheckedBool(bool value) : SemaPolicyGeneric(Args1<bool>(value))
 	{
 	}
 };
 template<typename SemaT>
 struct SemaPolicyPushIndexCommit : SemaPolicyGeneric<SemaPush<SemaT, CommitEnable, Args1<std::size_t> >, AnnotateNull, InvokeUncheckedResult, DisableCache>
 {
-	SemaPolicyPushIndexCommit(std::size_t value) : SemaPolicyGeneric(Args1<std::size_t>(value))
+	CPPP_INLINE SemaPolicyPushIndexCommit(std::size_t value) : SemaPolicyGeneric(Args1<std::size_t>(value))
 	{
 	}
 };
@@ -1944,20 +1940,20 @@ struct SemaPolicyPushDeferred : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Ar
 
 
 #define SEMA_POLICY(Symbol, Policy) \
-	SEMA_INLINE Policy makePolicy(Symbol*) \
+	CPPP_FORCEINLINE Policy makePolicy(Symbol*) \
 	{ \
 		return Policy(); \
 	}
 
 #define SEMA_POLICY_ARGS(Symbol, Policy, args) \
-	SEMA_INLINE Policy makePolicy(Symbol*) \
+	CPPP_FORCEINLINE Policy makePolicy(Symbol*) \
 	{ \
 		return Policy(args); \
 	}
 
 #define SEMA_BOILERPLATE \
 	template<typename T> \
-	SemaPolicyNone makePolicy(T* symbol) \
+	CPPP_FORCEINLINE SemaPolicyNone makePolicy(T* symbol) \
 	{ \
 		return SemaPolicyNone(); \
 	}
@@ -1989,7 +1985,7 @@ struct SemaDeclarationArgs
 template<typename SemaT>
 struct SemaPolicyParameterDeclaration : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Args1<SemaDeclarationArgs> > >
 {
-	SemaPolicyParameterDeclaration(SemaDeclarationArgs value) : SemaPolicyGeneric(value)
+	CPPP_INLINE SemaPolicyParameterDeclaration(SemaDeclarationArgs value) : SemaPolicyGeneric(value)
 	{
 	}
 };

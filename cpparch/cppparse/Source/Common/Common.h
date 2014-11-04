@@ -7,6 +7,14 @@
 
 // ----------------------------------------------------------------------------
 
+#ifdef _WIN32
+#define CPPP_INLINE _inline
+#define CPPP_FORCEINLINE __forceinline
+#else
+#define CPPP_INLINE inline
+#define CPPP_FORCEINLINE inline
+#endif
+
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof(*array))
 #define ARRAY_END(array) ((array) + ARRAY_COUNT(array))
 
@@ -223,30 +231,30 @@ const TypeInfoDummy TypeTag<T>::c;
 struct TypeInfo
 {
 	const TypeInfoDummy* p;
-	TypeInfo(const TypeInfoDummy& typeInfo)
+	CPPP_INLINE TypeInfo(const TypeInfoDummy& typeInfo)
 		: p(&typeInfo)
 	{
 	}
 };
 
 template<typename T>
-inline TypeInfo getTypeInfo()
+CPPP_INLINE TypeInfo getTypeInfo()
 {
 	return TypeInfo(TypeTag<T>::c);
 };
 
 
-inline bool lessThan(const TypeInfo& l, const TypeInfo& r)
+CPPP_INLINE bool lessThan(const TypeInfo& l, const TypeInfo& r)
 {
 	return l.p < r.p;
 };
 
-inline bool isEqual(const TypeInfo& l, const TypeInfo& r)
+CPPP_INLINE bool isEqual(const TypeInfo& l, const TypeInfo& r)
 {
 	return l.p == r.p;
 };
 
-inline const TypeInfo& getTypeInfo(const TypeInfo& object)
+CPPP_INLINE const TypeInfo& getTypeInfo(const TypeInfo& object)
 {
 	return object;
 };

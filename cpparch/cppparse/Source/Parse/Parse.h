@@ -271,7 +271,7 @@ struct Cached
 	size_t allocation;
 	Symbol* symbol;
 	SemaT walker;
-	Cached(Symbol* symbol, const SemaT& walker)
+	CPPP_INLINE Cached(Symbol* symbol, const SemaT& walker)
 		: symbol(symbol), walker(walker)
 	{
 	}
@@ -696,23 +696,23 @@ struct Parser : public ParserState
 	{
 	}
 
-	LexTokenId get_id()
+	CPPP_INLINE LexTokenId get_id()
 	{
 		return context.get_id();
 	}
-	const TokenValue& get_value()
+	CPPP_INLINE const TokenValue& get_value()
 	{
 		return context.get_value();
 	}
-	const FilePosition& get_position()
+	CPPP_INLINE const FilePosition& get_position()
 	{
 		return context.get_position();
 	}
-	IncludeEvents get_events()
+	CPPP_INLINE IncludeEvents get_events()
 	{
 		return context.get_events();
 	}
-	const Source& get_source()
+	CPPP_INLINE const Source& get_source()
 	{
 		return context.get_source();
 	}
@@ -802,19 +802,19 @@ inline void printSequence(Parser& parser)
 
 
 template<typename T>
-inline cpp::symbol_required<T>& checkSymbolRequired(cpp::symbol_required<T>& symbol)
+CPPP_INLINE cpp::symbol_required<T>& checkSymbolRequired(cpp::symbol_required<T>& symbol)
 {
 	return symbol;
 }
 
 template<typename T>
-inline cpp::symbol_optional<T>& checkSymbolOptional(cpp::symbol_optional<T>& symbol)
+CPPP_INLINE cpp::symbol_optional<T>& checkSymbolOptional(cpp::symbol_optional<T>& symbol)
 {
 	return symbol;
 }
 
 template<typename T>
-inline cpp::symbol_sequence<T>& checkSymbolSequence(cpp::symbol_sequence<T>& symbol)
+CPPP_INLINE cpp::symbol_sequence<T>& checkSymbolSequence(cpp::symbol_sequence<T>& symbol)
 {
 	return symbol;
 }
