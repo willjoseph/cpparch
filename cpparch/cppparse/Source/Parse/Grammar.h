@@ -63,14 +63,14 @@ struct UniqueType
 #if 1
 	const TypeElement* p;
 	CvQualifiers qualifiers;
-	UniqueType()
+	CPPP_INLINE UniqueType()
 	{
 	}
-	UniqueType(const TypeElement* p)
+	CPPP_INLINE UniqueType(const TypeElement* p)
 		: p(p)
 	{
 	}
-	const TypeElement* getPointer() const
+	CPPP_INLINE const TypeElement* getPointer() const
 	{
 		return p;
 	}
