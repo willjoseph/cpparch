@@ -416,30 +416,6 @@ inline bool isBetter(const CandidateFunction& l, const CandidateFunction& r)
 const CandidateFunction gOverloadNull;
 typedef std::list<CandidateFunction> CandidateFunctions;
 
-struct ExpressionValue
-{
-	IntegralConstant value;
-	bool isConstant;
-	ExpressionValue(IntegralConstant value, bool isConstant)
-		: value(value), isConstant(isConstant)
-	{
-	}
-};
-
-inline ExpressionValue makeConstantValue(IntegralConstant value)
-{
-	return ExpressionValue(value, true);
-}
-
-const ExpressionValue EXPRESSIONRESULT_INVALID = ExpressionValue(IntegralConstant(0), false);
-const ExpressionValue EXPRESSIONRESULT_ZERO = ExpressionValue(IntegralConstant(0), true);
-
-inline bool isNullPointerConstantValue(ExpressionValue value)
-{
-	return value.isConstant
-		&& value.value.value == 0;
-}
-
 // TODO: fix circular dependency!
 inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
 

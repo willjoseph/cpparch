@@ -102,7 +102,7 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 				ExpressionWrapper one = makeConstantExpressionOne();
 				value = makeExpression(
 					BinaryExpression(gOperatorPlusId, operator+, typeOfBinaryExpression<binaryOperatorAdditiveType>, value, one), // TODO: type of enumerator
-					value.isTypeDependent, value.isValueDependent
+					value.isDependent, value.isTypeDependent, value.isValueDependent
 				);
 			}
 			enumerator.initializer = value;

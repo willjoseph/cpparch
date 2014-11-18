@@ -1,4 +1,31 @@
 
+#if 0
+namespace N447
+{
+	template<typename T>
+	void f()
+	{
+		int a[sizeof(T)];
+		const int i = sizeof(T);
+	}
+
+	template<typename T>
+	struct A
+	{
+		typedef int[sizeof(sizeof(T))] Type;
+	};
+};
+#endif
+
+namespace N446
+{
+	int f(int);
+	static_assert(sizeof(f('\0')) == sizeof(int), "");
+
+	char f(char);
+	static_assert(sizeof(f('\0')) == sizeof(char), "");
+};
+
 namespace N445
 {
 	template<typename T>
@@ -429,6 +456,7 @@ namespace N410 // workaround implementation of boost::is_base_and_derived specif
 }
 #endif
 
+#if 0
 namespace N418
 {
 	template<typename>
@@ -443,6 +471,7 @@ namespace N418
 	{
 	};
 }
+#endif
 
 namespace N417
 {

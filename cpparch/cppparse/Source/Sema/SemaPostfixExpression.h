@@ -13,8 +13,9 @@ struct SemaArgumentList : public SemaBase
 	Arguments arguments;
 	Dependent typeDependent;
 	Dependent valueDependent;
+	bool isDependent; // true if any argument is dependent;
 	SemaArgumentList(const SemaState& state)
-		: SemaBase(state)
+		: SemaBase(state), isDependent(false)
 	{
 		clearQualifying();
 	}
@@ -24,6 +25,7 @@ struct SemaArgumentList : public SemaBase
 		arguments.push_back(makeArgument(walker.expression, walker.expression.type));
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
+		isDependent |= walker.expression.isDependent;
 	}
 };
 
@@ -74,15 +76,11 @@ struct SemaPostfixExpressionMember : public SemaQualified
 
 		memberClass = &gDependentSimpleType;
 		SEMANTIC_ASSERT(objectExpression.p != 0);
+		objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow), objectExpression.isDependent, objectExpression.isTypeDependent);
 		if(!objectExpression.isTypeDependent) // if the type of the object expression is not dependent
 		{
-			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow));
 			memberClass = &getSimpleType(objectExpression.type.value);
 			enclosingType = memberClass; // when evaluating the type of the following id-expression, use the object-expression class in the instantiation context
-		}
-		else
-		{
-			objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow), true);
 		}
 	}
 	void action(cpp::terminal<boost::wave::T_TEMPLATE> symbol)
@@ -221,7 +219,10 @@ struct SemaPostfixExpression : public SemaBase
 		//	simple-type-specifier ( expression-list )
 		addDependent(valueDependent, walker.type.dependent);
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(CastExpression(type, walker.expression),
+			walker.expression.isDependent | walker.type.isDependent,
+			isDependentOld(typeDependent),
+			isDependentOld(valueDependent));
 		expression.isTemplateArgumentAmbiguity = symbol->args == 0;
 		setExpressionType(symbol, expression.type);
 		updateMemberType();
@@ -250,7 +251,10 @@ struct SemaPostfixExpression : public SemaBase
 			addDependent(valueDependent, walker.typeDependent);
 		}
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(CastExpression(type, walker.expression),
+			walker.expression.isDependent | walker.type.isDependent,
+			isDependentOld(typeDependent),
+			isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
 		updateMemberType();
 	}
@@ -259,7 +263,7 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		// TODO: operand type required to be complete?
 		ExpressionType type = getTypeInfoType();
-		expression = makeExpression(ExplicitTypeExpression(type));
+		expression = makeExpression(ExplicitTypeExpression(type), walker.expression.isDependent);
 		updateMemberType();
 	}
 	SEMA_POLICY(cpp::postfix_expression_typeidtype, SemaPolicyPushCommit<struct SemaTypeId>)
@@ -267,7 +271,7 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		// TODO: operand type required to be complete?
 		ExpressionType type = getTypeInfoType();
-		expression = makeExpression(ExplicitTypeExpression(type));
+		expression = makeExpression(ExplicitTypeExpression(type), walker.type.isDependent);
 		updateMemberType();
 	}
 
@@ -281,7 +285,10 @@ struct SemaPostfixExpression : public SemaBase
 		addDependent(valueDependent, walker.valueDependent);
 		id = 0; // don't perform overload resolution for a[i](x);
 
-		expression = makeExpression(SubscriptExpression(expression, walker.expression), isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(SubscriptExpression(expression, walker.expression),
+			expression.isDependent | walker.expression.isDependent,
+			isDependentOld(typeDependent),
+			isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
 		updateMemberType();
 	}
@@ -315,7 +322,10 @@ struct SemaPostfixExpression : public SemaBase
 			}
 		}
 
-		expression = makeExpression(FunctionCallExpression(expression, walker.arguments), isDependentOld(typeDependent), isDependentOld(valueDependent));
+		expression = makeExpression(FunctionCallExpression(expression, walker.arguments),
+			expression.isDependent | walker.isDependent,
+			isDependentOld(typeDependent),
+			isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
 		// TODO: set of pointers-to-function
 		id = 0; // don't perform overload resolution for a(x)(x);
@@ -338,7 +348,9 @@ struct SemaPostfixExpression : public SemaBase
 		SEMANTIC_ASSERT(walker.expression.p != 0);
 		expression = makeExpression(
 			ClassMemberAccessExpression(walker.objectExpression, walker.expression),
-			isDependentOld(typeDependent), isDependentOld(valueDependent)
+			walker.objectExpression.isDependent | walker.expression.isDependent,
+			isDependentOld(typeDependent),
+			isDependentOld(valueDependent)
 		);
 
 		setExpressionType(symbol, expression.type);
@@ -364,7 +376,7 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		expression = makeTransformedIdExpression(expression, typeDependent, valueDependent);
 
-		expression = makeExpression(PostfixOperatorExpression(getOverloadedOperatorId(symbol), expression), isDependentOld(typeDependent));
+		expression = makeExpression(PostfixOperatorExpression(getOverloadedOperatorId(symbol), expression), expression.isDependent, isDependentOld(typeDependent));
 		setExpressionType(symbol, expression.type);
 		id = 0;
 		updateMemberType();
@@ -373,23 +385,26 @@ struct SemaPostfixExpression : public SemaBase
 	void action(cpp::postfix_expression_typetraits_unary* symbol, const SemaTypeTraitsIntrinsic& walker)
 	{
 		addDependent(valueDependent, walker.valueDependent);
+		bool isValueDependent = isDependentOld(valueDependent);
 		UnaryTypeTraitsOp operation = getUnaryTypeTraitsOp(symbol->trait);
 		Name name = getTypeTraitName(symbol);
-		expression = makeExpression(TypeTraitsUnaryExpression(name, operation, walker.first), false, isDependentOld(valueDependent));
+		expression = makeExpression(TypeTraitsUnaryExpression(name, operation, walker.first), isValueDependent, false, isValueDependent);
 	}
 	SEMA_POLICY(cpp::postfix_expression_typetraits_binary, SemaPolicyPush<struct SemaTypeTraitsIntrinsic>)
 	void action(cpp::postfix_expression_typetraits_binary* symbol, const SemaTypeTraitsIntrinsic& walker)
 	{
 		addDependent(valueDependent, walker.valueDependent);
+		bool isValueDependent = isDependentOld(valueDependent);
 		BinaryTypeTraitsOp operation = getBinaryTypeTraitsOp(symbol->trait);
 		Name name = getTypeTraitName(symbol);
-		expression = makeExpression(TypeTraitsBinaryExpression(name, operation, walker.first, walker.second), false, isDependentOld(valueDependent));
+		expression = makeExpression(TypeTraitsBinaryExpression(name, operation, walker.first, walker.second), isValueDependent, false, isValueDependent);
 	}
 	SEMA_POLICY(cpp::postfix_expression_offsetof, SemaPolicyPush<struct SemaOffsetof>)
 	void action(cpp::postfix_expression_offsetof* symbol, const SemaOffsetof& walker)
 	{
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(OffsetofExpression(walker.type, walker.member), false, isDependentOld(valueDependent));
+		bool isValueDependent = isDependentOld(valueDependent);
+		expression = makeExpression(OffsetofExpression(walker.type, walker.member), isValueDependent, false, isValueDependent);
 	}
 };
 

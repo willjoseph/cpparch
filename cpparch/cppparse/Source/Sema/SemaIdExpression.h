@@ -231,9 +231,7 @@ struct SemaIdExpression : public SemaQualified
 			setDecoration(id, gDependentObjectInstance);
 
 			expression = makeExpression(DependentIdExpression(id->value, qualifyingType, templateArguments, isQualified),
-				true,
-				true
-			);
+				true, true, true);
 		}
 		else if(isIdentifier // the expression is 'identifier'
 			&& declaration == &gUndeclared) // the identifier was not previously declared
@@ -242,7 +240,8 @@ struct SemaIdExpression : public SemaQualified
 			isUndeclared = true;
 			setDecoration(id, gDependentObjectInstance);
 
-			expression = makeExpression(DependentIdExpression(id->value, gOverloaded, TemplateArgumentsInstance(), isQualified), true);
+			expression = makeExpression(DependentIdExpression(id->value, gOverloaded, TemplateArgumentsInstance(), isQualified),
+				false, true);
 		}
 		else
 		{
@@ -281,14 +280,18 @@ struct SemaIdExpression : public SemaQualified
 
 			SEMANTIC_ASSERT(!isDependentOld(qualifying.get_ref()));
 
+			bool isTypeDependent = isDependentOld(typeDependent);
+			bool isValueDependent = isDependentOld(valueDependent);
+			bool isDependent = isTypeDependent | isValueDependent;
+
 			const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
 			SEMANTIC_ASSERT(qualifyingClass == this->qualifyingClass);
 
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
 				// TODO: check compliance: id-expression cannot be compared for equivalence unless it names a non-type template-parameter
-				? makeExpression(IdExpression(declaration, qualifyingClass, templateArguments, isQualified), isDependentOld(typeDependent), isDependentOld(valueDependent))
-				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependentOld(typeDependent), isDependentOld(valueDependent));
+				? makeExpression(IdExpression(declaration, qualifyingClass, templateArguments, isQualified), isDependent, isTypeDependent, isValueDependent)
+				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependent, isTypeDependent, isValueDependent);
 
 			expression.isNonStaticMemberName = isMember(*declaration) && !isStatic(*declaration) && !isEnumerator(*declaration);
 			expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && qualifyingType != gUniqueTypeNull;

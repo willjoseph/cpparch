@@ -1296,6 +1296,42 @@ inline const char* getIdentifierType(IdentifierFunc func)
 	return "<unknown>";
 }
 
+#if 0
+inline void popDeferredExpressionType(const ExpressionNode* p, LexerAllocator& allocator)
+{
+	Scope* enclosingTemplate = p->enclosingTemplate;
+	SYMBOLS_ASSERT(enclosingTemplate != 0);
+	SYMBOLS_ASSERT(!enclosingTemplate->expressionTypes.empty());
+
+	const DeferredExpressionType& deferred = enclosingTemplate->expressionTypes.back();
+	SYMBOLS_ASSERT(p == deferred.callback.p);
+	enclosingTemplate->expressionTypes.pop_back(); // TODO: optimise
+}
+
+inline BacktrackCallback makePopDeferredExpressionTypeCallback(const ExpressionNode* p)
+{
+	BacktrackCallback result = { BacktrackCallbackThunk<const ExpressionNode, &popDeferredExpressionType >::thunk, const_cast<ExpressionNode*>(p) };
+	return result;
+}
+
+inline void popDeferredExpressionValue(const ExpressionNode* p, LexerAllocator& allocator)
+{
+	Scope* enclosingTemplate = p->enclosingTemplate;
+	SYMBOLS_ASSERT(enclosingTemplate != 0);
+	SYMBOLS_ASSERT(!enclosingTemplate->expressionValues.empty());
+
+	const DeferredExpressionValue& deferred = enclosingTemplate->expressionValues.back();
+	SYMBOLS_ASSERT(p == deferred.callback.p);
+	enclosingTemplate->expressionValues.pop_back(); // TODO: optimise
+}
+
+inline BacktrackCallback makePopDeferredExpressionValueCallback(const ExpressionNode* p)
+{
+	BacktrackCallback result = { BacktrackCallbackThunk<const ExpressionNode, &popDeferredExpressionValue >::thunk, const_cast<ExpressionNode*>(p) };
+	return result;
+}
+#endif
+
 struct SemaBase : public SemaState
 {
 	typedef SemaBase Base;
@@ -1313,17 +1349,37 @@ struct SemaBase : public SemaState
 		return allocatorNew(context, Scope(context, name, type));
 	}
 
-	template<typename T>
-	ExpressionWrapper makeExpression(const T& node, bool isTypeDependent = false, bool isValueDependent = false)
-	{
 #if 0
-		checkDependent(node, isTypeDependent, isValueDependent);
+	template<typename T>
+	void addDeferredExpressionType(Scope* enclosingTemplate, const ExpressionNodeGeneric<T>* e)
+	{
+		enclosingTemplate->expressionTypes.push_back(makeDeferredExpressionType(e, getLocation()));
+		const DeferredExpressionType& deferred = enclosingTemplate->expressionTypes.back();
+		addBacktrackCallback(makePopDeferredExpressionTypeCallback(deferred.callback.p));
+	}
+
+	template<typename T>
+	void addDeferredExpressionValue(Scope* enclosingTemplate, const ExpressionNodeGeneric<T>* e)
+	{
+		enclosingTemplate->expressionValues.push_back(makeDeferredExpressionValue(e, getLocation()));
+		const DeferredExpressionValue& deferred = enclosingTemplate->expressionValues.back();
+		addBacktrackCallback(makePopDeferredExpressionValueCallback(deferred.callback.p));
+	}
 #endif
+
+
+	template<typename T>
+	ExpressionWrapper makeExpression(const T& node, bool isDependent = false, bool isTypeDependent = false, bool isValueDependent = false)
+	{
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(node);
-		ExpressionNode* p = isUnique ? makeUniqueExpression(node) : allocatorNew(context, ExpressionNodeGeneric<T>(node));
+		Scope* enclosingTemplate = findEnclosingTemplateScope(enclosingScope); // don't share uniqued expressions across different template class/function scopes
+		ExpressionNode* p = isUnique
+			? makeUniqueExpression(node, enclosingTemplate)
+			: allocatorNew(context, ExpressionNodeGeneric<T>(node, enclosingTemplate));
 		ExpressionWrapper result(p, isTypeDependent, isValueDependent);
 		result.isUnique = isUnique;
+		result.isDependent = isDependent;
 		if(!result.isTypeDependent) // if the expression is not type-dependent
 		{
 			result.type = typeOfExpression(node, getInstantiationContext());
@@ -1343,6 +1399,21 @@ struct SemaBase : public SemaState
 				result.value = value.value;
 			}
 		}
+#if 0
+		if(templateParamScope == 0 // if this expression does not occur within a template parameter list
+			&& enclosingTemplate != 0) // TODO: this can happen because we incorrectly mark 'undeclared(x)' as type-dependent
+		{
+			const ExpressionNodeGeneric<T>* e = static_cast<ExpressionNodeGeneric<T>*>(p);
+			if(result.isTypeDependent)
+			{
+				addDeferredExpressionType(enclosingTemplate, e);
+			}
+			if(result.isValueDependent)
+			{
+				addDeferredExpressionValue(enclosingTemplate, e);
+			}
+		}
+#endif
 		return result;
 	}
 
@@ -1584,10 +1655,10 @@ struct SemaBase : public SemaState
 		}
 		addDependent(typeDependent, enclosingDependent); // TODO: NOT dependent if not a member of the current instantiation and current instantiation has no dependent base class 
 		ExpressionType objectExpressionType = typeOfEnclosingClass(getInstantiationContext());
-		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType));
+		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType), isDependentOld(enclosingDependent));
 		return makeExpression(
 			ClassMemberAccessExpression(left, expression),
-			expression.isTypeDependent, expression.isValueDependent);
+			left.isDependent | expression.isDependent, expression.isTypeDependent, expression.isValueDependent);
 	}
 };
 
@@ -1994,9 +2065,6 @@ struct SemaExpressionResult
 {
 	IdentifierPtr id; // only valid when the expression is a (parenthesised) id-expression
 	ExpressionWrapper expression;
-	/* 14.6.2.2-1
-	...an expression is type-dependent if any subexpression is type-dependent.
-	*/
 	Dependent typeDependent;
 	Dependent valueDependent;
 

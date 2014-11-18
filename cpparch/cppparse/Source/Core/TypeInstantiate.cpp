@@ -448,6 +448,25 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 #endif		
 
 #if 0
+			const DeferredExpressionTypes& expressionTypes = instance.declaration->enclosed->expressionTypes;
+			for(DeferredExpressionTypes::const_iterator i = expressionTypes.begin(); i != expressionTypes.end(); ++i)
+			{
+				const DeferredExpressionType& expression = *i;
+				InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
+				ExpressionType type = expression.callback(childContext);
+				SYMBOLS_ASSERT(!isDependent(type));
+			}
+
+			const DeferredExpressionValues& expressionValues = instance.declaration->enclosed->expressionValues;
+			for(DeferredExpressionValues::const_iterator i = expressionValues.begin(); i != expressionValues.end(); ++i)
+			{
+				const DeferredExpressionValue& expression = *i;
+				InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
+				ExpressionValue value = expression.callback(childContext);
+			}
+#endif
+
+#if 1
 			if(!original.childExpressions.empty()
 				&& &instance != &original) // TODO: this will be an assert when instantiateClass is no longer called at the beginning of a template-definition
 			{

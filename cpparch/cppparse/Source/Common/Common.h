@@ -259,7 +259,12 @@ CPPP_INLINE const TypeInfo& getTypeInfo(const TypeInfo& object)
 	return object;
 };
 
-
+template<typename First, typename Second>
+inline bool pairLess(const First& leftFirst, const Second& leftSecond, const First& rightFirst, const Second& rightSecond)
+{
+	return leftFirst < rightFirst ||
+		(!(rightFirst < leftFirst) && leftSecond < rightSecond);
+}
 
 #endif
 

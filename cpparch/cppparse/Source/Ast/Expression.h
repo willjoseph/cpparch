@@ -6,6 +6,8 @@
 #include "Common/IndirectSet.h"
 #include "UniqueType.h"
 
+struct Scope;
+
 // [expr.const]
 // An integral constant-expression can involve only literals, enumerators, const variables or static
 // data members of integral or enumeration types initialized with constant expressions, non-type template
@@ -36,15 +38,24 @@ struct ExpressionNodeVisitor
 
 struct ExpressionNode : TypeInfo
 {
-	ExpressionNode(TypeInfo type) : TypeInfo(type)
+	Scope* enclosingTemplate; // if the expression is dependent, the enclosing template class/function
+	ExpressionNode(TypeInfo type, Scope* enclosingTemplate)
+		: TypeInfo(type), enclosingTemplate(enclosingTemplate)
 	{
 	}
 	virtual ~ExpressionNode()
 	{
 	}
 	virtual void accept(ExpressionNodeVisitor& visitor) const = 0;
-	virtual bool operator<(const ExpressionNode& other) const = 0;
+	virtual bool lessThan(const ExpressionNode& other) const = 0;
 };
+
+inline bool operator<(const ExpressionNode& left, const ExpressionNode& right)
+{
+	return left.enclosingTemplate < right.enclosingTemplate ||
+		(!(right.enclosingTemplate < left.enclosingTemplate) && left.lessThan(right));
+}
+
 
 typedef SafePtr<ExpressionNode> ExpressionPtr;
 
@@ -52,23 +63,25 @@ template<typename T>
 struct ExpressionNodeGeneric : ExpressionNode
 {
 	T value;
-	ExpressionNodeGeneric(const T& value)
-		: ExpressionNode(getTypeInfo<ExpressionNodeGeneric>()), value(value)
+	ExpressionNodeGeneric(const T& value, Scope* enclosingTemplate = 0)
+		: ExpressionNode(getTypeInfo<ExpressionNodeGeneric>(), enclosingTemplate), value(value)
 	{
 	}
 	void accept(ExpressionNodeVisitor& visitor) const
 	{
 		visitor.visit(value);
 	}
-	bool operator<(const ExpressionNodeGeneric& other) const
-	{
-		return value < other.value;
-	}
-	bool operator<(const ExpressionNode& other) const
+	bool lessThan(const ExpressionNode& other) const
 	{
 		return abstractLess(*this, other);
 	}
 };
+
+template<typename T>
+inline bool operator<(const ExpressionNodeGeneric<T>& left, const ExpressionNodeGeneric<T>& right)
+{
+	return left.value < right.value;
+}
 
 typedef ExpressionNode* UniqueExpression;
 
@@ -85,9 +98,9 @@ inline UniqueExpression makeBuiltInExpression(const T& value)
 }
 
 template<typename T>
-inline UniqueExpression makeUniqueExpression(const T& value)
+inline UniqueExpression makeUniqueExpression(const T& value, Scope* enclosingTemplate = 0)
 {
-	ExpressionNodeGeneric<T> node(value);
+	ExpressionNodeGeneric<T> node(value, enclosingTemplate);
 	{
 		UniqueExpressions::iterator i = gBuiltInExpressions.find(node);
 		if(i != gBuiltInExpressions.end())
@@ -134,12 +147,38 @@ struct ExpressionType : UniqueTypeWrapper
 	}
 };
 
+
+struct ExpressionValue
+{
+	IntegralConstant value;
+	bool isConstant;
+	ExpressionValue(IntegralConstant value, bool isConstant)
+		: value(value), isConstant(isConstant)
+	{
+	}
+};
+
+inline ExpressionValue makeConstantValue(IntegralConstant value)
+{
+	return ExpressionValue(value, true);
+}
+
+const ExpressionValue EXPRESSIONRESULT_INVALID = ExpressionValue(IntegralConstant(0), false);
+const ExpressionValue EXPRESSIONRESULT_ZERO = ExpressionValue(IntegralConstant(0), true);
+
+inline bool isNullPointerConstantValue(ExpressionValue value)
+{
+	return value.isConstant
+		&& value.value.value == 0;
+}
+
 struct ExpressionWrapper : ExpressionPtr
 {
 	ExpressionType type; // valid if this expression is not type-dependent
 	IntegralConstant value; // valid if this is expression is integral-constant and not value-dependent
 	bool isUnique;
 	bool isConstant;
+	bool isDependent; // true if any subexpression is type-dependent or value-dependent.
 	bool isTypeDependent;
 	bool isValueDependent;
 	bool isTemplateArgumentAmbiguity; // [temp.arg] In a template argument, an ambiguity between a typeid and an expression is resolved to a typeid
@@ -150,6 +189,7 @@ struct ExpressionWrapper : ExpressionPtr
 		: ExpressionPtr(0)
 		, isUnique(false)
 		, isConstant(false)
+		, isDependent(false)
 		, isTypeDependent(false)
 		, isValueDependent(false)
 		, isTemplateArgumentAmbiguity(false)
