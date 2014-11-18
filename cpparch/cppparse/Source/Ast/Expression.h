@@ -14,6 +14,7 @@ struct Scope;
 // parameters of integral or enumeration types, and sizeof expressions
 struct ExpressionNodeVisitor
 {
+	virtual void visit(const struct ExpressionList&) = 0; // comma
 	virtual void visit(const struct IntegralConstantExpression&) = 0; // literal
 	virtual void visit(const struct CastExpression&) = 0;
 	virtual void visit(const struct NonTypeTemplateParameter&) = 0; // non-type template parameter
@@ -202,6 +203,7 @@ struct ExpressionWrapper : ExpressionPtr
 		: ExpressionPtr(node)
 		, isUnique(false)
 		, isConstant(false)
+		, isDependent(false)
 		, isTypeDependent(isTypeDependent)
 		, isValueDependent(isValueDependent)
 		, isTemplateArgumentAmbiguity(false)

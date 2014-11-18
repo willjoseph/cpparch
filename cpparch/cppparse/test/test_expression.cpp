@@ -1,4 +1,17 @@
 
+#if 1
+namespace N448
+{
+	template<int n>
+	struct A
+	{
+		static const int i = (0, 1, n);
+	};
+
+	int i = A<0>::i;
+}
+#endif
+
 #if 0
 namespace N447
 {
@@ -7,6 +20,8 @@ namespace N447
 	{
 		int a[sizeof(T)];
 		const int i = sizeof(T);
+		A<sizeof(T)> x;
+		T(T()); // may not be integral constant expression
 	}
 
 	template<typename T>

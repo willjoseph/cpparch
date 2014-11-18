@@ -10,6 +10,10 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 		: result(EXPRESSIONRESULT_INVALID), context(context)
 	{
 	}
+	void visit(const ExpressionList& node)
+	{
+		result = evaluateExpression(node, context);
+	}
 	void visit(const IntegralConstantExpression& node)
 	{
 		result = evaluateExpression(node, context);
@@ -58,35 +62,35 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct ExplicitTypeExpression& node)
+	void visit(const ExplicitTypeExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct ObjectExpression& node)
+	void visit(const ObjectExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct MemberOperatorExpression& node)
+	void visit(const MemberOperatorExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct ClassMemberAccessExpression& node)
+	void visit(const ClassMemberAccessExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct OffsetofExpression& node)
+	void visit(const OffsetofExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct FunctionCallExpression& node)
+	void visit(const FunctionCallExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct SubscriptExpression& node)
+	void visit(const SubscriptExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
-	void visit(const struct PostfixOperatorExpression& node)
+	void visit(const PostfixOperatorExpression& node)
 	{
 		result = evaluateExpression(node, context);
 	}
@@ -748,6 +752,10 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 		: context(context)
 	{
 	}
+	void visit(const ExpressionList& node)
+	{
+		result = typeOfExpression(node, context);
+	}
 	void visit(const IntegralConstantExpression& node)
 	{
 		result = typeOfExpression(node, context);
@@ -828,7 +836,7 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	{
 		result = typeOfExpression(node, context);
 	}
-};
+}; 
 
 inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context)
 {

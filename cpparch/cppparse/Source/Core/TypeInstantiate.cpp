@@ -436,13 +436,17 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			{
 				const DeferredExpression& expression = *i;
 				InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
-#if 1 // TODO: evaluate type of expressions?
+#if 1 // TODO: check that the expression is convertible to bool
 				ExpressionType type = typeOfExpressionWrapper(expression, childContext);
 				SYMBOLS_ASSERT(!isDependent(type));
 #endif
 				if(expression.message != NAME_NULL)
 				{
 					evaluateStaticAssert(expression, expression.message.c_str(), childContext);
+				}
+				else
+				{
+					SubstitutedExpression substituted = substituteExpression(expression, childContext);
 				}
 			}
 #endif		
@@ -476,12 +480,12 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				{
 					const DeferredExpression& expression = *i;
 					InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
-#if 0 // TODO: evaluate type of expressions?
-					ExpressionType type = typeOfExpressionWrapper(expression, childContext);
-					SYMBOLS_ASSERT(!isDependent(type));
-#endif
-					if(expression.message != NAME_NULL)
+					if(expression.message != NAME_NULL) // if this is a static_assert
 					{
+#if 0 // TODO: check that the expression is convertible to bool
+						ExpressionType type = typeOfExpressionWrapper(expression, childContext);
+						SYMBOLS_ASSERT(!isDependent(type));
+#endif
 						evaluateStaticAssert(expression, expression.message.c_str(), childContext);
 					}
 				}

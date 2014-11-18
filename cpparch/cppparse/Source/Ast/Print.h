@@ -44,6 +44,19 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 		}
 	}
 
+	void visit(const ExpressionList& node)
+	{
+		bool separator = false;
+		for(Arguments::const_iterator i = node.expressions.begin(); i != node.expressions.end(); ++i)
+		{
+			printExpression(*i);
+			if(separator)
+			{
+				printer.out << ", ";
+			}
+			separator = true;
+		}
+	}
 	void visit(const IntegralConstantExpression& node)
 	{
 		printer.out << node.value.value;

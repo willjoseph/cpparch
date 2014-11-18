@@ -45,16 +45,18 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
-		expression = walker.expression;
+		arguments.push_back(walker.expression);
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
+		isDependent |= walker.expression.isDependent;
 	}
 	SEMA_POLICY(cpp::cast_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::cast_expression* symbol, const SemaExpressionResult& walker)
 	{
-		expression = walker.expression;
+		arguments.push_back(walker.expression);
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
+		isDependent |= walker.expression.isDependent;
 	}
 };
 
@@ -108,6 +110,28 @@ struct SemaConditionalExpression : public SemaBase
 		right = walker.expression;
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
+	}
+};
+
+// a comma-separated list of assignment_expression
+struct SemaExpressionList : public SemaBase, SemaArgumentListResult
+{
+	SEMA_BOILERPLATE;
+
+	SemaExpressionList(const SemaState& state)
+		: SemaBase(state)
+	{
+	}
+
+	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPushSrc<struct SemaExpression>)
+	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
+	{
+		arguments.push_back(walker.expression);
+		addDependent(typeDependent, walker.typeDependent);
+		addDependent(valueDependent, walker.valueDependent);
+		isDependent |= walker.expression.isDependent;
+		// [expr.comma] The type and value of the result are the type and value of the right operand
+		setExpressionType(symbol, walker.expression.type);
 	}
 };
 
@@ -234,20 +258,43 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		id = 0; // not a parenthesised id-expression, expression is not 'call to named function' [over.call.func]
 	}
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPushSrc<struct SemaExpression>)
-	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker) // expression_list, assignment_expression_suffix, conditional_expression_suffix
+	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker) // expression_list, assignment_expression_suffix
 	{
-		// [expr.comma] The type and value of the result are the type and value of the right operand
 		expression = walker.expression;
 		id = walker.id;
 		addDependent(typeDependent, walker.typeDependent);
 		addDependent(valueDependent, walker.valueDependent);
 		setExpressionType(symbol, expression.type);
 	}
+#if 1
+	SEMA_POLICY(cpp::expression_list, SemaPolicyPushSrc<struct SemaExpressionList>)
+	void action(cpp::expression_list* symbol, const SemaExpressionList& walker) // a comma-separated list of assignment_expression
+	{
+		id = 0;
+		addDependent(typeDependent, walker.typeDependent);
+		addDependent(valueDependent, walker.valueDependent);
+		if(walker.arguments.size() == 1)
+		{
+			expression = walker.arguments.front();
+		}
+		else
+		{
+			expression = makeExpression(ExpressionList(walker.arguments),
+				walker.isDependent,
+				isDependentOld(typeDependent),
+				isDependentOld(valueDependent)
+				);
+		}
+		setExpressionType(symbol, expression.type);
+	}
+#else
 	SEMA_POLICY(cpp::expression_list, SemaPolicyIdentity)
 	void action(cpp::expression_list* symbol) // a comma-separated list of assignment_expression
 	{
+		// [expr.comma] The type and value of the result are the type and value of the right operand
 		setExpressionType(symbol, expression.type);
 	}
+#endif
 	SEMA_POLICY(cpp::unary_operator, SemaPolicyIdentity)
 	void action(cpp::unary_operator* symbol)
 	{
@@ -311,7 +358,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		type.push_front(PointerType());
 		addDependent(typeDependent, walker.type);
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
-		expression = makeExpression(ExplicitTypeExpression(type, true), walker.type.isDependent, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentOld(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::new_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
@@ -321,7 +368,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
 		type.push_front(PointerType());
 		addDependent(typeDependent, walker.type);
-		expression = makeExpression(ExplicitTypeExpression(type, true), walker.type.isDependent, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentOld(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::cast_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
@@ -340,8 +387,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		//  ( type-id ) cast-expression
 		addDependent(valueDependent, walker.type.dependent);
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression),
-			walker.type.isDependent | walker.expression.isDependent,
+		expression = makeExpression(CastExpression(type, walker.arguments),
+			walker.isDependent | walker.type.isDependent,
 			isDependentOld(typeDependent),
 			isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
@@ -372,6 +419,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::unary_expression_sizeof, SemaPolicyPushSrc<struct SemaExpression>)
 	void action(cpp::unary_expression_sizeof* symbol, const SemaExpressionResult& walker)
 	{
+		addDeferredExpressionValue(walker.expression);
 		// [temp.dep.expr] Expressions of the following form [sizeof unary-expression] are never type-dependent (because the type of the expression cannot be dependent)
 		// [temp.dep.constexpr] Expressions of the following form [sizeof unary-expression] are value-dependent if the unary-expression is type-dependent
 		addDependent(valueDependent, walker.typeDependent);
@@ -392,7 +440,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// TODO: check compliance: type of delete-expression
 		ExpressionType type = ExpressionType(gVoid, false); // non lvalue
-		expression = makeExpression(ExplicitTypeExpression(type), expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), expression.isDependent);
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::throw_expression, SemaPolicyPushSrc<struct SemaExpression>)
@@ -400,7 +448,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// [except] A throw-expression is of type void.
 		ExpressionType type = ExpressionType(gVoid, false); // non lvalue
-		expression = makeExpression(ExplicitTypeExpression(type), expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), expression.isDependent);
 	}
 };
 
@@ -439,16 +487,15 @@ struct SemaStaticAssertDeclaration : public SemaBase
 				enclosingClass->childExpressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
 			}
 #else
-			SEMANTIC_ASSERT(enclosingScope != ScopePtr(0));
-			Scope* enclosingTemplate = findEnclosingTemplateScope(enclosingScope);
-			SEMANTIC_ASSERT(enclosingTemplate != ScopePtr(0));
-			enclosingTemplate->expressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
+			addDeferredExpression(expression, message);
 #endif
 		}
 		else
 		{
 			evaluateStaticAssert(expression, message, getInstantiationContext());
 		}
+
+		addDeferredExpression(expression);
 	}
 };
 

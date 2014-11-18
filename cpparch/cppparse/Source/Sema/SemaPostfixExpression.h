@@ -6,16 +6,12 @@
 #include "SemaPrimaryExpression.h"
 #include "Core/TypeTraits.h"
 
-struct SemaArgumentList : public SemaBase
+struct SemaArgumentList : public SemaBase, SemaArgumentListResult
 {
 	SEMA_BOILERPLATE;
 
-	Arguments arguments;
-	Dependent typeDependent;
-	Dependent valueDependent;
-	bool isDependent; // true if any argument is dependent;
 	SemaArgumentList(const SemaState& state)
-		: SemaBase(state), isDependent(false)
+		: SemaBase(state)
 	{
 		clearQualifying();
 	}
@@ -219,8 +215,8 @@ struct SemaPostfixExpression : public SemaBase
 		//	simple-type-specifier ( expression-list )
 		addDependent(valueDependent, walker.type.dependent);
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression),
-			walker.expression.isDependent | walker.type.isDependent,
+		expression = makeExpression(CastExpression(type, walker.arguments),
+			walker.isDependent | walker.type.isDependent,
 			isDependentOld(typeDependent),
 			isDependentOld(valueDependent));
 		expression.isTemplateArgumentAmbiguity = symbol->args == 0;
@@ -251,8 +247,8 @@ struct SemaPostfixExpression : public SemaBase
 			addDependent(valueDependent, walker.typeDependent);
 		}
 		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.expression),
-			walker.expression.isDependent | walker.type.isDependent,
+		expression = makeExpression(CastExpression(type, walker.arguments),
+			walker.isDependent | walker.type.isDependent,
 			isDependentOld(typeDependent),
 			isDependentOld(valueDependent));
 		setExpressionType(symbol, expression.type);
@@ -263,7 +259,7 @@ struct SemaPostfixExpression : public SemaBase
 	{
 		// TODO: operand type required to be complete?
 		ExpressionType type = getTypeInfoType();
-		expression = makeExpression(ExplicitTypeExpression(type), walker.expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), walker.expression.isDependent);
 		updateMemberType();
 	}
 	SEMA_POLICY(cpp::postfix_expression_typeidtype, SemaPolicyPushCommit<struct SemaTypeId>)

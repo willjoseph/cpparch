@@ -18,6 +18,61 @@ inline ExpressionWrapper makeArgument(ExpressionWrapper expression, ExpressionTy
 typedef ExpressionWrapper Argument;
 typedef std::vector<Argument> Arguments;
 
+inline bool lessUniqueExpression(const ExpressionWrapper& left, const ExpressionWrapper& right)
+{
+	SYMBOLS_ASSERT(left.isUnique);
+	SYMBOLS_ASSERT(right.isUnique);
+	return left.p < right.p;
+}
+
+inline bool lessArguments(const Arguments& left, const Arguments& right)
+{
+	return std::lexicographical_compare(left.begin(), left.end(),
+		right.begin(), right.end(), lessUniqueExpression);
+}
+
+inline bool isUniqueArguments(const Arguments& arguments)
+{
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		if(!(*i).isUnique)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+// ----------------------------------------------------------------------------
+struct ExpressionList
+{
+	Arguments expressions;
+	ExpressionList(const Arguments& expressions)
+		: expressions(expressions)
+	{
+	}
+};
+
+inline bool operator<(const ExpressionList& left, const ExpressionList& right)
+{
+	return lessArguments(left.expressions, right.expressions);
+}
+
+inline bool isUniqueExpression(const ExpressionList& e)
+{
+	return isUniqueArguments(e.expressions);
+}
+
+inline bool isExpressionList(ExpressionNode* node)
+{
+	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<ExpressionList> >());
+}
+
+inline const ExpressionList& getExpressionList(ExpressionNode* node)
+{
+	SYMBOLS_ASSERT(isExpressionList(node));
+	return static_cast<const ExpressionNodeGeneric<ExpressionList>*>(node)->value;
+}
 
 // ----------------------------------------------------------------------------
 struct IntegralConstantExpression
@@ -63,9 +118,9 @@ inline const IntegralConstantExpression& getIntegralConstantExpression(Expressio
 struct CastExpression
 {
 	UniqueTypeWrapper type;
-	ExpressionWrapper operand;
-	CastExpression(UniqueTypeWrapper type, ExpressionWrapper operand)
-		: type(type), operand(operand)
+	Arguments arguments;
+	CastExpression(UniqueTypeWrapper type, const Arguments& arguments)
+		: type(type), arguments(arguments)
 	{
 	}
 };
@@ -74,12 +129,12 @@ inline bool operator<(const CastExpression& left, const CastExpression& right)
 {
 	return left.type != right.type
 		? left.type < right.type
-		: left.operand.p < right.operand.p;
+		: lessArguments(left.arguments, right.arguments);
 }
 
 inline bool isUniqueExpression(const CastExpression& e)
 {
-	return e.operand.isUnique;
+	return isUniqueArguments(e.arguments);
 }
 
 inline bool isCastExpression(ExpressionNode* node)
@@ -419,9 +474,29 @@ inline bool isUniqueExpression(const TypeTraitsBinaryExpression& e)
 struct ExplicitTypeExpression
 {
 	UniqueTypeWrapper type;
+	Arguments arguments;
 	bool isCompleteTypeRequired;
-	ExplicitTypeExpression(UniqueTypeWrapper type, bool isCompleteTypeRequired = false)
-		: type(type), isCompleteTypeRequired(isCompleteTypeRequired)
+	// new T(args)
+	// new (p) T(args)
+	ExplicitTypeExpression(UniqueTypeWrapper type, const Arguments& arguments, bool isCompleteTypeRequired = false)
+		: type(type), arguments(arguments), isCompleteTypeRequired(isCompleteTypeRequired)
+	{
+		SYMBOLS_ASSERT(type != gUniqueTypeNull);
+	}
+	// delete expr
+	// throw expr
+	// typeid(expr)
+	ExplicitTypeExpression(UniqueTypeWrapper type, const ExpressionWrapper& argument)
+		: type(type), isCompleteTypeRequired(false)
+	{
+		SYMBOLS_ASSERT(type != gUniqueTypeNull);
+		arguments.reserve(1);
+		arguments.push_back(argument);
+	}
+	// typeid(T)
+	// this
+	ExplicitTypeExpression(UniqueTypeWrapper type)
+		: type(type), isCompleteTypeRequired(false)
 	{
 		SYMBOLS_ASSERT(type != gUniqueTypeNull);
 	}
@@ -582,7 +657,7 @@ struct FunctionCallExpression
 {
 	ExpressionWrapper left; // TODO: extract memberClass, id, idEnclosing, type, templateArguments
 	Arguments arguments;
-	FunctionCallExpression(ExpressionWrapper left, Arguments arguments)
+	FunctionCallExpression(ExpressionWrapper left, const Arguments& arguments)
 		: left(left), arguments(arguments)
 	{
 	}

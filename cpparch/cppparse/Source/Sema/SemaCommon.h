@@ -583,13 +583,15 @@ inline bool findScope(Scope* scope, Scope* other)
 	return findScope(scope->parent, other);
 }
 
+// Returns the innermost enclosing class or function scope
 inline Scope* findEnclosingTemplateScope(Scope* scope)
 {
 	if(scope == 0)
 	{
 		return 0;
 	}
-	if(isTemplate(*scope))
+	if(scope->type == SCOPETYPE_CLASS
+		|| scope->type == SCOPETYPE_FUNCTION)
 	{
 		return scope;
 	}
@@ -1367,12 +1369,37 @@ struct SemaBase : public SemaState
 	}
 #endif
 
+	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
+	{
+		if(!expression.isDependent)
+		{
+			return;
+		}
+		SEMANTIC_ASSERT(enclosingScope != ScopePtr(0));
+		Scope* enclosingTemplate = findEnclosingTemplateScope(enclosingScope);
+		if(templateParamScope != 0 // if this expression occurs within a template parameter list
+			|| enclosingTemplate == 0) // TODO: this can happen because we incorrectly mark 'undeclared(x)' as type-dependent
+		{
+			return;
+		}
+		SEMANTIC_ASSERT(enclosingTemplate != ScopePtr(0));
+		enclosingTemplate->expressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
+	}
+
+	void addDeferredExpressionType(const ExpressionWrapper& expression)
+	{
+	}
+
+	void addDeferredExpressionValue(const ExpressionWrapper& expression)
+	{
+	}
 
 	template<typename T>
 	ExpressionWrapper makeExpression(const T& node, bool isDependent = false, bool isTypeDependent = false, bool isValueDependent = false)
 	{
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(node);
+		// TODO: the below is only necessary if dependent expressions are to contain indices into enclosing template
 		Scope* enclosingTemplate = findEnclosingTemplateScope(enclosingScope); // don't share uniqued expressions across different template class/function scopes
 		ExpressionNode* p = isUnique
 			? makeUniqueExpression(node, enclosingTemplate)
@@ -2177,15 +2204,23 @@ struct SemaTemplateIdResult
 	}
 };
 
+struct SemaArgumentListResult
+{
+	Arguments arguments;
+	Dependent typeDependent;
+	Dependent valueDependent;
+	bool isDependent; // true if any argument is dependent;
+	SemaArgumentListResult()
+		: isDependent(false)
+	{
+	}
+};
 
-struct SemaExplicitTypeExpressionResult
+struct SemaExplicitTypeExpressionResult : SemaArgumentListResult
 {
 	SEMA_BOILERPLATE;
 
 	TypeId type;
-	Dependent typeDependent;
-	Dependent valueDependent;
-	ExpressionWrapper expression;
 	SemaExplicitTypeExpressionResult(AstAllocator<int>& allocator)
 		: type(0, allocator)
 	{

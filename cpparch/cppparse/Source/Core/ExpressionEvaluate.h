@@ -1287,6 +1287,11 @@ inline ExpressionType getAdjustedExpressionType(ExpressionType type)
 	return type;
 }
 
+inline ExpressionType typeOfExpression(const ExpressionList& node, const InstantiationContext& context)
+{
+	return typeOfExpression(node.expressions.back(), context);
+}
+
 inline ExpressionType typeOfExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
 {
 	return node.type;
@@ -1487,12 +1492,12 @@ inline bool isNullPointerCastExpression(const CastExpression& castExpression)
 {
 	if(isDependent(castExpression.type)
 		|| !castExpression.type.isPointer()
-		|| castExpression.operand.p == 0 // T()
-		|| !isIntegralConstantExpression(castExpression.operand))
+		|| castExpression.arguments.size() != 1 // T() or T(x, y)
+		|| !isIntegralConstantExpression(castExpression.arguments.front()))
 	{
 		return false;
 	}
-	return getIntegralConstantExpression(castExpression.operand).value.value == 0;
+	return getIntegralConstantExpression(castExpression.arguments.front()).value.value == 0;
 }
 
 // returns true if the given expression is "(S*)0"
@@ -1593,6 +1598,11 @@ inline const NonType& substituteNonTypeTemplateParameter(const NonTypeTemplatePa
 }
 
 
+inline ExpressionValue evaluateExpression(const ExpressionList& node, const InstantiationContext& context)
+{
+	return evaluateExpression(node.expressions.back(), context);
+}
+
 inline ExpressionValue evaluateExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
 {
 	return makeConstantValue(node.value);
@@ -1609,9 +1619,10 @@ inline ExpressionValue evaluateExpression(const CastExpression& node, const Inst
 	if(isIntegral(type)
 		|| isEnumeration(type))
 	{
-		return node.operand.p == 0 // if this is a default-constructor call T()
+		SYMBOLS_ASSERT(node.arguments.size() <= 1); // TODO: non-fatal error: function-style cast expects a single argument
+		return node.arguments.empty() // if this is a default-constructor call T()
 			? EXPRESSIONRESULT_ZERO
-			: evaluateExpressionImpl(node.operand, context);
+			: evaluateExpressionImpl(node.arguments.front(), context);
 	}
 	return EXPRESSIONRESULT_INVALID;
 }
@@ -1760,19 +1771,19 @@ inline ExpressionValue evaluateExpression(const TypeTraitsBinaryExpression& node
 		)), true);
 }
 
-inline ExpressionValue evaluateExpression(const struct ExplicitTypeExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
 {
 	// cannot be a constant expression
 	return EXPRESSIONRESULT_INVALID;
 }
 
-inline ExpressionValue evaluateExpression(const struct ObjectExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const ObjectExpression& node, const InstantiationContext& context)
 {
 	// cannot be a constant expression
 	return EXPRESSIONRESULT_INVALID;
 }
 
-inline ExpressionValue evaluateExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const MemberOperatorExpression& node, const InstantiationContext& context)
 {
 	// offsetof hack: treat the object expression as constant if it is "(T*)->"
 	if(isNullPointerCastExpression(node.left))
@@ -1782,30 +1793,30 @@ inline ExpressionValue evaluateExpression(const struct MemberOperatorExpression&
 	return EXPRESSIONRESULT_INVALID;
 }
 
-inline ExpressionValue evaluateExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
 {
 	// occurs within the offsetof macro
 	return ExpressionValue(IntegralConstant(0), evaluateExpression(node.left, context).isConstant);
 }
 
-inline ExpressionValue evaluateExpression(const struct OffsetofExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const OffsetofExpression& node, const InstantiationContext& context)
 {
 	return EXPRESSIONRESULT_ZERO; // TODO
 }
 
-inline ExpressionValue evaluateExpression(const struct FunctionCallExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const FunctionCallExpression& node, const InstantiationContext& context)
 {
 	// cannot be a constant expression
 	return EXPRESSIONRESULT_INVALID;
 }
 
-inline ExpressionValue evaluateExpression(const struct SubscriptExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const SubscriptExpression& node, const InstantiationContext& context)
 {
 	// cannot be a constant expression
 	return EXPRESSIONRESULT_INVALID;
 }
 
-inline ExpressionValue evaluateExpression(const struct PostfixOperatorExpression& node, const InstantiationContext& context)
+inline ExpressionValue evaluateExpression(const PostfixOperatorExpression& node, const InstantiationContext& context)
 {
 	// cannot be a constant expression
 	return EXPRESSIONRESULT_INVALID;
@@ -1867,5 +1878,271 @@ DeferredExpressionValue makeDeferredExpressionValue(const ExpressionNodeGeneric<
 
 #endif
 //=============================================================================
+
+struct SubstitutedExpression
+{
+	ExpressionType type;
+	ExpressionValue value;
+	SubstitutedExpression()
+		: value(EXPRESSIONRESULT_INVALID)
+	{
+	}
+	SubstitutedExpression(ExpressionType type, ExpressionValue value)
+		: type(type), value(value)
+	{
+	}
+};
+
+inline SubstitutedExpression substituteExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
+
+inline SubstitutedExpression substituteExpressionList(const Arguments& arguments, const InstantiationContext& context)
+{
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		SubstitutedExpression substituted = substituteExpression(*i, context);
+	}
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const ExpressionList& node, const InstantiationContext& context)
+{
+	substituteExpressionList(node.expressions, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
+{
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const CastExpression& node, const InstantiationContext& context)
+{
+	substitute(node.type, context);
+	substituteExpressionList(node.arguments, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const SizeofExpression& node, const InstantiationContext& context)
+{
+	substituteExpression(node.operand, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
+{
+	substitute(node.type, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const UnaryExpression& node, const InstantiationContext& context)
+{
+	substituteExpression(node.first, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const BinaryExpression& node, const InstantiationContext& context)
+{
+	substituteExpression(node.first, context);
+	substituteExpression(node.second, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const TernaryExpression& node, const InstantiationContext& context)
+{
+	substituteExpression(node.first, context);
+	substituteExpression(node.second, context);
+	substituteExpression(node.third, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
+{
+	substitute(node.type, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
+{
+	substitute(node.first, context);
+	substitute(node.second, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	substituteExpressionList(node.arguments, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const ObjectExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const MemberOperatorExpression& node, const InstantiationContext& context)
+{
+	SubstitutedExpression substituted = substituteExpression(node.left, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
+{
+	SubstitutedExpression substituted1 = substituteExpression(node.left, context);
+	SubstitutedExpression substituted2 = substituteExpression(node.right, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const OffsetofExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	SubstitutedExpression substituted = substituteExpression(node.member, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const FunctionCallExpression& node, const InstantiationContext& context)
+{
+	SubstitutedExpression substituted = substituteExpression(node.left, context);
+	substituteExpressionList(node.arguments, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const SubscriptExpression& node, const InstantiationContext& context)
+{
+	SubstitutedExpression substituted1 = substituteExpression(node.left, context);
+	SubstitutedExpression substituted2 = substituteExpression(node.right, context);
+	return SubstitutedExpression();
+}
+
+inline SubstitutedExpression substituteExpression(const PostfixOperatorExpression& node, const InstantiationContext& context)
+{
+	SubstitutedExpression substituted = substituteExpression(node.operand, context);
+	return SubstitutedExpression();
+}
+
+
+struct ExpressionSubstituteVisitor : ExpressionNodeVisitor
+{
+	SubstitutedExpression result;
+	const InstantiationContext context;
+	explicit ExpressionSubstituteVisitor(const InstantiationContext& context)
+		: context(context)
+	{
+	}
+	void visit(const ExpressionList& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const IntegralConstantExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const CastExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const NonTypeTemplateParameter& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const DependentIdExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const IdExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const SizeofExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const SizeofTypeExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const UnaryExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const BinaryExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const TernaryExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const TypeTraitsUnaryExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const TypeTraitsBinaryExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const struct ExplicitTypeExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const ObjectExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const MemberOperatorExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const ClassMemberAccessExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const OffsetofExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const FunctionCallExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const SubscriptExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const PostfixOperatorExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+};
+
+inline SubstitutedExpression substituteExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+{
+	if(expression.isDependent)
+	{
+		ExpressionSubstituteVisitor visitor(context);
+		expression.p->accept(visitor);
+	}
+	// TODO: return visitor.result;
+
+	return SubstitutedExpression(
+		typeOfExpressionWrapper(expression, context),
+		evaluateExpression(expression, context));
+}
 
 #endif
