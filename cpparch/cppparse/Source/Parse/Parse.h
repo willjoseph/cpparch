@@ -362,12 +362,15 @@ struct CachedSymbols
 		}
 		p = 0;
 	}
+	// at: the position of the cache at the point the symbol parse began
+	// key: the first token in the symbol
+	// t: the opaque object to store
 	template<typename T>
 	T& insert(Entries::iterator at, Key key, const T& t)
 	{
-		flush();
+		flush(); // remove entries that are after the current position
 		Value& value = (*entries.insert(at, Entries::value_type(key, Value(getTypeInfo<T>())))).second;
-		position = entries.begin();
+		position = entries.begin(); // reset current position to 
 		value.end = position;
 		value.copied.~OpaqueCopied();
 		new (&value.copied) OpaqueCopied(t, entries.get_allocator());
