@@ -401,7 +401,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				UniqueTypeWrapper type = getUniqueType(declaration.type);
 				if(declaration.type.isDependent)
 				{
-					// the member declaration should be found by name lookup during it's instantation
+					// the member declaration should be found by name lookup during its instantation
 					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
 					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
 					SYMBOLS_ASSERT(childContext.source.pointOfInstantiation == declaration.location.pointOfInstantiation + 1);
