@@ -9,6 +9,10 @@
 
 TypeLayout instantiateClass(const SimpleType& instanceConst, const InstantiationContext& context, bool allowDependent = false);
 
+inline std::size_t getPointOfInstantiation(const SimpleType& instance)
+{
+	return instance.instantiation.pointOfInstantiation;
+}
 
 inline void requireCompleteObjectType(UniqueTypeWrapper type, const InstantiationContext& context)
 {
@@ -197,11 +201,16 @@ inline bool isPod(UniqueTypeWrapper type, const InstantiationContext& context)
 	return isPod(classType);
 }
 
+inline bool isAnonymousUnion(const Declaration& declaration)
+{
+	return !declaration.isCStyle // 'typedef union { } U' is not anonymous!
+		&& declaration.isUnion
+		&& declaration.getName().value.c_str()[0] == '$';
+}
+
 inline bool isAnonymousUnion(const SimpleType& classType)
 {
-	return !classType.isCStyle // 'typedef union { } U' is not anonymous!
-		&& isUnion(classType)
-		&& classType.declaration->getName().value.c_str()[0] == '$';
+	return isAnonymousUnion(*classType.declaration);
 }
 
 inline bool isNonStaticDataMember(const Declaration& declaration)

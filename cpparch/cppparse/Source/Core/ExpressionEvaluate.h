@@ -1564,7 +1564,7 @@ inline IdExpression substituteIdExpression(const DependentIdExpression& node, co
 	instantiateClass(*qualifyingType, context);
 	Identifier id;
 	id.value = node.name;
-	std::size_t visibility = qualifyingType->instantiating ? context.enclosingType->instantiation.pointOfInstantiation : VISIBILITY_ALL;
+	std::size_t visibility = qualifyingType->instantiating ? getPointOfInstantiation(*context.enclosingType) : VISIBILITY_ALL;
 	LookupResultRef declaration = findDeclaration(*qualifyingType, id, IsAny(visibility));
 	if(declaration == 0)
 	{

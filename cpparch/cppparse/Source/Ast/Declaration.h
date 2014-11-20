@@ -324,6 +324,107 @@ const TemplateParameters TEMPLATEPARAMETERS_NULL = TemplateParameters(AST_ALLOCA
 
 
 // ----------------------------------------------------------------------------
+
+
+#if 0
+struct InstantiationContext;
+struct ExpressionNode;
+
+template<typename Result>
+struct ExpressionEvaluateCallback
+{
+	typedef Result(*EvaluateThunk)(const ExpressionNode*, const InstantiationContext& context);
+	Result operator()(const InstantiationContext& context) const
+	{
+		return thunk(p, context);
+	}
+	const ExpressionNode* p;
+	EvaluateThunk thunk;
+};
+
+struct DeferredExpressionType
+{
+	ExpressionEvaluateCallback<ExpressionType> callback;
+	Location location;
+	DeferredExpressionType(const ExpressionEvaluateCallback<ExpressionType>& callback, const Location& location)
+		: callback(callback), location(location)
+	{
+	}
+};
+
+struct DeferredExpressionValue
+{
+	ExpressionEvaluateCallback<ExpressionValue> callback;
+	Location location;
+	DeferredExpressionValue(const ExpressionEvaluateCallback<ExpressionValue>& callback, const Location& location)
+		: callback(callback), location(location)
+	{
+	}
+};
+
+template<typename Base>
+struct DisableDefaultConstructor : public Base
+{
+	DisableDefaultConstructor(const AstAllocator<int>& allocator)
+		: Base(allocator)
+	{
+	}
+private:
+	DisableDefaultConstructor()
+	{
+	}
+};
+
+typedef DisableDefaultConstructor<List<struct DeferredExpressionType, AstAllocator<int> > > DeferredExpressionTypes;
+
+typedef DisableDefaultConstructor<List<struct DeferredExpressionValue, AstAllocator<int> > > DeferredExpressionValues;
+#endif
+
+struct DeferredExpression : ExpressionWrapper
+{
+	DeferredExpression(const ExpressionWrapper& expression, const Location& location, TokenValue message)
+		: ExpressionWrapper(expression), location(location), message(message)
+	{
+	}
+	Location location;
+	TokenValue message; // if non-null, this is a static_assert
+};
+
+typedef ListReference<struct DeferredExpression, AstAllocator<int> > DeferredExpressions2;
+
+// wrapper to disable default-constructor
+struct DeferredExpressions : public DeferredExpressions2
+{
+	DeferredExpressions(const AstAllocator<int>& allocator)
+		: DeferredExpressions2(allocator)
+	{
+	}
+private:
+	DeferredExpressions()
+	{
+	}
+};
+
+// A collection of dependent constructs that will be substituted at the point of instantiation
+struct DependentConstructs
+{
+	DeferredExpressions expressions;
+#if 0
+	DeferredExpressionTypes expressionTypes; // the type-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
+	DeferredExpressionValues expressionValues; // the value-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
+#endif
+	DependentConstructs(const AstAllocator<int>& allocator)
+		: expressions(allocator)
+#if 0
+		, expressionTypes(allocator)
+		, expressionValues(allocator)
+#endif
+	{
+	}
+};
+
+
+// ----------------------------------------------------------------------------
 // declaration
 
 
@@ -349,12 +450,14 @@ public:
 	std::size_t templateParameter;
 	TemplateParameters templateParams;
 	TemplateArguments templateArguments; // non-empty if this is an explicit (or partial) specialization
+	DependentConstructs dependentConstructs;
 	bool isComplete; // for class declarations, set to true when the closing brace is parsed.
 	bool isTemplate;
 	bool isTemplateName; // true if this is a template declaration, or an overload of a template declaration
 	bool isSpecialization;
 	bool isFunctionDefinition;
 	bool isEnumerator; // true if this is the declaration of an enumerator
+	bool isCStyle; // true if this is a class-declaration preceded by 'typedef'
 	bool isUnion; // true if this is the declaration of a union
 	bool isDestructor; // true if this is the declaration of a destructor
 	std::size_t instance;
@@ -384,21 +487,24 @@ public:
 		templateParameter(templateParameter),
 		templateParams(templateParams),
 		templateArguments(templateArguments),
+		dependentConstructs(allocator),
 		isComplete(false),
 		isTemplate(isTemplate),
 		isTemplateName(isTemplate),
 		isSpecialization(isSpecialization),
 		isFunctionDefinition(false),
 		isEnumerator(false),
+		isCStyle(false),
 		isUnion(false),
 		isDestructor(false),
 		instance(INDEX_INVALID)
 	{
 	}
 	Declaration() :
-	type(0, AST_ALLOCATOR_NULL),
+		type(0, AST_ALLOCATOR_NULL),
 		templateParams(AST_ALLOCATOR_NULL),
-		templateArguments(AST_ALLOCATOR_NULL)
+		templateArguments(AST_ALLOCATOR_NULL),
+		dependentConstructs(AST_ALLOCATOR_NULL)
 	{
 	}
 	void swap(Declaration& other)
@@ -417,12 +523,14 @@ public:
 		std::swap(templateParameter, other.templateParameter);
 		templateParams.swap(other.templateParams);
 		templateArguments.swap(other.templateArguments);
+		std::swap(dependentConstructs, other.dependentConstructs);
 		std::swap(isComplete, other.isComplete);
 		std::swap(isTemplate, other.isTemplate);
 		std::swap(isTemplateName, other.isTemplateName);
 		std::swap(isSpecialization, other.isSpecialization);
 		std::swap(isFunctionDefinition, other.isFunctionDefinition);
 		std::swap(isEnumerator, other.isEnumerator);
+		std::swap(isCStyle, other.isCStyle);
 		std::swap(isUnion, other.isUnion);
 		std::swap(isDestructor, other.isDestructor);
 		std::swap(instance, other.instance);

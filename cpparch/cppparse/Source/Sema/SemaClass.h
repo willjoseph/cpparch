@@ -55,11 +55,13 @@ struct SemaClassHead : public SemaBase
 	IdentifierPtr id;
 	ScopePtr parent;
 	TemplateArguments arguments;
+	bool isCStyle;
 	bool isUnion;
 	bool isSpecialization;
-	SemaClassHead(const SemaState& state)
-		: SemaBase(state), declaration(0), id(0), parent(enclosingScope), arguments(context), isUnion(false), isSpecialization(false)
+	SemaClassHead(const SemaState& state, bool isCStyle)
+		: SemaBase(state), declaration(0), id(0), parent(enclosingScope), arguments(context), isCStyle(isCStyle), isUnion(false), isSpecialization(false)
 	{
+		enclosingInstantiation = 0; // ignore expressions in class-head in case of partial specialization: template<int i> C<i>
 	}
 
 	SEMA_POLICY(cpp::class_key, SemaPolicyIdentityCached)
@@ -98,7 +100,7 @@ struct SemaClassHead : public SemaBase
 	{
 		// defer class declaration until we know this is a class-specifier - it may be an elaborated-type-specifier until ':' is discovered
 		// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
-		declaration = declareClass(parent, id, isUnion, isSpecialization, arguments);
+		declaration = declareClass(parent, id, isCStyle, isUnion, isSpecialization, arguments);
 		enclosingScope = parent;
 		beginClassDefinition(declaration);
 	}
@@ -164,7 +166,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 	{
 	}
 
-	SEMA_POLICY(cpp::class_head, SemaPolicyPush<struct SemaClassHead>)
+	SEMA_POLICY_ARGS(cpp::class_head, SemaPolicyPushBool<struct SemaClassHead>, isCStyle)
 	void action(cpp::class_head* symbol, const SemaClassHead& walker)
 	{
 		declaration = walker.declaration;
@@ -182,7 +184,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		if(declaration == 0)
 		{
 			// 3.3.1.3 The point of declaration for a class first declared by a class-specifier is immediately after the identifier or simple-template-id (if any) in its class-head
-			declaration = declareClass(enclosingScope, id, isUnion, isSpecialization, arguments);
+			declaration = declareClass(enclosingScope, id, isCStyle, isUnion, isSpecialization, arguments);
 		}
 		SEMANTIC_ASSERT(declaration->enclosed != 0); // the existing declaration should be the result of declareClass
 		
@@ -204,7 +206,6 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		declaration->type.unique = makeUniqueType(type, getInstantiationContext(), allowDependent).value;
 		enclosingType = &getSimpleType(declaration->type.unique);
 		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
-		const_cast<SimpleType*>(enclosingType)->isCStyle = isCStyle; // needed at the point of instantiation of any member, so that we can decide whether this is an anonymous union
 		instantiateClass(*enclosingType, InstantiationContext(getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
 
 		addDependent(enclosingDependent, type);

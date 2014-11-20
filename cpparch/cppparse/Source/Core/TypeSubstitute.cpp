@@ -160,7 +160,7 @@ struct SubstituteVisitor : TypeElementVisitor
 				// result may be namespace or type
 				// if type, substitute within instantiation context
 				Scope& scope = *getNamespace(qualifying.value).declaration->enclosed;
-				std::size_t visibility = context.enclosingType.instantiation.pointOfInstantiation;
+				std::size_t visibility = getPointOfInstantiation(*context.enclosingType);
 				LookupResultRef result = findNamespaceDeclaration(scope, id, element.isNested ? LookupFilter(IsNestedName(visibility)) : LookupFilter(IsAny(visibility)));
 				if(result == 0) // if the name was not found within the qualifying namespace
 				{
@@ -180,7 +180,7 @@ struct SubstituteVisitor : TypeElementVisitor
 				}
 
 				instantiateClass(*enclosing, context);
-				std::size_t visibility = enclosing->instantiating ? context.enclosingType->instantiation.pointOfInstantiation : VISIBILITY_ALL;
+				std::size_t visibility = enclosing->instantiating ? getPointOfInstantiation(*context.enclosingType) : VISIBILITY_ALL;
 				LookupResultRef result = findDeclaration(*enclosing, id, element.isNested ? LookupFilter(IsNestedName(visibility)) : LookupFilter(IsAny(visibility)));
 
 				if(result == 0) // if the name was not found within the qualifying class

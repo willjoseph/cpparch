@@ -419,7 +419,6 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::unary_expression_sizeof, SemaPolicyPushSrc<struct SemaExpression>)
 	void action(cpp::unary_expression_sizeof* symbol, const SemaExpressionResult& walker)
 	{
-		addDeferredExpressionValue(walker.expression);
 		// [temp.dep.expr] Expressions of the following form [sizeof unary-expression] are never type-dependent (because the type of the expression cannot be dependent)
 		// [temp.dep.constexpr] Expressions of the following form [sizeof unary-expression] are value-dependent if the unary-expression is type-dependent
 		addDependent(valueDependent, walker.typeDependent);

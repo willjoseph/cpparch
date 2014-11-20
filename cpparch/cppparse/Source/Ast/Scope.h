@@ -134,85 +134,6 @@ struct DeclarationInstanceRef
 	}
 };
 
-#if 0
-struct InstantiationContext;
-struct ExpressionNode;
-
-template<typename Result>
-struct ExpressionEvaluateCallback
-{
-	typedef Result(*EvaluateThunk)(const ExpressionNode*, const InstantiationContext& context);
-	Result operator()(const InstantiationContext& context) const
-	{
-		return thunk(p, context);
-	}
-	const ExpressionNode* p;
-	EvaluateThunk thunk;
-};
-
-struct DeferredExpressionType
-{
-	ExpressionEvaluateCallback<ExpressionType> callback;
-	Location location;
-	DeferredExpressionType(const ExpressionEvaluateCallback<ExpressionType>& callback, const Location& location)
-		: callback(callback), location(location)
-	{
-	}
-};
-
-struct DeferredExpressionValue
-{
-	ExpressionEvaluateCallback<ExpressionValue> callback;
-	Location location;
-	DeferredExpressionValue(const ExpressionEvaluateCallback<ExpressionValue>& callback, const Location& location)
-		: callback(callback), location(location)
-	{
-	}
-};
-
-template<typename Base>
-struct DisableDefaultConstructor : public Base
-{
-	DisableDefaultConstructor(const AstAllocator<int>& allocator)
-		: Base(allocator)
-	{
-	}
-private:
-	DisableDefaultConstructor()
-	{
-	}
-};
-
-typedef DisableDefaultConstructor<List<struct DeferredExpressionType, AstAllocator<int> > > DeferredExpressionTypes;
-
-typedef DisableDefaultConstructor<List<struct DeferredExpressionValue, AstAllocator<int> > > DeferredExpressionValues;
-#endif
-
-struct DeferredExpression : ExpressionWrapper
-{
-	DeferredExpression(const ExpressionWrapper& expression, const Location& location, TokenValue message)
-		: ExpressionWrapper(expression), location(location), message(message)
-	{
-	}
-	Location location;
-	TokenValue message; // if non-null, this is a static_assert
-};
-
-typedef ListReference<struct DeferredExpression, AstAllocator<int> > DeferredExpressions2;
-
-// wrapper to disable default-constructor
-struct DeferredExpressions : public DeferredExpressions2
-{
-	DeferredExpressions(const AstAllocator<int>& allocator)
-		: DeferredExpressions2(allocator)
-	{
-	}
-private:
-	DeferredExpressions()
-	{
-	}
-};
-
 
 struct Scope : public ScopeCounter
 {
@@ -253,11 +174,6 @@ struct Scope : public ScopeCounter
 	Declarations declarations;
 	ScopeType type;
 	Types bases; // the base classes (if this is a class)
-	DeferredExpressions expressions; // the expressions to evaluate on instantiation (if this is a class template or function template)
-#if 0
-	DeferredExpressionTypes expressionTypes; // the type-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
-	DeferredExpressionValues expressionValues; // the value-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
-#endif
 	size_t expressionCount; // if this scope is a template parameter scope, indicates the template nesting level, otherwise zero
 	typedef List<ScopePtr, AstAllocator<int> > Scopes;
 	Scopes usingDirectives;
@@ -268,11 +184,7 @@ struct Scope : public ScopeCounter
 
 	Scope(const AstAllocator<int>& allocator, const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN)
 		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type),
-		bases(allocator), expressions(allocator),
-#if 0
-		expressionTypes(allocator), expressionValues(allocator),
-#endif
-		usingDirectives(allocator), declarationList(allocator),
+		bases(allocator), usingDirectives(allocator), declarationList(allocator),
 		templateDepth(0), visited(false)
 	{
 	}

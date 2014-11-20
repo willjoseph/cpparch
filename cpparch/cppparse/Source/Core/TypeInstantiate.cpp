@@ -404,7 +404,6 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					// the member declaration should be found by name lookup during its instantation
 					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
 					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
-					SYMBOLS_ASSERT(childContext.source.pointOfInstantiation == declaration.location.pointOfInstantiation + 1);
 					type = substitute(type, childContext);
 					requireCompleteObjectType(type, childContext);
 				}
@@ -431,7 +430,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 #endif
 
 #if 1
-			const DeferredExpressions& expressions = instance.declaration->enclosed->expressions;
+			const DeferredExpressions& expressions = instance.declaration->dependentConstructs.expressions;
 			for(DeferredExpressions::const_iterator i = expressions.begin(); i != expressions.end(); ++i)
 			{
 				const DeferredExpression& expression = *i;

@@ -688,6 +688,7 @@ struct SemaState
 	SafePtr<const TemplateParameters> templateParams;
 	ScopePtr templateParamScope;
 	DeferredSymbols* enclosingDeferred;
+	DeclarationPtr enclosingInstantiation; // the enclosing declaration which will be later instantiated
 	std::size_t templateDepth;
 	bool isExplicitInstantiation;
 
@@ -703,6 +704,7 @@ struct SemaState
 		, templateParams(0)
 		, templateParamScope(0)
 		, enclosingDeferred(0)
+		, enclosingInstantiation(0)
 		, templateDepth(0)
 		, isExplicitInstantiation(false)
 	{
@@ -1371,27 +1373,12 @@ struct SemaBase : public SemaState
 
 	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
 	{
-		if(!expression.isDependent)
+		if(!expression.isDependent
+			|| enclosingInstantiation == 0)
 		{
 			return;
 		}
-		SEMANTIC_ASSERT(enclosingScope != ScopePtr(0));
-		Scope* enclosingTemplate = findEnclosingTemplateScope(enclosingScope);
-		if(templateParamScope != 0 // if this expression occurs within a template parameter list
-			|| enclosingTemplate == 0) // TODO: this can happen because we incorrectly mark 'undeclared(x)' as type-dependent
-		{
-			return;
-		}
-		SEMANTIC_ASSERT(enclosingTemplate != ScopePtr(0));
-		enclosingTemplate->expressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
-	}
-
-	void addDeferredExpressionType(const ExpressionWrapper& expression)
-	{
-	}
-
-	void addDeferredExpressionValue(const ExpressionWrapper& expression)
-	{
+		enclosingInstantiation->dependentConstructs.expressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
 	}
 
 	template<typename T>
@@ -1461,7 +1448,7 @@ struct SemaBase : public SemaState
 		addBacktrackCallback(makeUndeclareCallback(&declaration));
 	}
 
-	Declaration* declareClass(Scope* parent, Identifier* id, bool isUnion, bool isSpecialization, TemplateArguments& arguments)
+	Declaration* declareClass(Scope* parent, Identifier* id, bool isCStyle, bool isUnion, bool isSpecialization, TemplateArguments& arguments)
 	{
 		Scope* enclosed = newScope(makeIdentifier("$class"), SCOPETYPE_CLASS);
 		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, id == 0 ? parent->getUniqueName() : *id, TYPE_CLASS, enclosed, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, arguments);
@@ -1473,6 +1460,7 @@ struct SemaBase : public SemaState
 			setDecoration(id, declaration);
 		}
 		enclosed->name = declaration->getName();
+		declaration->isCStyle = isCStyle;
 		declaration->isUnion = isUnion;
 		return declaration;
 	}
@@ -1506,6 +1494,11 @@ struct SemaBase : public SemaState
 			enclosingScope->templateDepth = templateDepth; // indicates that this is a template
 		}
 		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
+
+		if(!isAnonymousUnion(*declaration))
+		{
+			enclosingInstantiation = declaration; // any dependent constructs in the class definition should be added
+		}
 	}
 
 	void endMemberDeclaration(Declaration* declaration)
@@ -1588,10 +1581,12 @@ struct SemaBase : public SemaState
 					addNonStaticMember(*enclosingClass, uniqueType);
 				}
 			}
+#if 0
 			else
 			{
 				enclosingClass->children.push_back(uniqueType);
 			}
+#endif
 		}
 			
 		return declaration;

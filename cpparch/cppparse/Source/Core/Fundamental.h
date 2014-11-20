@@ -170,6 +170,11 @@ inline Declaration* getFundamentalType(unsigned fundamental)
 
 
 
+inline bool isCStyle(const SimpleType& classType)
+{
+	return classType.declaration->isCStyle;
+}
+
 inline bool isUnion(const SimpleType& classType)
 {
 	return classType.declaration->isUnion;
