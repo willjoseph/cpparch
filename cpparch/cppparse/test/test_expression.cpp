@@ -1,4 +1,95 @@
 
+#if 0 // TODO: explicit specialization of static data member
+namespace N453
+{
+	template<int i>
+	struct A
+	{
+		static const int value;
+	};
+
+	template<int i>
+	const int A<i>::value = 0;
+
+	template<>
+	const int A<1>::value = 7;
+
+	static_assert(A<1>::value == 7, "");
+}
+#endif
+
+namespace N452
+{
+	template<int i>
+	class C
+	{
+		static const int value = i; // initializer expression should not be evaluated until member is used
+	};
+}
+
+namespace N451
+{
+	template<int i>
+	struct A
+	{
+		static const int value = i;
+	};
+
+	int f(int);
+	char f(char);
+
+	template<typename T>
+	struct B
+	{
+		typedef A<sizeof(f(T()))> Type;
+	};
+
+	static_assert(B<int>::Type::value == sizeof(int), "");
+	static_assert(B<char>::Type::value == sizeof(char), "");
+}
+
+#if 0
+namespace N450
+{
+	template<class T>
+	void g();
+
+	template<class T, int N>
+	void f()
+	{
+		g<T[N]>();
+	}
+}
+#endif
+
+namespace N449 // TODO: exercising bitfield parse path: constant_expression in SemaMemberDeclaratorBitfield
+{
+	typedef struct _LDT_ENTRY {
+		short    LimitLow;
+		short    BaseLow;
+		union {
+			struct {
+				char    BaseMid;
+				char    Flags1;     // Declare as bytes to avoid alignment
+				char    Flags2;     // Problems.
+				char    BaseHi;
+			} Bytes;
+			struct {
+				int   BaseMid : 8;
+				int   Type : 5;
+				int   Dpl : 2;
+				int   Pres : 1;
+				int   LimitHi : 4;
+				int   Sys : 1;
+				int   Reserved_0 : 1;
+				int   Default_Big : 1;
+				int   Granularity : 1;
+				int   BaseHi : 8;
+			} Bits;
+		} HighWord;
+	} LDT_ENTRY, *PLDT_ENTRY;
+}
+
 #if 1
 namespace N448
 {
