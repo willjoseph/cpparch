@@ -427,23 +427,55 @@ struct DependentConstructs
 // ----------------------------------------------------------------------------
 // declaration
 
-
-class Declaration
+class AbstractDeclaration
 {
 	Identifier* name;
+public:
+	Location location; // the point of declaration
+	std::size_t uniqueId;
+	Scope* scope;
+	Declaration* overloaded; // the previous item in the list of overloads to search during overload resolution
+
+	AbstractDeclaration()
+	{
+	}
+	AbstractDeclaration(Identifier& name, Scope* scope)
+		: name(&name), uniqueId(0), scope(scope), overloaded(0)
+	{
+	}
+	void swap(AbstractDeclaration& other)
+	{
+		std::swap(name, other.name);
+		std::swap(location, other.location);
+		std::swap(uniqueId, other.uniqueId);
+		std::swap(scope, other.scope);
+		std::swap(overloaded, other.overloaded);
+	}
+	Identifier& getName()
+	{
+		return *name;
+	}
+	const Identifier& getName() const
+	{
+		return *name;
+	}
+	void setName(Identifier& other)
+	{
+		name = &other;
+	}
+};
+
+class Declaration : public AbstractDeclaration
+{
 
 #if 0
 	Declaration(const Declaration&);
 	Declaration& operator=(const Declaration&);
 #endif
 public:
-	Location location; // the point of declaration
-	std::size_t uniqueId;
-	Scope* scope;
 	TypeId type;
 	Scope* enclosed;
 	Scope* templateParamScope;
-	Declaration* overloaded;
 	Dependent valueDependent; // the dependent-types/names that are referred to in the declarator-suffix (array size)
 	ExpressionWrapper initializer; // if this is a constant (enumerator or const integral), the initializer constant-expression
 	DeclSpecifiers specifiers;
@@ -475,13 +507,10 @@ public:
 		const TemplateArguments& templateArguments = TEMPLATEARGUMENTS_NULL,
 		size_t templateParameter = INDEX_INVALID,
 		const Dependent& valueDependent = Dependent()
-		) : name(&name),
-		uniqueId(0),
-		scope(scope),
+		) : AbstractDeclaration(name, scope),
 		type(type),
 		enclosed(enclosed),
 		templateParamScope(0),
-		overloaded(0),
 		valueDependent(valueDependent),
 		specifiers(specifiers),
 		templateParameter(templateParameter),
@@ -509,14 +538,10 @@ public:
 	}
 	void swap(Declaration& other)
 	{
-		std::swap(name, other.name);
-		std::swap(location, other.location);
-		std::swap(uniqueId, other.uniqueId);
-		std::swap(scope, other.scope);
+		AbstractDeclaration::swap(other);
 		type.swap(other.type);
 		std::swap(enclosed, other.enclosed);
 		std::swap(templateParamScope, other.templateParamScope);
-		std::swap(overloaded, other.overloaded);
 		std::swap(valueDependent, other.valueDependent);
 		std::swap(initializer, other.initializer);
 		std::swap(specifiers, other.specifiers);
@@ -534,20 +559,6 @@ public:
 		std::swap(isUnion, other.isUnion);
 		std::swap(isDestructor, other.isDestructor);
 		std::swap(instance, other.instance);
-	}
-
-
-	Identifier& getName()
-	{
-		return *name;
-	}
-	const Identifier& getName() const
-	{
-		return *name;
-	}
-	void setName(Identifier& other)
-	{
-		name = &other;
 	}
 };
 

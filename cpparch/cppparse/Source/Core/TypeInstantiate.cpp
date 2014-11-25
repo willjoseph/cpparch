@@ -394,6 +394,17 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
 			{
 				Declaration& declaration = *(*i);
+
+#if 0 // TODO: dependent using-declaration
+				if(isMember(declaration)
+					&& isTypedef(declaration))
+				{
+					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
+					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
+					getUniqueType(declaration.type, childContext);
+				}
+#endif
+
 				if(!isNonStaticDataMember(declaration))
 				{
 					continue;

@@ -524,6 +524,7 @@ inline bool isEquivalent(const Declaration& declaration, const Declaration& othe
 	return false;
 }
 
+// Returns the most recently declared overload of the given declaration that has an equivalent signature.
 inline const DeclarationInstance* findRedeclared(const Declaration& declaration, const DeclarationInstance* overloaded)
 {
 	for(const DeclarationInstance* p = overloaded; p != 0; p = p->overloaded)
@@ -932,10 +933,10 @@ struct SemaState
 				declaration.isTemplateName = true;
 			}
 
-			declaration.overloaded = findOverloaded(instance); // the new declaration refers to the existing declaration
+			declaration.overloaded = findOverloaded(instance);
 
 			instance.p = 0;
-			instance.overloaded = existing;
+			instance.overloaded = existing; // the new declaration refers to the previous existing declaration
 			instance.redeclared = findRedeclared(declaration, existing);
 			if(instance.redeclared != 0)
 			{

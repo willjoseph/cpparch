@@ -276,6 +276,8 @@ inline FunctionOverload findBestOverloadedFunction(const OverloadSet& overloads,
 		std::cout << getValue(declaration->getName());
 		std::cout << std::endl;
 		printCandidates(resolver, context);
+
+		throw TypeErrorBase(context.source);
 	}
 
 	return resolver.get();

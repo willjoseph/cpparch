@@ -438,9 +438,9 @@ struct OverloadResolver
 	{
 		return ambiguous != 0 ? gOverloadNull : best;
 	}
-	void addNonViable(const ParameterTypes& parameters)
+	void addNonViable(const FunctionOverload& overload, const FunctionType& functionType)
 	{
-		candidates.push_back(CandidateFunction());
+		candidates.push_back(CandidateFunction(overload, functionType));
 	}
 	template<typename To>
 	ImplicitConversion makeConversion(To to, const Argument& from)
@@ -527,7 +527,7 @@ struct OverloadResolver
 				SYMBOLS_ASSERT(d != defaults.end());
 				if((*d).defaultArgument == 0) // TODO: catch this earlier
 				{
-					return addNonViable(parameters); // [over.match.viable] no default-argument available, this candidate is not viable
+					return addNonViable(overload, functionType); // [over.match.viable] no default-argument available, this candidate is not viable
 				}
 				else
 				{
@@ -549,7 +549,7 @@ struct OverloadResolver
 		if(!isEllipsis
 			&& a != arguments.end())
 		{
-			return addNonViable(parameters);
+			return addNonViable(overload, functionType);
 		}
 
 		for(; a != arguments.end(); ++a)
@@ -561,7 +561,7 @@ struct OverloadResolver
 
 		if(!isViable(candidate))
 		{
-			return addNonViable(parameters);
+			return addNonViable(overload, functionType);
 		}
 
 		candidates.push_back(candidate); // TODO: avoid copies!

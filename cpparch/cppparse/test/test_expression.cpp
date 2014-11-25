@@ -1,4 +1,49 @@
 
+#if 0 // TODO: using-declaration
+namespace N454 // test behaviour of using-declaration naming member of base class
+{
+	struct A
+	{
+		static int f(int);
+		static int g(int);
+	};
+
+	struct B : A
+	{
+		using A::f;
+		using A::g;
+		static char f(int); // hides A::f
+		static char g(char); // overload resolution finds A::g
+	};
+
+	static_assert(sizeof(B::f(int())) == sizeof(char), "");
+	static_assert(sizeof(B::g(int())) == sizeof(int), "");
+}
+#endif
+
+#if 0 // TODO: dependent using-declaration
+namespace N455 // test behaviour of using-declaration naming member of dependent base class
+{
+	struct A
+	{
+		static int f(int);
+		static int g(int);
+	};
+
+	template<typename T>
+	struct B : T
+	{
+		using T::f;
+		using T::g;
+		static char f(int); // hides A::f
+		static char g(char); // overload resolution finds A::g
+	};
+
+	static_assert(sizeof(B<A>::f(int())) == sizeof(char), "");
+	static_assert(sizeof(B<A>::g(int())) == sizeof(int), "");
+}
+#endif
+
 #if 0 // TODO: explicit specialization of static data member
 namespace N453
 {
@@ -18,21 +63,24 @@ namespace N453
 }
 #endif
 
-namespace N452
+namespace N452 // test deferred checking of dependent expression in initializer of static member
 {
-	template<int i>
-	class C
+	template<typename T>
+	struct A
 	{
-		static const int value = i; // initializer expression should not be evaluated until member is used
+		typedef T Type;
+		static const int value = T::dependent; // initializer expression should not be evaluated until member is used
 	};
+
+	typedef A<int>::Type Type;
 }
 
+#if 0 // TODO: clang fails to compile this
 namespace N451
 {
 	template<int i>
 	struct A
 	{
-		static const int value = i;
 	};
 
 	int f(int);
@@ -41,12 +89,15 @@ namespace N451
 	template<typename T>
 	struct B
 	{
-		typedef A<sizeof(f(T()))> Type;
+		void f(A<sizeof(f(T()))>);
 	};
 
-	static_assert(B<int>::Type::value == sizeof(int), "");
-	static_assert(B<char>::Type::value == sizeof(char), "");
+	template<typename T>
+	void B<T>::f(A<sizeof(f(T()))>)
+	{
+	}
 }
+#endif
 
 #if 0
 namespace N450
@@ -90,37 +141,17 @@ namespace N449 // TODO: exercising bitfield parse path: constant_expression in S
 	} LDT_ENTRY, *PLDT_ENTRY;
 }
 
-#if 1
+#if 1 // TODO: check that all dependent expressions in initializer are substituted at point of instantiation
 namespace N448
 {
 	template<int n>
 	struct A
 	{
-		static const int i = (0, 1, n);
+		static const int i = (n + 0, n + 1, n);
 	};
 
 	int i = A<0>::i;
 }
-#endif
-
-#if 0
-namespace N447
-{
-	template<typename T>
-	void f()
-	{
-		int a[sizeof(T)];
-		const int i = sizeof(T);
-		A<sizeof(T)> x;
-		T(T()); // may not be integral constant expression
-	}
-
-	template<typename T>
-	struct A
-	{
-		typedef int[sizeof(sizeof(T))] Type;
-	};
-};
 #endif
 
 namespace N446
