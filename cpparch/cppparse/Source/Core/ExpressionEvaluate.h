@@ -393,6 +393,14 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 	bool found = false;
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
+		if(isUsing(*p)) // if the overload is a using-declaration
+		{
+			SYMBOLS_ASSERT(!isDependent(p->usingBase)); // TODO
+			if(isOverloaded(*p->usingMember))
+			{
+				return true;
+			}
+		}
 		if(p->specifiers.isFriend)
 		{
 			continue; // ignore (namespace-scope) friend functions
@@ -414,22 +422,24 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 	return false;
 }
 
+// [namespace.udecl]
+// When a using-declaration brings names from a base class into a derived class scope, member functions and
+// member function templates in the derived class override and/or hide member functions and member function
+// templates with the same name, parameter-type-list, cv-qualification, and ref-qualifier(if any) in a
+// base class (rather than conflicting).
+
+
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
 {
-	SYMBOLS_ASSERT(isFunction(*declaration));
 	for(Declaration* p = declaration; p != 0; p = p->overloaded)
 	{
-		if(isUsing(*p))
+		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			// [namespace.udecl]
-			// When a using-declaration brings names from a base class into a derived class scope, member functions and
-			// member function templates in the derived class override and/or hide member functions and member function
-			// templates with the same name, parameter-type-list, cv-qualification, and ref-qualifier(if any) in a
-			// base class (rather than conflicting).
-
-			addOverloaded(result, *p->usingMember, memberEnclosing, true);
+			ClassMember member = getUsingMember(*p);
+			addOverloaded(result, *p->usingMember, member.enclosing, true);
 			continue;
 		}
+		SYMBOLS_ASSERT(isFunction(*p));
 		if(p->specifiers.isFriend)
 		{
 			SYMBOLS_ASSERT(memberEnclosing == 0);
@@ -441,11 +451,17 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 	}
 }
 
-inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const KoenigAssociated& associated = KoenigAssociated())
+inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const KoenigAssociated& associated = KoenigAssociated(), bool fromUsing = false)
 {
 	SYMBOLS_ASSERT(isFunction(*declaration));
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
+		if(isUsing(*p)) // if the overload is a using-declaration
+		{
+			ClassMember member = getUsingMember(*p);
+			addOverloaded(result, *p->usingMember, associated, true);
+			continue;
+		}
 		const SimpleType* memberEnclosing = 0;
 		if(p->specifiers.isFriend)
 		{
@@ -456,7 +472,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 				continue; // friend should only be visible if member of an associated class
 			}
 		}
-		addUniqueOverload(result, Overload(p, memberEnclosing));
+		addUniqueOverload(result, Overload(p, memberEnclosing, fromUsing));
 	}
 }
 
@@ -473,14 +489,13 @@ inline void addArgumentDependentOverloads(OverloadSet& result, const Identifier&
 		UniqueTypeWrapper type = (*i).type;
 		addKoenigAssociated(associated, type);
 	}
-	// TODO:
 	// In addition, if the argument is the name or address of a set of overloaded functions and/or function templates,
 	// its associated classes and namespaces are the union of those associated with each of the members of
 	// the set: the namespace in which the function or function template is defined and the classes and namespaces
 	// associated with its (non-dependent) parameter types and return type.
 	for(KoenigAssociated::Namespaces::const_iterator i = associated.namespaces.begin(); i != associated.namespaces.end(); ++i)
 	{
-		// TODO: Any namespace-scope friend functions declared in associated classes are visible within their respective
+		// Any namespace-scope friend functions declared in associated classes are visible within their respective
 		// namespaces even if they are not visible during an ordinary lookup.
 		// All names except those of (possibly overloaded) functions and function templates are ignored.
 		if(const DeclarationInstance* p = findDeclaration((*i)->declarations, id, IsAdlFunctionName()))
@@ -1123,18 +1138,21 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 
 	// the identifier names an overloadable function
 
-	SYMBOLS_ASSERT(declaration != &gDependentObject); // the id-expression should not be dependent
-	SYMBOLS_ASSERT(isFunction(*declaration));
-
 	// if this is a member-function-call, the type of the class containing the member
 	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.qualifying, *idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);
+
+	ClassMember member = evaluateClassMember(ClassMember(memberEnclosing, declaration));
+
+	SYMBOLS_ASSERT(declaration != &gDependentObject); // the id-expression should not be dependent
+	SYMBOLS_ASSERT(isFunction(*member.declaration));
+
 
 	ExpressionNodeGeneric<ObjectExpression> transientExpression = ObjectExpression(gNullExpressionType);
 	Arguments augmentedArguments;
 	if(isMember(*declaration))
 	{
 		// either the call is qualified, 'this' is valid, or the member is static
-		SYMBOLS_ASSERT(memberClass != 0 || context.enclosingType != 0 || isStatic(*declaration));
+		SYMBOLS_ASSERT(memberClass != 0 || context.enclosingType != 0 || isStatic(*member.declaration));
 		SYMBOLS_ASSERT(memberClass == 0 || memberClass != &gDependentSimpleType);
 
 		if(memberClass == 0) // unqualified function call

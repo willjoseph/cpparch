@@ -106,11 +106,17 @@ ExpressionValue evaluateExpressionImpl(ExpressionNode* node, const Instantiation
 
 
 
-inline void addOverloads(OverloadResolver& resolver, const DeclarationInstance& declaration, const SimpleType* memberEnclosing)
+inline void addOverloads(OverloadResolver& resolver, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
 {
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
-		addOverload(resolver, Overload(p, memberEnclosing));
+		if(isUsing(*p)) // if the overload is a using-declaration
+		{
+			ClassMember member = getUsingMember(*p);
+			addOverloads(resolver, *p->usingMember, member.enclosing, true);
+			continue;
+		}
+		addOverload(resolver, Overload(p, memberEnclosing, fromUsing));
 	}
 }
 

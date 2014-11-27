@@ -1,7 +1,68 @@
 
 
+namespace N466 // test that ADL pulls in all overloads
+{
+	struct A
+	{
+		friend int f(const void*)
+		{
+			return 0;
+		}
+		friend char f(A*)
+		{
+			return 0;
+		}
+	};
+
+	const A a = A();
+	static_assert(sizeof(f(&a)) == sizeof(int), "");
+
+}
+
+#if 0 // TODO: fails in Clang
+namespace N467 // test that ADL pulls in all overloads
+{
+	struct B
+	{
+		static int f(const void*)
+		{
+			return 0;
+		}
+	};
+
+	struct A : B
+	{
+		using B::f;
+		friend char f(A*)
+		{
+			return 0;
+		}
+	};
+
+	const A a = A();
+	static_assert(sizeof(f(&a)) == sizeof(int), "");
+}
+#endif
 
 #if 1 // TODO: using-declaration
+namespace N468 // test behaviour of using-declaration naming template member function
+{
+	struct A
+	{
+		template<typename T>
+		static T f(T);
+	};
+
+	struct B : A
+	{
+		using A::f;
+	};
+
+	static_assert(sizeof(B::f(int())) == sizeof(int), "");
+}
+#endif
+
+#if 0 // TODO: using-declaration
 namespace N454 // test behaviour of using-declaration naming member of base class
 {
 	struct A
@@ -22,6 +83,7 @@ namespace N454 // test behaviour of using-declaration naming member of base clas
 	static_assert(sizeof(B::g(int())) == sizeof(int), "");
 }
 #endif
+
 
 #if 0 // TODO: dependent using-declaration
 namespace N455 // test behaviour of using-declaration naming member of dependent base class

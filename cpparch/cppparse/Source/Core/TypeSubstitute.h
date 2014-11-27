@@ -259,6 +259,14 @@ inline ClassMember substituteClassMember(UniqueTypeWrapper qualifying, Name name
 	return ClassMember(enclosing, declaration);
 }
 
+inline ClassMember getUsingMember(const Declaration& declaration)
+{
+	SYMBOLS_ASSERT(isUsing(declaration));
+	SYMBOLS_ASSERT(!isDependent(declaration.usingBase));
+	const SimpleType* enclosing = declaration.usingBase == gUniqueTypeNull ? 0 : &getSimpleType(declaration.usingBase.value);
+	return ClassMember(enclosing, *declaration.usingMember);
+}
+
 inline ClassMember evaluateClassMember(ClassMember member, const InstantiationContext& context)
 {
 	const Declaration& declaration = *member.declaration;
@@ -267,12 +275,25 @@ inline ClassMember evaluateClassMember(ClassMember member, const InstantiationCo
 		return member; // nothing to do
 	}
 
-	// the member name was not introduced by a using declaration: 
+	// the member name was introduced by a using declaration
 	ClassMember substituted = isDependent(declaration.usingBase) // if the name is dependent
 		? substituteClassMember(declaration.usingBase, declaration.getName().value, context) // substitute it
-		: ClassMember(declaration.usingBase == gUniqueTypeNull ? 0 : &getSimpleType(declaration.usingBase.value), *declaration.usingMember);
+		: getUsingMember(declaration);
 
 	return evaluateClassMember(substituted, context); // the result may also be a (possibly depedendent) using-declaration
+}
+
+inline ClassMember evaluateClassMember(ClassMember member)
+{
+	const Declaration& declaration = *member.declaration;
+	if(!isUsing(declaration)) // if the member name was not introduced by a using declaration
+	{
+		return member; // nothing to do
+	}	
+
+	// the member name was introduced by a using declaration
+	SYMBOLS_ASSERT(!isDependent(declaration.usingBase));
+	return evaluateClassMember(getUsingMember(declaration));
 }
 
 #endif

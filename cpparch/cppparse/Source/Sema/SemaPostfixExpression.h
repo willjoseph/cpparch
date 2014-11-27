@@ -291,6 +291,8 @@ struct SemaPostfixExpression : public SemaBase
 	SEMA_POLICY(cpp::postfix_expression_call, SemaPolicyPushSrc<struct SemaArgumentList>)
 	void action(cpp::postfix_expression_call* symbol, const SemaArgumentList& walker)
 	{
+		// [class.mfct.nonstatic] An id-expression (that is not part of a class-member-access expression, and is found in the context of a nonstatic member)
+		// that names a nonstatic member is transformed to a class-member-access expression prefixed by (*this)
 		expression = makeTransformedIdExpression(expression, typeDependent, valueDependent);
 
 		addDependent(typeDependent, walker.typeDependent);

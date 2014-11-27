@@ -287,14 +287,19 @@ struct SemaIdExpression : public SemaQualified
 			const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
 			SEMANTIC_ASSERT(qualifyingClass == this->qualifyingClass);
 
+
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
 				// TODO: check compliance: id-expression cannot be compared for equivalence unless it names a non-type template-parameter
 				? makeExpression(IdExpression(declaration, qualifyingClass, templateArguments, isQualified), isDependent, isTypeDependent, isValueDependent)
 				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependent, isTypeDependent, isValueDependent);
 
-			expression.isNonStaticMemberName = isMember(*declaration) && !isStatic(*declaration) && !isEnumerator(*declaration);
-			expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && qualifyingType != gUniqueTypeNull;
+			if(!isTypeDependent)
+			{
+				ClassMember member = evaluateClassMember(ClassMember(qualifyingClass, declaration));
+				expression.isNonStaticMemberName = isMember(*member.declaration) && !isStatic(*member.declaration) && !isEnumerator(*member.declaration);
+				expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && qualifyingType != gUniqueTypeNull;
+			}
 		}
 		return true;
 	}

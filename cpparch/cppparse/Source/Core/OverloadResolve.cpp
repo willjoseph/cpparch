@@ -157,6 +157,10 @@ inline ExpressionType selectOverloadedFunctionImpl(UniqueTypeWrapper target, con
 	DeclarationInstanceRef declaration = expression.declaration;
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
+		if(isUsing(*p)) // if the overload is a using-declaration
+		{
+			SYMBOLS_ASSERT(false); // TODO
+		}
 		if(p->specifiers.isFriend)
 		{
 			continue; // ignore (namespace-scope) friend functions
