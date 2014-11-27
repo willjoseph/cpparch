@@ -217,6 +217,7 @@ inline bool isNonStaticDataMember(const Declaration& declaration)
 {
 	return isMember(declaration) // just members, for now
 		&& !isClass(declaration)
+		&& !isUsing(declaration)
 		&& !isEnum(declaration)
 		&& !isEnumerator(declaration)
 		&& !isFunction(declaration) // member functions are not instantiated when class is implicitly instantiated

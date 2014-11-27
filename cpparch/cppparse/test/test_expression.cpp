@@ -1,5 +1,7 @@
 
-#if 0 // TODO: using-declaration
+
+
+#if 1 // TODO: using-declaration
 namespace N454 // test behaviour of using-declaration naming member of base class
 {
 	struct A
@@ -43,6 +45,234 @@ namespace N455 // test behaviour of using-declaration naming member of dependent
 	static_assert(sizeof(B<A>::g(int())) == sizeof(int), "");
 }
 #endif
+
+namespace N464 // test dependent non-type using-declaration as class-member
+{
+	template<typename T>
+	struct A : T
+	{
+		using T::i;
+
+		static const int j = i;
+	};
+
+	struct B
+	{
+		static const int i = 0;
+	};
+
+	template<typename T>
+	struct C
+	{
+		static const T i = 0;
+	};
+
+	int i = A<B>::j;
+	int j = A<C<int> >::j;
+}
+
+namespace N459 // test dependent non-type using-declaration as class-member
+{
+	template<typename T>
+	struct C
+	{
+		static const T i = 0;
+	};
+
+	template<typename T>
+	struct A : C<T>
+	{
+		using C<T>::i;
+
+		static const int j = i;
+	};
+
+	int i = A<int>::j;
+}
+
+namespace N463 // test non-type using-declaration as class-member
+{
+	struct B
+	{
+		static const int i = 0;
+	};
+	struct A : B
+	{
+		using B::i;
+
+		static const int j = i;
+	};
+}
+
+namespace N458 // test non-type using-declaration as class-member, chained
+{
+	struct C
+	{
+		static const int i = 0;
+	};
+	struct B : C
+	{
+		using C::i;
+	};
+	struct A : B
+	{
+		using B::i;
+
+		static const int j = i;
+	};
+}
+
+
+namespace N457 // test non-type using-declaration in function-body
+{
+	namespace N
+	{
+		int i;
+	}
+	void f()
+	{
+		using N::i;
+
+		int j = i;
+	}
+}
+
+namespace N465 // test dependent using-declaration naming a class template
+{
+	template<typename T>
+	struct A
+	{
+	protected:
+		template<typename U>
+		struct Type
+		{
+		};
+	};
+
+
+	template<typename T>
+	struct B : A<T>
+	{
+		using A<T>::Type;
+		typedef typename B::template Type<int> IntType;
+	};
+
+	B<int>::IntType x;
+}
+
+namespace N462 // test dependent using-declaration naming a dependent using-declaration naming a class template
+{
+	template<typename T>
+	struct C
+	{
+	protected:
+		template<typename U>
+		struct Type
+		{
+		};
+	};
+
+	template<typename T>
+	struct A : C<T>
+	{
+	protected:
+		using C<T>::Type;
+	};
+
+
+	template<typename T>
+	struct B : A<T>
+	{
+		using A<T>::Type;
+		typedef typename B::template Type<int> IntType;
+	};
+
+	B<int>::IntType x;
+}
+
+namespace N461 // test using-declaration naming a class template, used in dependent typedef
+{
+	struct A
+	{
+	protected:
+		template<typename U>
+		struct Type
+		{
+		};
+	};
+
+
+	template<typename T>
+	struct B : T
+	{
+		using A::Type;
+		typedef typename B::template Type<int> IntType;
+	};
+
+	B<A>::IntType x;
+}
+
+
+namespace N460 // test dependent typedef naming a class template
+{
+	template<typename T>
+	struct A
+	{
+	protected:
+		template<typename U>
+		struct Type
+		{
+		};
+	};
+
+
+	template<typename T>
+	struct B : A<T>
+	{
+		typedef typename A<T>::template Type<int> IntType;
+	};
+
+	B<int>::IntType x;
+}
+
+namespace N456 // test dependent using-declaration naming a class
+{
+	template<typename T>
+	struct A
+	{
+	protected:
+		struct Type
+		{
+		};
+	};
+
+
+	template<typename T>
+	struct B : A<T>
+	{
+		using typename A<T>::Type; // typename is required
+	};
+
+	B<int>::Type x;
+}
+
+namespace N457 // test using-declaration naming a class template
+{
+	namespace N
+	{
+		template<typename T>
+		struct Tmpl
+		{
+		};
+	}
+
+	using N::Tmpl;
+
+	struct S : Tmpl<int>
+	{
+	};
+}
+
 
 #if 0 // TODO: explicit specialization of static data member
 namespace N453

@@ -4,7 +4,7 @@
 
 // special-case
 Identifier gUndeclaredId = makeIdentifier("$undeclared");
-Declaration gUndeclared(AST_ALLOCATOR_NULL, 0, gUndeclaredId, TYPE_NULL, 0);
+Declaration gUndeclared(AST_ALLOCATOR_NULL, 0, gUndeclaredId, TYPE_NULL, 0, false);
 const DeclarationInstance gUndeclaredInstance(&gUndeclared);
 
 Identifier gGlobalId = makeIdentifier("$global");
@@ -31,11 +31,11 @@ BuiltInTypeDeclaration gSpecialMemberFunctionTypeDeclaration(gSpecialMemberFunct
 BuiltInFunctionType gSpecialMemberFunctionType(&gSpecialMemberFunctionTypeDeclaration, AST_ALLOCATOR_NULL);
 
 Identifier gCopyAssignmentOperatorId = makeIdentifier("$copy-assignment-operator");
-Declaration gCopyAssignmentOperatorDeclaration(AST_ALLOCATOR_NULL, &gSpecialMemberFunctionScope, gCopyAssignmentOperatorId, gSpecialMemberFunctionType, 0);
+Declaration gCopyAssignmentOperatorDeclaration(AST_ALLOCATOR_NULL, &gSpecialMemberFunctionScope, gCopyAssignmentOperatorId, gSpecialMemberFunctionType, 0, false);
 const DeclarationInstance gCopyAssignmentOperatorInstance(&gCopyAssignmentOperatorDeclaration);
 
 Identifier gDestructorId = makeIdentifier("$destructor");
-Declaration gDestructorDeclaration(AST_ALLOCATOR_NULL, &gSpecialMemberFunctionScope, gDestructorId, gSpecialMemberFunctionType, 0);
+Declaration gDestructorDeclaration(AST_ALLOCATOR_NULL, &gSpecialMemberFunctionScope, gDestructorId, gSpecialMemberFunctionType, 0, false);
 const DeclarationInstance gDestructorInstance(&gDestructorDeclaration);
 
 // built-in operator placeholders

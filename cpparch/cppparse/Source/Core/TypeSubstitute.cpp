@@ -201,6 +201,12 @@ struct SubstituteVisitor : TypeElementVisitor
 
 				declaration = result;
 
+				ClassMember member = evaluateClassMember(ClassMember(enclosing, declaration), context);
+				declaration = member.declaration;
+				enclosing = member.enclosing;
+
+				SYMBOLS_ASSERT(isTemplateName(*declaration) == element.isTemplate); // TODO: non-fatal error: expected template-name after 'template'
+
 				if(!isType(*declaration))
 				{
 					// [temp.deduct]

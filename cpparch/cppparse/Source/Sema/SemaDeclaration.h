@@ -180,7 +180,7 @@ struct SemaDeclarationSuffix : public SemaBase
 			addDependent(type.dependent, typeDependent);
 			makeUniqueTypeSafe(type);
 
-			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *walker.id, type, 0, seq.specifiers); // 3.3.1.1
+			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *walker.id, type, 0, false, seq.specifiers); // 3.3.1.1
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(instance);
 #endif
@@ -478,7 +478,7 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				// template<class T> class C;
 				// template<> class C<int>;
 				// template<class T> class C<T*>;
-				DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *seq.forward, TYPE_CLASS, 0, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, seq.type.templateArguments);
+				DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *seq.forward, TYPE_CLASS, 0, true, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, seq.type.templateArguments);
 #ifdef ALLOCATOR_DEBUG
 				trackDeclaration(instance);
 #endif

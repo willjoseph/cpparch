@@ -585,8 +585,9 @@ struct Overload
 {
 	const Declaration* declaration;
 	const SimpleType* memberEnclosing;
-	Overload(const Declaration* declaration, const SimpleType* memberEnclosing)
-		: declaration(declaration), memberEnclosing(memberEnclosing)
+	bool fromUsing;
+	Overload(const Declaration* declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
+		: declaration(declaration), memberEnclosing(memberEnclosing), fromUsing(fromUsing)
 	{
 	}
 };

@@ -168,7 +168,7 @@ inline ExpressionType selectOverloadedFunctionImpl(UniqueTypeWrapper target, con
 		}
 		else
 		{
-			const SimpleType* idEnclosing = getIdExpressionClass(expression.qualifying, declaration, context.enclosingType);
+			const SimpleType* idEnclosing = getIdExpressionClass(expression.qualifying, *declaration, context.enclosingType);
 			FunctionSignature result = substituteFunctionId(Overload(declaration, idEnclosing), UniqueTypeArray(), &expression.templateArguments, context);
 			if(result.returnType == gUniqueTypeNull)
 			{

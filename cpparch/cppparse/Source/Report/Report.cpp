@@ -181,6 +181,7 @@ inline bool isObjectDefinition(const Declaration& declaration)
 	// function body, it declares a static data member in a class declaration, it is a class name declaration,
 	// or it is a typedef declaration, a using declaration, or a using-directive.
 	return isObject(declaration)
+		&& !isUsing(declaration)
 		&& !(isFunction(declaration) && !declaration.isFunctionDefinition)
 		&& !declaration.specifiers.isExtern
 		&& !declaration.specifiers.isTypedef

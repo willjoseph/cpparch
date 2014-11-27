@@ -40,7 +40,7 @@ PointerPointerTypeId gSignedIntPointerPointer(gSignedInt);
 
 Identifier gBaseClassId = makeIdentifier("$base");
 Scope gBaseClassScope(AST_ALLOCATOR_NULL, gBaseClassId, SCOPETYPE_CLASS);
-Declaration gBaseClassDeclaration(AST_ALLOCATOR_NULL, 0, gBaseClassId, TYPE_CLASS, &gBaseClassScope);
+Declaration gBaseClassDeclaration(AST_ALLOCATOR_NULL, 0, gBaseClassId, TYPE_CLASS, &gBaseClassScope, true);
 BuiltInTypeId gBaseClass(&gBaseClassDeclaration, AST_ALLOCATOR_NULL);
 
 Types2::Pointer::Value gBaseClassNode = Types2::Node(Type(&gBaseClassDeclaration, AST_ALLOCATOR_NULL));
@@ -58,7 +58,7 @@ struct DerivedClassTypeId : BuiltInTypeId
 
 Identifier gDerivedClassId = makeIdentifier("$derived");
 Scope gDerivedClassScope(AST_ALLOCATOR_NULL, gDerivedClassId, SCOPETYPE_CLASS);
-Declaration gDerivedClassDeclaration(AST_ALLOCATOR_NULL, 0, gDerivedClassId, TYPE_CLASS, &gDerivedClassScope);
+Declaration gDerivedClassDeclaration(AST_ALLOCATOR_NULL, 0, gDerivedClassId, TYPE_CLASS, &gDerivedClassScope, true);
 DerivedClassTypeId gDerivedClass(&gDerivedClassDeclaration, AST_ALLOCATOR_NULL);
 
 PointerTypeId gBaseClassPointer(gBaseClass);
@@ -77,11 +77,11 @@ struct DependentTypeId : BuiltInType
 Scope gTemplateParameterScope(AST_ALLOCATOR_NULL,  makeIdentifier("$template"), SCOPETYPE_TEMPLATE);
 
 Identifier gTemplateParameterId = makeIdentifier("T");
-Declaration gTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateParameterId, TYPE_PARAM, 0);
+Declaration gTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateParameterId, TYPE_PARAM, 0, true);
 DependentTypeId gTemplateParameter(&gTemplateParameterDeclaration, 0);
 
 Identifier gNonTypeTemplateParameterId = makeIdentifier("i");
-Declaration gNonTypeTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gNonTypeTemplateParameterId, TYPE_PARAM, 0);
+Declaration gNonTypeTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gNonTypeTemplateParameterId, TYPE_PARAM, 0, false);
 DependentTypeId gNonTypeTemplateParameter(&gNonTypeTemplateParameterDeclaration, 1);
 
 
@@ -91,7 +91,7 @@ Types2::Pointer::Value gTemplateParam1 = Types2::Node(Type(&gTemplateParameterDe
 Identifier gTemplateClassId = makeIdentifier("$template");
 struct TemplateClassDeclaration : Declaration
 {
-	TemplateClassDeclaration() : Declaration(AST_ALLOCATOR_NULL, 0, gTemplateClassId, TYPE_CLASS, 0, DeclSpecifiers(), true)
+	TemplateClassDeclaration() : Declaration(AST_ALLOCATOR_NULL, 0, gTemplateClassId, TYPE_CLASS, 0, true, DeclSpecifiers(), true)
 	{
 		templateParamScope = &gTemplateParameterScope;
 		templateParams.head.next = &gTemplateParam1;
@@ -103,7 +103,7 @@ TemplateClassDeclaration gTemplateClassDeclaration;
 
 
 Identifier gTemplateTemplateParameterId = makeIdentifier("TT");
-Declaration gTemplateTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateTemplateParameterId, TYPE_CLASS, 0, DeclSpecifiers(), true, TEMPLATEPARAMETERS_NULL, false, TEMPLATEARGUMENTS_NULL, 0);
+Declaration gTemplateTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateTemplateParameterId, TYPE_CLASS, 0, true, DeclSpecifiers(), true, TEMPLATEPARAMETERS_NULL, false, TEMPLATEARGUMENTS_NULL, 0);
 
 struct BuiltInTemplateTemplateArgument : BuiltInType
 {

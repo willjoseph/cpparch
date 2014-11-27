@@ -27,34 +27,43 @@ struct SemaUsingDeclaration : public SemaQualified
 	SEMA_POLICY(cpp::unqualified_id, SemaPolicyPushChecked<struct SemaUnqualifiedId>)
 	bool action(cpp::unqualified_id* symbol, const SemaUnqualifiedId& walker)
 	{
+		SYMBOLS_ASSERT(qualifying_p != TypePtr(0)); // TODO: non-fatal error: expected qualified-id
+		UniqueTypeWrapper qualifyingType = isNamespace(*qualifying_p->declaration) // if the nested name specifier names a namespace
+			? gUniqueTypeNull
+			: getUniqueType(*qualifying_p);
+
+		LookupResultRef declaration = isTypename ? gDependentTypeInstance : gDependentObjectInstance;
+
+		// [namespace.udecl]
+		// If a using-declaration uses the keyword typename and specifies a dependent name, the name introduced
+		// by the using-declaration is treated as a typedef-name
+		bool isType = isTypename;
+		bool isTemplate = false; // dependent names cannot be templates
+
 		if(!isTypename
 			&& !isDependentOld(qualifying_p))
 		{
-			LookupResultRef declaration = walker.declaration;
+			declaration = walker.declaration;
 			if(declaration == &gUndeclared
 				|| !(isObject(*declaration) || isTypeName(*declaration)))
 			{
 				return reportIdentifierMismatch(symbol, *walker.id, declaration, "object-name or type-name");
 			}
 
-			setDecoration(walker.id, declaration); // refer to the primary declaration of this name, rather than the one declared by this using-declaration
-
-			DeclarationInstance instance(declaration);
-			instance.name = walker.id;
-			instance.overloaded = declaration.p;
-			instance.redeclared = declaration.p;
-			DeclarationInstanceRef redeclaration = enclosingScope->declarations.insert(instance);
-			enclosingScope->declarationList.push_back(instance);
-#ifdef ALLOCATOR_DEBUG
-			trackDeclaration(redeclaration);
-#endif
-
+			isType = isTypeName(*declaration);
+			isTemplate = isTemplateName(*declaration);
 		}
 		else
 		{
-			// TODO: introduce typename into enclosing namespace
-			setDecoration(walker.id, gDependentTypeInstance);
+			SYMBOLS_ASSERT(qualifyingType != gUniqueTypeNull); // TODO: non-fatal error: cannot use 'typename' with a member of a namespace
 		}
+
+		Declaration* usingDeclaration = declareUsing(enclosingScope, walker.id, qualifyingType, declaration, isType, isTemplate);
+		if(qualifying_p != TypePtr(0))
+		{
+			addDependent(usingDeclaration->type.dependent, qualifying_p->dependent);
+		}
+
 		return true;
 	}
 	void action(cpp::terminal<boost::wave::T_TYPENAME> symbol)
@@ -127,7 +136,7 @@ struct SemaNamespaceAliasDefinition : public SemaQualified
 			}
 
 			// TODO: check for conflicts with earlier declarations
-			declaration = pointOfDeclaration(context, enclosingScope, *id, TYPE_NAMESPACE, declaration->enclosed);
+			declaration = pointOfDeclaration(context, enclosingScope, *id, TYPE_NAMESPACE, declaration->enclosed, false);
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(declaration);
 #endif
@@ -162,7 +171,7 @@ struct SemaNamespace : public SemaBase, SemaNamespaceResult
 	{
 		if(id != 0)
 		{
-			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_NAMESPACE, 0);
+			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_NAMESPACE, 0, false);
 #ifdef ALLOCATOR_DEBUG
 			trackDeclaration(instance);
 #endif

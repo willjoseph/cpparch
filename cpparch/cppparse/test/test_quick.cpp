@@ -4090,24 +4090,6 @@ namespace N46
 }
 
 
-namespace N117
-{
-	namespace N
-	{
-		template<typename T>
-		struct Tmpl
-		{
-		};
-	}
-
-	using N::Tmpl;
-
-	struct S : Tmpl<int>
-	{
-	};
-}
-
-
 namespace N114
 {
 	template<typename T>
@@ -4184,20 +4166,6 @@ namespace N248
 	{
 		return (struct S*)
 			(int*) f();
-	}
-}
-
-namespace N44
-{
-	namespace N
-	{
-		int i;
-	}
-	void f()
-	{
-		using N::i;
-
-		int j = i; // using-declaration in function-body
 	}
 }
 

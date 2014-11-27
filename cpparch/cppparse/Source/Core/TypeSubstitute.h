@@ -221,4 +221,58 @@ inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationCont
 }
 
 
+
+struct ClassMember
+{
+	const SimpleType* enclosing;
+	Declaration* declaration;
+	ClassMember(const SimpleType* enclosing, Declaration* declaration)
+		: enclosing(enclosing), declaration(declaration)
+	{
+	}
+};
+
+inline ClassMember substituteClassMember(UniqueTypeWrapper qualifying, Name name, const InstantiationContext& context)
+{
+	// evaluate the qualifying/enclosing/declaration referred to by the using declaration
+	qualifying = substitute(qualifying, context);
+	SYMBOLS_ASSERT(qualifying != gUniqueTypeNull);
+	SYMBOLS_ASSERT(qualifying.isSimple());
+	const SimpleType* enclosing = &getSimpleType(qualifying.value);
+
+	instantiateClass(*enclosing, context);
+	Identifier id;
+	id.value = name;
+	std::size_t visibility = enclosing->instantiating ? getPointOfInstantiation(*context.enclosingType) : VISIBILITY_ALL;
+	LookupResultRef result = findDeclaration(*enclosing, id, LookupFilter(IsAny(visibility)));
+
+	Declaration* declaration = result;
+
+	if(result == 0) // if the name was not found within the qualifying class
+	{
+		// [temp.deduct]
+		// - Attempting to use a type in the qualifier portion of a qualified name that names a type when that
+		//   type does not contain the specified member
+		throw MemberNotFoundError(context.source, name, enclosing);
+	}
+
+	return ClassMember(enclosing, declaration);
+}
+
+inline ClassMember evaluateClassMember(ClassMember member, const InstantiationContext& context)
+{
+	const Declaration& declaration = *member.declaration;
+	if(!isUsing(declaration)) // if the member name was not introduced by a using declaration
+	{
+		return member; // nothing to do
+	}
+
+	// the member name was not introduced by a using declaration: 
+	ClassMember substituted = isDependent(declaration.usingBase) // if the name is dependent
+		? substituteClassMember(declaration.usingBase, declaration.getName().value, context) // substitute it
+		: ClassMember(declaration.usingBase == gUniqueTypeNull ? 0 : &getSimpleType(declaration.usingBase.value), *declaration.usingMember);
+
+	return evaluateClassMember(substituted, context); // the result may also be a (possibly depedendent) using-declaration
+}
+
 #endif

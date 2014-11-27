@@ -250,6 +250,11 @@ inline const Declaration& getPrimaryDeclaration(const Declaration& first, const 
 		{
 			return second; // typedef of type previously declared: typedef struct S {} S;
 		}
+		if(isUsing(first)
+			|| isUsing(second))
+		{
+			return second;
+		}
 		if(isClass(first))
 		{
 			if(isSpecialization(second))
@@ -486,7 +491,12 @@ inline bool isEquivalent(const Declaration& declaration, const Declaration& othe
 		return isSpecialization(declaration) == isSpecialization(other)
 			&& (!isSpecialization(declaration) // both are not explicit/partial specializations
 			|| isEquivalentSpecialization(declaration, other)); // both are specializations and have matching arguments
+	}
 
+	if(isUsing(declaration)
+		|| isUsing(other))
+	{
+		return false; // TODO: defer evaluation of equivalence for dependent using-declaration
 	}
 
 	if(isEnum(declaration)
@@ -641,7 +651,7 @@ struct SemaContext : public AstAllocator<int>
 		AstAllocator<int>(allocator),
 		parserContext(parserContext),
 		global(allocator, gGlobalId, SCOPETYPE_NAMESPACE),
-		globalDecl(allocator, 0, gGlobalId, TYPE_NULL, &global),
+		globalDecl(allocator, 0, gGlobalId, TYPE_NAMESPACE, &global, false),
 		globalType(Type(&globalDecl, allocator), allocator),
 		declarationCount(0)
 	{
@@ -868,6 +878,7 @@ struct SemaState
 		Identifier& name,
 		const TypeId& type,
 		Scope* enclosed,
+		bool isType,
 		DeclSpecifiers specifiers = DeclSpecifiers(),
 		bool isTemplate = false,
 		const TemplateParameters& params = TEMPLATEPARAMETERS_NULL,
@@ -888,7 +899,15 @@ struct SemaState
 		static size_t uniqueId = 0;
 
 		SEMANTIC_ASSERT(!name.value.empty());
-		Declaration declaration(allocator, parent, name, type, enclosed, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
+
+		SEMANTIC_ASSERT(type.declaration != &gUsing
+			|| type.declaration != &gUsing == (specifiers.isTypedef
+				|| type.declaration == &gSpecial
+				|| type.declaration == &gArithmetic
+				|| type.declaration == &gClass
+				|| type.declaration == &gEnum));
+
+		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
 		SEMANTIC_ASSERT(!isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
 		declaration.location = getLocation();
 		declaration.uniqueId = ++uniqueId;
@@ -1452,7 +1471,7 @@ struct SemaBase : public SemaState
 	Declaration* declareClass(Scope* parent, Identifier* id, bool isCStyle, bool isUnion, bool isSpecialization, TemplateArguments& arguments)
 	{
 		Scope* enclosed = newScope(makeIdentifier("$class"), SCOPETYPE_CLASS);
-		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, id == 0 ? parent->getUniqueName() : *id, TYPE_CLASS, enclosed, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, arguments);
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, id == 0 ? parent->getUniqueName() : *id, TYPE_CLASS, enclosed, true, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, arguments);
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
 #endif
@@ -1505,6 +1524,7 @@ struct SemaBase : public SemaState
 	void endMemberDeclaration(Declaration* declaration)
 	{
 		if(declaration == 0 // static-assert declaration
+			|| declaration == &gCtor
 			|| isClassKey(*declaration) // elaborated-type-specifier
 			|| isType(*declaration)) // nested class or enum
 		{
@@ -1549,7 +1569,7 @@ struct SemaBase : public SemaState
 
 		bool isTemplate = templateParams != 0;
 		bool isExplicitSpecialization = isTemplate && templateParams->empty();
-		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, specifiers, isTemplate, getTemplateParams(), isExplicitSpecialization, TEMPLATEARGUMENTS_NULL, templateParameter, valueDependent); // 3.3.1.1
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, specifiers.isTypedef, specifiers, isTemplate, getTemplateParams(), isExplicitSpecialization, TEMPLATEARGUMENTS_NULL, templateParameter, valueDependent); // 3.3.1.1
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
 #endif
@@ -1604,7 +1624,7 @@ struct SemaBase : public SemaState
 			contains the declaration; otherwise, except as a friend declaration, the identifier is declared in the
 			smallest non-class, non-function-prototype scope that contains the declaration.
 			*/
-			DeclarationInstanceRef declaration = pointOfDeclaration(context, getEtsScope(), *forward, TYPE_CLASS, 0);
+			DeclarationInstanceRef declaration = pointOfDeclaration(context, getEtsScope(), *forward, TYPE_CLASS, 0, true);
 			
 			trackDeclaration(declaration);
 			setDecoration(forward, declaration);
@@ -1612,6 +1632,20 @@ struct SemaBase : public SemaState
 			return true;
 		}
 		return false;
+	}
+
+	Declaration* declareUsing(Scope* parent, Identifier* id, UniqueTypeWrapper base, const DeclarationInstance& member, bool isType, bool isTemplate)
+	{
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, TYPE_USING, 0, isType);
+#ifdef ALLOCATOR_DEBUG
+		trackDeclaration(declaration);
+#endif
+		setDecoration(id, declaration);
+
+		declaration->usingBase = base;
+		declaration->usingMember = &member;
+		declaration->isTemplateName = isTemplate;
+		return declaration;
 	}
 
 	bool consumeTemplateParams(const Qualifying& qualifying)

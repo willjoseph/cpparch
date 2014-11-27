@@ -465,6 +465,8 @@ public:
 	}
 };
 
+struct DeclarationInstance;
+
 class Declaration : public AbstractDeclaration
 {
 
@@ -483,7 +485,10 @@ public:
 	TemplateParameters templateParams;
 	TemplateArguments templateArguments; // non-empty if this is an explicit (or partial) specialization
 	DependentConstructs dependentConstructs;
+	UniqueTypeWrapper usingBase; // if this is a class-member using-declaration, the type of the qualifying base-class (may be dependent)
+	const DeclarationInstance* usingMember; // if this is a using-declaration, the declaration that is referred to
 	bool isComplete; // for class declarations, set to true when the closing brace is parsed.
+	bool isType; // true if this is declaration names a type
 	bool isTemplate;
 	bool isTemplateName; // true if this is a template declaration, or an overload of a template declaration
 	bool isSpecialization;
@@ -500,6 +505,7 @@ public:
 		Identifier& name,
 		const TypeId& type,
 		Scope* enclosed,
+		bool isType,
 		DeclSpecifiers specifiers = DeclSpecifiers(),
 		bool isTemplate = false,
 		const TemplateParameters& templateParams = TEMPLATEPARAMETERS_NULL,
@@ -517,7 +523,9 @@ public:
 		templateParams(templateParams),
 		templateArguments(templateArguments),
 		dependentConstructs(allocator),
+		usingMember(0),
 		isComplete(false),
+		isType(isType),
 		isTemplate(isTemplate),
 		isTemplateName(isTemplate),
 		isSpecialization(isSpecialization),
@@ -549,7 +557,10 @@ public:
 		templateParams.swap(other.templateParams);
 		templateArguments.swap(other.templateArguments);
 		std::swap(dependentConstructs, other.dependentConstructs);
+		std::swap(usingBase, other.usingBase);
+		std::swap(usingMember, other.usingMember);
 		std::swap(isComplete, other.isComplete);
+		std::swap(isType, other.isType);
 		std::swap(isTemplate, other.isTemplate);
 		std::swap(isTemplateName, other.isTemplateName);
 		std::swap(isSpecialization, other.isSpecialization);

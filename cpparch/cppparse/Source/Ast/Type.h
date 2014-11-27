@@ -12,6 +12,7 @@
 extern Declaration gArithmetic;
 extern Declaration gSpecial;
 extern Declaration gClass;
+extern Declaration gUsing;
 extern Declaration gEnum;
 
 extern Declaration gNamespace;
@@ -27,12 +28,13 @@ extern Declaration gBuiltInOperator;
 #define TYPE_ARITHMETIC TypeId(&gArithmetic, AST_ALLOCATOR_NULL)
 #define TYPE_SPECIAL TypeId(&gSpecial, AST_ALLOCATOR_NULL)
 #define TYPE_CLASS TypeId(&gClass, AST_ALLOCATOR_NULL)
+#define TYPE_USING TypeId(&gUsing, AST_ALLOCATOR_NULL)
 #define TYPE_ENUM TypeId(&gEnum, AST_ALLOCATOR_NULL)
 
 struct BuiltInTypeDeclaration : Declaration
 {
 	BuiltInTypeDeclaration(Identifier& name, const TypeId& type = TYPE_ARITHMETIC)
-		: Declaration(AST_ALLOCATOR_NULL, 0, name, type, 0)
+		: Declaration(AST_ALLOCATOR_NULL, 0, name, type, 0, true)
 	{
 	}
 };
@@ -72,6 +74,11 @@ inline bool isClass(const Declaration& declaration)
 	return declaration.type.declaration == &gClass;
 }
 
+inline bool isUsing(const Declaration& declaration)
+{
+	return declaration.type.declaration == &gUsing;
+}
+
 inline bool isEnum(const Declaration& declaration)
 {
 	return declaration.type.declaration == &gEnum;
@@ -89,11 +96,31 @@ inline bool isTypedef(const Declaration& declaration)
 
 inline bool isType(const Declaration& declaration)
 {
-	return isTypedef(declaration)
+	bool expected = isTypedef(declaration)
 		|| declaration.type.declaration == &gSpecial
 		|| isArithmetic(declaration)
 		|| isClass(declaration)
 		|| isEnum(declaration);
+
+	if(&declaration == &gCtor)
+	{
+		expected = false;
+	}
+
+	if(isUsing(declaration))
+	{
+		if(declaration.usingMember == 0) // if we are within pointOfDeclaration()
+		{
+			// don't bother checking..
+			expected = declaration.isType;
+		}
+		else
+		{
+			expected = declaration.usingMember == &gDependentTypeInstance || isType(**declaration.usingMember);
+		}
+	}
+	SYMBOLS_ASSERT(declaration.isType == expected);
+	return declaration.isType;
 }
 
 inline bool isNamespace(const Declaration& declaration)
@@ -103,7 +130,7 @@ inline bool isNamespace(const Declaration& declaration)
 
 inline bool isFunction(const Declaration& declaration)
 {
-	SYMBOLS_ASSERT(declaration.type.unique != 0 || isType(declaration) || isNamespace(declaration));
+	SYMBOLS_ASSERT(declaration.type.unique != 0 || isType(declaration) || isNamespace(declaration) || isUsing(declaration));
 	return declaration.type.unique != 0
 		&& getUniqueType(declaration.type).isFunction();
 }

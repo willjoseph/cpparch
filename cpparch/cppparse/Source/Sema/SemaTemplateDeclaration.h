@@ -23,7 +23,7 @@ struct SemaTypeParameter : public SemaBase
 	{
 		committed();
 		SEMANTIC_ASSERT(param.declaration == 0); // may only be called once, after parse of type-parameter succeeds
-		DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_PARAM, 0, DECLSPEC_TYPEDEF, !params.empty(), params, false, TEMPLATEARGUMENTS_NULL, templateParameter);
+		DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *id, TYPE_PARAM, 0, true, DECLSPEC_TYPEDEF, !params.empty(), params, false, TEMPLATEARGUMENTS_NULL, templateParameter);
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(instance);
 #endif
