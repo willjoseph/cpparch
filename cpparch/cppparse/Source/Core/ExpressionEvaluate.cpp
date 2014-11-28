@@ -113,7 +113,7 @@ inline void addOverloads(OverloadResolver& resolver, const DeclarationInstance& 
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
 			ClassMember member = getUsingMember(*p);
-			addOverloads(resolver, *p->usingMember, member.enclosing, true);
+			addOverloads(resolver, member.declaration, member.enclosing, true);
 			continue;
 		}
 		addOverload(resolver, Overload(p, memberEnclosing, fromUsing));

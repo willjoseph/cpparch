@@ -436,7 +436,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
 			ClassMember member = getUsingMember(*p);
-			addOverloaded(result, *p->usingMember, member.enclosing, true);
+			addOverloaded(result, member.declaration, member.enclosing, true);
 			continue;
 		}
 		SYMBOLS_ASSERT(isFunction(*p));
@@ -459,7 +459,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
 			ClassMember member = getUsingMember(*p);
-			addOverloaded(result, *p->usingMember, associated, true);
+			addOverloaded(result, member.declaration, associated, true);
 			continue;
 		}
 		const SimpleType* memberEnclosing = 0;

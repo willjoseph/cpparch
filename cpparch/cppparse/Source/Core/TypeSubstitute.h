@@ -225,8 +225,8 @@ inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationCont
 struct ClassMember
 {
 	const SimpleType* enclosing;
-	Declaration* declaration;
-	ClassMember(const SimpleType* enclosing, Declaration* declaration)
+	DeclarationInstanceRef declaration;
+	ClassMember(const SimpleType* enclosing, DeclarationInstanceRef declaration)
 		: enclosing(enclosing), declaration(declaration)
 	{
 	}
@@ -248,7 +248,7 @@ inline ClassMember substituteClassMember(UniqueTypeWrapper qualifying, Name name
 
 	Declaration* declaration = result;
 
-	if(result == 0) // if the name was not found within the qualifying class
+	if(result == DeclarationPtr(0)) // if the name was not found within the qualifying class
 	{
 		// [temp.deduct]
 		// - Attempting to use a type in the qualifier portion of a qualified name that names a type when that
@@ -256,7 +256,7 @@ inline ClassMember substituteClassMember(UniqueTypeWrapper qualifying, Name name
 		throw MemberNotFoundError(context.source, name, enclosing);
 	}
 
-	return ClassMember(enclosing, declaration);
+	return ClassMember(enclosing, result);
 }
 
 inline ClassMember getUsingMember(const Declaration& declaration)

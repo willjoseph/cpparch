@@ -199,9 +199,7 @@ struct SubstituteVisitor : TypeElementVisitor
 					throw MemberNotFoundError(context.source, element.name, enclosing);
 				}
 
-				declaration = result;
-
-				ClassMember member = evaluateClassMember(ClassMember(enclosing, declaration), context);
+				ClassMember member = evaluateClassMember(ClassMember(enclosing, result), context);
 				declaration = member.declaration;
 				enclosing = member.enclosing;
 
