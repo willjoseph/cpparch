@@ -459,6 +459,7 @@ struct SimpleType
 		visited(false), dumped(false)
 	{
 		SYMBOLS_ASSERT(enclosing == 0 || isClass(*enclosing->declaration));
+		SYMBOLS_ASSERT(!isTypedef(*declaration));
 	}
 };
 

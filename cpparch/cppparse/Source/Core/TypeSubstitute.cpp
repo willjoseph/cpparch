@@ -199,9 +199,9 @@ struct SubstituteVisitor : TypeElementVisitor
 					throw MemberNotFoundError(context.source, element.name, enclosing);
 				}
 
-				ClassMember member = evaluateClassMember(ClassMember(enclosing, result), context);
-				declaration = member.declaration;
-				enclosing = member.enclosing;
+				QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(enclosing, result), context);
+				declaration = qualified.declaration;
+				enclosing = qualified.enclosing;
 
 				SYMBOLS_ASSERT(isTemplateName(*declaration) == element.isTemplate); // TODO: non-fatal error: expected template-name after 'template'
 

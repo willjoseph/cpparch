@@ -435,8 +435,8 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			ClassMember member = getUsingMember(*p);
-			addOverloaded(result, member.declaration, member.enclosing, true);
+			QualifiedDeclaration qualified = getUsingMember(*p);
+			addOverloaded(result, qualified.declaration, qualified.enclosing, true);
 			continue;
 		}
 		SYMBOLS_ASSERT(isFunction(*p));
@@ -458,8 +458,8 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			ClassMember member = getUsingMember(*p);
-			addOverloaded(result, member.declaration, associated, true);
+			QualifiedDeclaration qualified = getUsingMember(*p);
+			addOverloaded(result, qualified.declaration, associated, true);
 			continue;
 		}
 		const SimpleType* memberEnclosing = 0;
@@ -744,14 +744,14 @@ inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const Dec
 		return selectOverloadedFunctionImpl(gUniqueTypeNull, IdExpression(declaration, qualifying, templateArguments, isQualified), context);
 	}
 
-	ClassMember member = evaluateClassMember(ClassMember(qualifying, declaration), context);
+	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifying, declaration), context);
 
-	const SimpleType* idEnclosing = getIdExpressionClass(member.enclosing, *member.declaration, context.enclosingType);
+	const SimpleType* idEnclosing = getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
 
 	// a member of a class template may have a type which depends on a template parameter
-	UniqueTypeWrapper type = getUniqueType(member.declaration->type, setEnclosingType(context, idEnclosing), member.declaration->isTemplate);
-	ExpressionType result(type, isLvalue(*member.declaration));
-	result.isMutable = member.declaration->specifiers.isMutable;
+	UniqueTypeWrapper type = getUniqueType(qualified.declaration->type, setEnclosingType(context, idEnclosing), qualified.declaration->isTemplate);
+	ExpressionType result(type, isLvalue(*qualified.declaration));
+	result.isMutable = qualified.declaration->specifiers.isMutable;
 
 	return result;
 }
@@ -1141,10 +1141,10 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	// if this is a member-function-call, the type of the class containing the member
 	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.qualifying, *idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);
 
-	ClassMember member = evaluateClassMember(ClassMember(memberEnclosing, declaration));
+	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(memberEnclosing, declaration));
 
 	SYMBOLS_ASSERT(declaration != &gDependentObject); // the id-expression should not be dependent
-	SYMBOLS_ASSERT(isFunction(*member.declaration));
+	SYMBOLS_ASSERT(isFunction(*qualified.declaration));
 
 
 	ExpressionNodeGeneric<ObjectExpression> transientExpression = ObjectExpression(gNullExpressionType);
@@ -1152,7 +1152,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	if(isMember(*declaration))
 	{
 		// either the call is qualified, 'this' is valid, or the member is static
-		SYMBOLS_ASSERT(memberClass != 0 || context.enclosingType != 0 || isStatic(*member.declaration));
+		SYMBOLS_ASSERT(memberClass != 0 || context.enclosingType != 0 || isStatic(*qualified.declaration));
 		SYMBOLS_ASSERT(memberClass == 0 || memberClass != &gDependentSimpleType);
 
 		if(memberClass == 0) // unqualified function call
@@ -1558,8 +1558,8 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 		return EXPRESSIONRESULT_INVALID; // TODO: overload resolution when function name used as template argument
 	}
 
-	ClassMember member = evaluateClassMember(ClassMember(node.qualifying, node.declaration), context);
-	Declaration* declaration = member.declaration;
+	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(node.qualifying, node.declaration), context);
+	Declaration* declaration = qualified.declaration;
 
 	if(declaration->initializer.p == 0)
 	{
@@ -1572,7 +1572,7 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 		return EXPRESSIONRESULT_INVALID;
 	}
 
-	const SimpleType* enclosing = member.enclosing != 0 ? member.enclosing : context.enclosingType;
+	const SimpleType* enclosing = qualified.enclosing != 0 ? qualified.enclosing : context.enclosingType;
 
 	const SimpleType* memberEnclosing = isMember(*declaration) // if the declaration is a class member
 		? findEnclosingType(enclosing, declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.

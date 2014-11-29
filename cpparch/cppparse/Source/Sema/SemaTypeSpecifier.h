@@ -133,8 +133,7 @@ struct SemaElaboratedTypeSpecifier : public SemaQualified, SemaElaboratedTypeSpe
 		type = walker.type;
 		id = walker.id;
 
-		if(!isUnqualified(symbol)
-			|| !isClassKey(*type.declaration))
+		if(!isUnqualified(symbol))
 		{
 			id = 0;
 		}
@@ -185,70 +184,8 @@ struct SemaElaboratedTypeSpecifier : public SemaQualified, SemaElaboratedTypeSpe
 	SEMA_POLICY(cpp::identifier, SemaPolicyIdentityCached)
 	void action(cpp::identifier* symbol)
 	{
-		/* 3.4.4-2
-		If the elaborated-type-specifier has no nested-name-specifier ...
-		... the identifier is looked up according to 3.4.1 but ignoring any non-type names that have been declared. If
-		the elaborated-type-specifier is introduced by the enum keyword and this lookup does not find a previously
-		declared type-name, the elaborated-type-specifier is ill-formed. If the elaborated-type-specifier is introduced by
-		the class-key and this lookup does not find a previously declared type-name ...
-		the elaborated-type-specifier is a declaration that introduces the class-name as described in 3.3.1.
-		*/
 		id = &symbol->value;
-		LookupResultRef declaration = findDeclaration(symbol->value, IsTypeName());
-		if(declaration == &gUndeclared // if there is no existing declaration
-			|| isTypedef(*declaration) // or the existing declaration is a typedef
-			|| declaration->isTemplate // or the existing declaration is a template class
-			|| templateParams != 0 // or we are forward-declaring a template class
-			|| (key == &gClass && declaration->scope == getEtsScope())) // or this is a forward-declaration of a class/struct
-		{
-			if(key != &gClass)
-			{
-				SEMANTIC_ASSERT(key == &gEnum);
-				printPosition(symbol->value.source);
-				std::cout << "'" << symbol->value.value.c_str() << "': elaborated-type-specifier refers to undefined enum" << std::endl;
-				throw SemanticError();
-			}
-			type = key;
-		}
-		else
-		{
-#if 0 // elaborated type specifier cannot refer to a template in a different scope - this case will be treated as a redeclaration
-			// template<typename T> class C
-			if(declaration->isSpecialization) // if the lookup found a template explicit/partial-specialization
-			{
-				SEMANTIC_ASSERT(declaration->isTemplate);
-				declaration = findPrimaryTemplateLastDeclaration(declaration); // the name is a plain identifier, not a template-id, therefore the name refers to the primary template
-			}
-#endif
-			setDecoration(&symbol->value, declaration);
-			/* [dcl.type.elab]
-			3.4.4 describes how name lookup proceeds for the identifier in an elaborated-type-specifier. If the identifier
-			resolves to a class-name or enum-name, the elaborated-type-specifier introduces it into the declaration the
-			same way a simple-type-specifier introduces its type-name. If the identifier resolves to a typedef-name, the
-			elaborated-type-specifier is ill-formed.
-			*/
-#if 0 // allow hiding a typedef with a forward-declaration
-			if(isTypedef(*declaration))
-			{
-				printPosition(symbol->value.source);
-				std::cout << "'" << symbol->value.value.c_str() << "': elaborated-type-specifier refers to a typedef" << std::endl;
-				printPosition(declaration->getName().source);
-				throw SemanticError();
-			}
-#endif
-			/* 7.1.6.3-3
-			The class-key or enum keyword present in the elaborated-type-specifier shall agree in kind with the declaration
-			to which the name in the elaborated-type-specifier refers.
-			*/
-			if(declaration->type.declaration != key)
-			{
-				printPosition(symbol->value.source);
-				std::cout << "'" << symbol->value.value.c_str() << "': elaborated-type-specifier key does not match declaration" << std::endl;
-				printPosition(declaration->getName().source);
-				throw SemanticError();
-			}
-			type = declaration;
-		}
+		type = key;
 	}
 };
 

@@ -296,8 +296,8 @@ struct SemaIdExpression : public SemaQualified
 
 			if(!isTypeDependent)
 			{
-				ClassMember member = evaluateClassMember(ClassMember(qualifyingClass, declaration));
-				expression.isNonStaticMemberName = isMember(*member.declaration) && !isStatic(*member.declaration) && !isEnumerator(*member.declaration);
+				QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifyingClass, declaration));
+				expression.isNonStaticMemberName = isMember(*qualified.declaration) && !isStatic(*qualified.declaration) && !isEnumerator(*qualified.declaration);
 				expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && qualifyingType != gUniqueTypeNull;
 			}
 		}

@@ -222,17 +222,17 @@ inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationCont
 
 
 
-struct ClassMember
+struct QualifiedDeclaration
 {
 	const SimpleType* enclosing;
 	DeclarationInstanceRef declaration;
-	ClassMember(const SimpleType* enclosing, DeclarationInstanceRef declaration)
+	QualifiedDeclaration(const SimpleType* enclosing, DeclarationInstanceRef declaration)
 		: enclosing(enclosing), declaration(declaration)
 	{
 	}
 };
 
-inline ClassMember substituteClassMember(UniqueTypeWrapper qualifying, Name name, const InstantiationContext& context)
+inline QualifiedDeclaration substituteClassMember(UniqueTypeWrapper qualifying, Name name, const InstantiationContext& context)
 {
 	// evaluate the qualifying/enclosing/declaration referred to by the using declaration
 	qualifying = substitute(qualifying, context);
@@ -256,18 +256,18 @@ inline ClassMember substituteClassMember(UniqueTypeWrapper qualifying, Name name
 		throw MemberNotFoundError(context.source, name, enclosing);
 	}
 
-	return ClassMember(enclosing, result);
+	return QualifiedDeclaration(enclosing, result);
 }
 
-inline ClassMember getUsingMember(const Declaration& declaration)
+inline QualifiedDeclaration getUsingMember(const Declaration& declaration)
 {
 	SYMBOLS_ASSERT(isUsing(declaration));
 	SYMBOLS_ASSERT(!isDependent(declaration.usingBase));
 	const SimpleType* enclosing = declaration.usingBase == gUniqueTypeNull ? 0 : &getSimpleType(declaration.usingBase.value);
-	return ClassMember(enclosing, *declaration.usingMember);
+	return QualifiedDeclaration(enclosing, *declaration.usingMember);
 }
 
-inline ClassMember evaluateClassMember(ClassMember member, const InstantiationContext& context)
+inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration member, const InstantiationContext& context)
 {
 	const Declaration& declaration = *member.declaration;
 	if(!isUsing(declaration)) // if the member name was not introduced by a using declaration
@@ -276,14 +276,14 @@ inline ClassMember evaluateClassMember(ClassMember member, const InstantiationCo
 	}
 
 	// the member name was introduced by a using declaration
-	ClassMember substituted = isDependent(declaration.usingBase) // if the name is dependent
+	QualifiedDeclaration substituted = isDependent(declaration.usingBase) // if the name is dependent
 		? substituteClassMember(declaration.usingBase, declaration.getName().value, context) // substitute it
 		: getUsingMember(declaration);
 
-	return evaluateClassMember(substituted, context); // the result may also be a (possibly depedendent) using-declaration
+	return resolveQualifiedDeclaration(substituted, context); // the result may also be a (possibly depedendent) using-declaration
 }
 
-inline ClassMember evaluateClassMember(ClassMember member)
+inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration member)
 {
 	const Declaration& declaration = *member.declaration;
 	if(!isUsing(declaration)) // if the member name was not introduced by a using declaration
@@ -293,7 +293,7 @@ inline ClassMember evaluateClassMember(ClassMember member)
 
 	// the member name was introduced by a using declaration
 	SYMBOLS_ASSERT(!isDependent(declaration.usingBase));
-	return evaluateClassMember(getUsingMember(declaration));
+	return resolveQualifiedDeclaration(getUsingMember(declaration));
 }
 
 #endif

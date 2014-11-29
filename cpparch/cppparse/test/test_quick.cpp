@@ -1570,19 +1570,6 @@ namespace N137
 	typedef J I;
 }
 
-namespace N138
-{
-	typedef struct S { } S;
-
-	typedef struct S S;
-}
-
-namespace N139
-{
-	typedef enum E { } E;
-
-	typedef enum E E;
-}
 
 
 namespace N132

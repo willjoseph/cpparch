@@ -182,6 +182,21 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		return UniqueTypeWrapper(pushUniqueType(gUniqueTypes, UNIQUETYPE_NULL, DependentType(declaration, templateArguments, templateParameterCount)));
 	}
 
+	while(isUsing(*declaration))
+	{
+		if(isDependent(declaration->usingBase)) // if this is a dependent using declaration with 'typename'
+		{
+			SYMBOLS_ASSERT(declaration->usingMember == &gDependentTypeInstance);
+			return pushType(gUniqueTypeNull, DependentTypename(declaration->getName().value, declaration->usingBase, TemplateArgumentsInstance(), false, false));
+		}
+		else
+		{
+			SYMBOLS_ASSERT(declaration->usingMember != &gDependentTypeInstance);
+			declaration = *declaration->usingMember;
+			SYMBOLS_ASSERT(declaration->templateParameter == INDEX_INVALID);
+		}
+	}
+
 	const SimpleType* memberEnclosing = isMember(*declaration) // if the declaration is a class member
 		? findEnclosingType(enclosing, declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
 		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
@@ -198,19 +213,6 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 			SYMBOLS_ASSERT(memberEnclosing->children[declaration->instance] == result);
 		}
 		return result;
-	}
-
-	if(isUsing(*declaration))
-	{
-		if(isDependent(declaration->usingBase)) // if this is a dependent using declaration with 'typename'
-		{
-			SYMBOLS_ASSERT(declaration->usingMember == &gDependentTypeInstance);
-			return pushType(gUniqueTypeNull, DependentTypename(declaration->getName().value, declaration->usingBase, TemplateArgumentsInstance(), false, false));
-		}
-		else
-		{
-			declaration = *declaration->usingMember;
-		}
 	}
 
 	if(declaration->isTemplate

@@ -1,5 +1,50 @@
 
 
+namespace N139
+{
+	typedef enum E { } E;
+
+	typedef enum E E;
+}
+
+namespace N138
+{
+	typedef struct S { } S;
+
+	typedef struct S S;
+}
+
+namespace N470 // test redeclaration of type introduced by using-declaration
+{
+	namespace M
+	{
+		class A
+		{
+		};
+	}
+	namespace N
+	{
+		using M::A;
+		class A;
+	}
+
+	static_assert(sizeof(N::A) == sizeof(M::A), ""); // Clang fails here
+}
+
+namespace N469
+{
+	namespace M
+	{
+		typedef int I;
+	}
+	namespace N
+	{
+		using M::I;
+	}
+
+	static_assert(sizeof(N::I) == sizeof(int), "");
+}
+
 namespace N466 // test that ADL pulls in all overloads
 {
 	struct A

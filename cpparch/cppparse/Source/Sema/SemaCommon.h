@@ -232,6 +232,11 @@ inline const Declaration& getPrimaryDeclaration(const Declaration& first, const 
 		}
 		return first; // namespace continuation
 	}
+	if(isUsing(first)
+		|| isUsing(second))
+	{
+		return second;
+	}
 	if(isType(first))
 	{
 		if(!isType(second))
@@ -249,11 +254,6 @@ inline const Declaration& getPrimaryDeclaration(const Declaration& first, const 
 		if(isTypedef(second))
 		{
 			return second; // typedef of type previously declared: typedef struct S {} S;
-		}
-		if(isUsing(first)
-			|| isUsing(second))
-		{
-			return second;
 		}
 		if(isClass(first))
 		{
@@ -746,8 +746,9 @@ struct SemaState
 			Identifier typeInfoId = makeIdentifier(context.parserContext.makeIdentifier("type_info"));
 			declaration = ::findDeclaration(*declaration->enclosed, typeInfoId);
 			SEMANTIC_ASSERT(declaration != 0);
-			SEMANTIC_ASSERT(isClass(*declaration));
-			Type type(declaration, context);
+			QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(0, declaration));
+			SEMANTIC_ASSERT(isClass(*qualified.declaration));
+			Type type(qualified.declaration, context);
 			context.typeInfoType = ExpressionType(makeUniqueType(type, InstantiationContext(), false), true); // lvalue
 			context.typeInfoType.value.setQualifiers(CvQualifiers(true, false));
 		}
@@ -1615,22 +1616,85 @@ struct SemaBase : public SemaState
 
 	bool declareEts(Type& type, Identifier* forward)
 	{
-		if(isClassKey(*type.declaration))
+		if(forward == 0)
 		{
-			SEMANTIC_ASSERT(forward != 0);
+			return false;
+		}
+		Identifier& id = *forward;
+
+		// [basic.lookup.elab]
+		// If the elaborated-type-specifier has no nested-name-specifier ...
+		// ... the identifier is looked up according to 3.4.1 but ignoring any non-type names that have been declared. If
+		// the elaborated-type-specifier is introduced by the enum keyword and this lookup does not find a previously
+		// declared type-name, the elaborated-type-specifier is ill-formed. If the elaborated-type-specifier is introduced by
+		// the class-key and this lookup does not find a previously declared type-name ...
+		// the elaborated-type-specifier is a declaration that introduces the class-name as described in 3.3.1.
+		LookupResultRef declaration = findDeclaration(id, IsTypeName());
+		if(declaration == &gUndeclared // if there is no existing declaration
+			|| isTypedef(*declaration) // or the existing declaration is a typedef
+			|| declaration->isTemplate // or the existing declaration is a template class
+			|| templateParams != 0 // or we are forward-declaring a template class
+			|| (isClassKey(*type.declaration) && declaration->scope == getEtsScope())) // or this is a forward-declaration of a class/struct
+		{
+			if(!isClassKey(*type.declaration))
+			{
+				SEMANTIC_ASSERT(type.declaration == &gEnum);
+				printPosition(id.source);
+				std::cout << "'" << id.value.c_str() << "': elaborated-type-specifier refers to undefined enum" << std::endl;
+				throw SemanticError();
+			}
 			/* 3.3.1-6
 			if the elaborated-type-specifier is used in the decl-specifier-seq or parameter-declaration-clause of a
 			function defined in namespace scope, the identifier is declared as a class-name in the namespace that
 			contains the declaration; otherwise, except as a friend declaration, the identifier is declared in the
 			smallest non-class, non-function-prototype scope that contains the declaration.
 			*/
-			DeclarationInstanceRef declaration = pointOfDeclaration(context, getEtsScope(), *forward, TYPE_CLASS, 0, true);
-			
+			DeclarationInstanceRef declaration = pointOfDeclaration(context, getEtsScope(), id, TYPE_CLASS, 0, true);
+
 			trackDeclaration(declaration);
-			setDecoration(forward, declaration);
+			setDecoration(&id, declaration);
 			type = declaration;
 			return true;
 		}
+
+#if 0 // elaborated type specifier cannot refer to a template in a different scope - this case will be treated as a redeclaration
+		// template<typename T> class C
+		if(declaration->isSpecialization) // if the lookup found a template explicit/partial-specialization
+		{
+			SEMANTIC_ASSERT(declaration->isTemplate);
+			declaration = findPrimaryTemplateLastDeclaration(declaration); // the name is a plain identifier, not a template-id, therefore the name refers to the primary template
+		}
+#endif
+		setDecoration(&id, declaration);
+		// [dcl.type.elab]
+		// 3.4.4 describes how name lookup proceeds for the identifier in an elaborated-type-specifier. If the identifier
+		// resolves to a class-name or enum-name, the elaborated-type-specifier introduces it into the declaration the
+		// same way a simple-type-specifier introduces its type-name. If the identifier resolves to a typedef-name, the
+		// elaborated-type-specifier is ill-formed.
+#if 0 // allow hiding a typedef with a forward-declaration
+		if(isTypedef(*declaration))
+		{
+			printPosition(id.source);
+			std::cout << "'" << id.value.c_str() << "': elaborated-type-specifier refers to a typedef" << std::endl;
+			printPosition(declaration->getName().source);
+			throw SemanticError();
+		}
+#endif
+#if 0 // TODO: check for struct vs class
+		/* 7.1.6.3-3
+		The class-key or enum keyword present in the elaborated-type-specifier shall agree in kind with the declaration
+		to which the name in the elaborated-type-specifier refers.
+		*/
+		if(declaration->type.declaration != type)
+		{
+			printPosition(id.source);
+			std::cout << "'" << id.value.c_str() << "': elaborated-type-specifier key does not match declaration" << std::endl;
+			printPosition(declaration->getName().source);
+			throw SemanticError();
+		}
+#endif
+		type = declaration;
+
 		return false;
 	}
 
