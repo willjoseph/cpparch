@@ -1,5 +1,5 @@
 
-namespace N471 // test that name lookup finds the correct set of overloads when member funtion definitions are not in same order as declarations
+namespace N471 // test that name lookup finds the correct set of overloads when member function definitions are not in same order as declarations
 {
 	class B
 	{
