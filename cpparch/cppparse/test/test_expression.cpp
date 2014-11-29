@@ -1,13 +1,33 @@
 
+namespace N471 // test that name lookup finds the correct set of overloads when member funtion definitions are not in same order as declarations
+{
+	class B
+	{
+		struct A
+		{
+		};
+		bool f(bool)const;
+		bool f(A)const;
+	};
 
-namespace N139
+	inline bool B::f(A)const
+	{
+		return false;
+	}
+	inline bool B::f(bool)const
+	{
+		return f(A());
+	}
+}
+
+namespace N139 // test elaborated type-specifier naming enum hidden by typedef
 {
 	typedef enum E { } E;
 
 	typedef enum E E;
 }
 
-namespace N138
+namespace N138 // test elaborated type-specifier naming class hidden by typedef
 {
 	typedef struct S { } S;
 

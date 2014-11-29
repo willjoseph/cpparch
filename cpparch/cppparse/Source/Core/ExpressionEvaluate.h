@@ -431,7 +431,7 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
 {
-	for(Declaration* p = declaration; p != 0; p = p->overloaded)
+	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
@@ -453,7 +453,6 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const KoenigAssociated& associated = KoenigAssociated(), bool fromUsing = false)
 {
-	SYMBOLS_ASSERT(isFunction(*declaration));
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
@@ -462,6 +461,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 			addOverloaded(result, qualified.declaration, associated, true);
 			continue;
 		}
+		SYMBOLS_ASSERT(isFunction(*declaration));
 		const SimpleType* memberEnclosing = 0;
 		if(p->specifiers.isFriend)
 		{
