@@ -1,4 +1,117 @@
 
+namespace N473 // test using-declaration naming function found via ADL
+{
+	namespace N
+	{
+		struct A
+		{
+		};
+	}
+
+	namespace M
+	{
+		int f(N::A);
+	}
+
+	namespace N
+	{
+		using M::f;
+	}
+
+	int i = f(N::A());
+
+}
+namespace N472 // test behaviour of dependent using-declaration naming member function of class template
+{
+	template<typename T>
+	struct A
+	{
+		static T f(T);
+	};
+
+	template<typename T>
+	struct B : A<T>
+	{
+		using A<T>::f;
+	};
+
+	static_assert(sizeof(B<int>::f(int())) == sizeof(int), "");
+}
+
+#if 0 // TODO: fails in Clang
+namespace N467 // test that ADL pulls in all overloads
+{
+	struct B
+	{
+	};
+
+	struct A : B
+	{
+		using B::f;
+#if 1
+		static int f(const void*)
+		{
+			return 0;
+		}
+#endif
+		friend char f(A*)
+		{
+			return 0;
+		}
+	};
+
+	const A a = A();
+	static_assert(sizeof(f(&a)) == sizeof(int), "");
+}
+#endif
+
+
+#if 0 // TODO: using-declaration
+namespace N454 // test behaviour of using-declaration naming member of base class
+{
+	struct A
+	{
+		static int f(int);
+		static int g(int);
+	};
+
+	struct B : A
+	{
+		using A::f;
+		using A::g;
+		static char f(int); // hides A::f
+		static char g(char); // overload resolution finds A::g
+	};
+
+	static_assert(sizeof(B::f(int())) == sizeof(char), "");
+	static_assert(sizeof(B::g(int())) == sizeof(int), "");
+}
+#endif
+
+
+#if 0 // TODO: dependent using-declaration
+namespace N455 // test behaviour of using-declaration naming member of dependent base class
+{
+	struct A
+	{
+		static int f(int);
+		static int g(int);
+	};
+
+	template<typename T>
+	struct B : T
+	{
+		using T::f;
+		using T::g;
+		static char f(int); // hides A::f
+		static char g(char); // overload resolution finds A::g
+	};
+
+	static_assert(sizeof(B<A>::f(int())) == sizeof(char), "");
+	static_assert(sizeof(B<A>::g(int())) == sizeof(int), "");
+}
+#endif
+
 namespace N471 // test that name lookup finds the correct set of overloads when member function definitions are not in same order as declarations
 {
 	class B
@@ -84,32 +197,6 @@ namespace N466 // test that ADL pulls in all overloads
 
 }
 
-#if 0 // TODO: fails in Clang
-namespace N467 // test that ADL pulls in all overloads
-{
-	struct B
-	{
-		static int f(const void*)
-		{
-			return 0;
-		}
-	};
-
-	struct A : B
-	{
-		using B::f;
-		friend char f(A*)
-		{
-			return 0;
-		}
-	};
-
-	const A a = A();
-	static_assert(sizeof(f(&a)) == sizeof(int), "");
-}
-#endif
-
-#if 1 // TODO: using-declaration
 namespace N468 // test behaviour of using-declaration naming template member function
 {
 	struct A
@@ -125,53 +212,6 @@ namespace N468 // test behaviour of using-declaration naming template member fun
 
 	static_assert(sizeof(B::f(int())) == sizeof(int), "");
 }
-#endif
-
-#if 0 // TODO: using-declaration
-namespace N454 // test behaviour of using-declaration naming member of base class
-{
-	struct A
-	{
-		static int f(int);
-		static int g(int);
-	};
-
-	struct B : A
-	{
-		using A::f;
-		using A::g;
-		static char f(int); // hides A::f
-		static char g(char); // overload resolution finds A::g
-	};
-
-	static_assert(sizeof(B::f(int())) == sizeof(char), "");
-	static_assert(sizeof(B::g(int())) == sizeof(int), "");
-}
-#endif
-
-
-#if 0 // TODO: dependent using-declaration
-namespace N455 // test behaviour of using-declaration naming member of dependent base class
-{
-	struct A
-	{
-		static int f(int);
-		static int g(int);
-	};
-
-	template<typename T>
-	struct B : T
-	{
-		using T::f;
-		using T::g;
-		static char f(int); // hides A::f
-		static char g(char); // overload resolution finds A::g
-	};
-
-	static_assert(sizeof(B<A>::f(int())) == sizeof(char), "");
-	static_assert(sizeof(B<A>::g(int())) == sizeof(int), "");
-}
-#endif
 
 namespace N464 // test dependent non-type using-declaration as class-member
 {

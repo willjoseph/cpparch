@@ -429,14 +429,14 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 // base class (rather than conflicting).
 
 
-inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
+inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, const InstantiationContext& context, bool fromUsing = false)
 {
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			QualifiedDeclaration qualified = getUsingMember(*p);
-			addOverloaded(result, qualified.declaration, qualified.enclosing, true);
+			QualifiedDeclaration qualified = getUsingMember(*p, memberEnclosing, context);
+			addOverloaded(result, qualified.declaration, qualified.enclosing, context, true);
 			continue;
 		}
 		SYMBOLS_ASSERT(isFunction(*p));
@@ -970,7 +970,7 @@ inline ExpressionType typeOfSubscriptExpression(Argument left, Argument right, c
 		arguments.push_back(right);
 
 		OverloadSet overloads;
-		addOverloaded(overloads, declaration, memberEnclosing);
+		addOverloaded(overloads, declaration, memberEnclosing, context);
 		FunctionOverload overload = findBestOverloadedFunction(overloads, 0, arguments, setEnclosingTypeSafe(context, memberEnclosing));
 		SYMBOLS_ASSERT(overload.declaration != 0);
 		return overload.type;
@@ -1064,7 +1064,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 		augmentedArguments.insert(augmentedArguments.end(), arguments.begin(), arguments.end());
 
 		OverloadSet overloads;
-		addOverloaded(overloads, declaration, memberEnclosing);
+		addOverloaded(overloads, declaration, memberEnclosing, context);
 
 		SYMBOLS_ASSERT(!overloads.empty());
 
@@ -1141,7 +1141,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	// if this is a member-function-call, the type of the class containing the member
 	const SimpleType* memberEnclosing = getIdExpressionClass(idExpression.qualifying, *idExpression.declaration, memberClass != 0 ? memberClass : context.enclosingType);
 
-	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(memberEnclosing, declaration));
+	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(memberEnclosing, declaration), context);
 
 	SYMBOLS_ASSERT(declaration != &gDependentObject); // the id-expression should not be dependent
 	SYMBOLS_ASSERT(isFunction(*qualified.declaration));
@@ -1175,7 +1175,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 	augmentedArguments.insert(augmentedArguments.end(), arguments.begin(), arguments.end());
 
 	OverloadSet overloads;
-	addOverloaded(overloads, declaration, memberEnclosing);
+	addOverloaded(overloads, declaration, memberEnclosing, context);
 	if(isMember(*declaration)) // if the id-expression names a member
 	{ // TODO: temporary hack: add special overload for implicitly declared copy-assignment operator
 		SYMBOLS_ASSERT(memberEnclosing != 0);

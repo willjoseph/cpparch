@@ -109,7 +109,15 @@ inline bool isFunctionName(const Declaration& declaration)
 	return isFunction(declaration);
 }
 
-typedef LookupFilterDefault<isFunctionName, true> IsAdlFunctionName;
+inline bool isAdlFunctionName(const Declaration& declaration)
+{
+	return isFunctionName(declaration)
+		|| (isUsing(declaration)
+			&& declaration.usingMember != 0
+			&& isAdlFunctionName(**declaration.usingMember));
+}
+
+typedef LookupFilterDefault<isAdlFunctionName, true> IsAdlFunctionName;
 
 
 

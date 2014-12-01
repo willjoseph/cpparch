@@ -267,28 +267,34 @@ inline QualifiedDeclaration getUsingMember(const Declaration& declaration)
 	return QualifiedDeclaration(enclosing, *declaration.usingMember);
 }
 
-inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration member, const InstantiationContext& context)
+inline QualifiedDeclaration getUsingMember(const Declaration& declaration, const SimpleType* enclosing, const InstantiationContext& context)
 {
-	const Declaration& declaration = *member.declaration;
+	SYMBOLS_ASSERT(isUsing(declaration));
+	const SimpleType* idEnclosing = enclosing != 0 ? enclosing : context.enclosingType;
+	return isDependent(declaration.usingBase) // if the name is dependent
+		? substituteClassMember(declaration.usingBase, declaration.getName().value, setEnclosingTypeSafe(context, idEnclosing)) // substitute it
+		: getUsingMember(declaration);
+}
+
+inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration qualified, const InstantiationContext& context)
+{
+	const Declaration& declaration = *qualified.declaration;
 	if(!isUsing(declaration)) // if the member name was not introduced by a using declaration
 	{
-		return member; // nothing to do
+		return qualified; // nothing to do
 	}
 
 	// the member name was introduced by a using declaration
-	QualifiedDeclaration substituted = isDependent(declaration.usingBase) // if the name is dependent
-		? substituteClassMember(declaration.usingBase, declaration.getName().value, context) // substitute it
-		: getUsingMember(declaration);
-
+	QualifiedDeclaration substituted = getUsingMember(declaration, qualified.enclosing, context);
 	return resolveQualifiedDeclaration(substituted, context); // the result may also be a (possibly depedendent) using-declaration
 }
 
-inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration member)
+inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration qualified)
 {
-	const Declaration& declaration = *member.declaration;
+	const Declaration& declaration = *qualified.declaration;
 	if(!isUsing(declaration)) // if the member name was not introduced by a using declaration
 	{
-		return member; // nothing to do
+		return qualified; // nothing to do
 	}	
 
 	// the member name was introduced by a using declaration
