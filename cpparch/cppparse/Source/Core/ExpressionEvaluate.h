@@ -457,7 +457,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			QualifiedDeclaration qualified = getUsingMember(*p);
+			QualifiedDeclaration qualified = getUsingMember(*p); // always a member of a namespace, can never be dependent
 			addOverloaded(result, qualified.declaration, associated, true);
 			continue;
 		}

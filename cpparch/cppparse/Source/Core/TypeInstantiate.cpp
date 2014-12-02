@@ -395,7 +395,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			{
 				Declaration& declaration = *(*i);
 
-#if 0 // TODO: dependent using-declaration
+				// instantiate dependent member typedefs
 				if(isMember(declaration)
 					&& isTypedef(declaration))
 				{
@@ -403,7 +403,6 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
 					getUniqueType(declaration.type, childContext);
 				}
-#endif
 
 				if(!isNonStaticDataMember(declaration))
 				{
