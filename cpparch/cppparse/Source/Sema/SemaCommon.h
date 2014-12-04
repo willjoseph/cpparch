@@ -1603,14 +1603,26 @@ struct SemaBase : public SemaState
 					addNonStaticMember(*enclosingClass, uniqueType);
 				}
 			}
-#if 0
-			else
-			{
-				enclosingClass->children.push_back(uniqueType);
-			}
-#endif
 		}
 			
+		if(isMember(*declaration)
+			&& !isClass(*declaration)
+			&& !isEnum(*declaration)
+			&& !isEnumerator(*declaration)
+			&& declaration->type.isDependent
+			&& !declaration->isTemplate) // TODO: substitute function-template signature
+		{
+			if(isUsing(*declaration))
+			{
+				// TODO: substitute type of dependent using-declaration when class is instantiated
+			}
+			else if(declaration->type.dependentIndex == INDEX_INVALID) // if this is not a redeclaration/definition
+			{
+				// substitute type of dependent declaration when class is instantiated
+				declaration->type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
+			}
+		}
+
 		return declaration;
 	}
 

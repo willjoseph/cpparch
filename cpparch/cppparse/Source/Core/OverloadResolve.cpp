@@ -165,14 +165,14 @@ inline ExpressionType selectOverloadedFunctionImpl(UniqueTypeWrapper target, con
 		{
 			continue; // ignore (namespace-scope) friend functions
 		}
+		const SimpleType* idEnclosing = getIdExpressionClass(expression.qualifying, *declaration, context.enclosingType);
 		UniqueTypeWrapper type;
 		if(!p->isTemplate)
 		{
-			type = getUniqueType(p->type, context);
+			type = getUniqueType(p->type, setEnclosingType(context, idEnclosing));
 		}
 		else
 		{
-			const SimpleType* idEnclosing = getIdExpressionClass(expression.qualifying, *declaration, context.enclosingType);
 			FunctionSignature result = substituteFunctionId(Overload(declaration, idEnclosing), UniqueTypeArray(), &expression.templateArguments, context);
 			if(result.returnType == gUniqueTypeNull)
 			{

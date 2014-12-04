@@ -204,6 +204,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	if(isTypedef(*declaration))
 	{
 		UniqueTypeWrapper result = getUniqueType(declaration->type, setEnclosingType(context, memberEnclosing), allowDependent);
+#if 0
 		if(memberEnclosing != 0 // if the typedef is a member
 			&& !allowDependent // and we expect the enclosing class to have been instantiated (qualified access, e.g. C<T>::m)
 			&& declaration->instance != INDEX_INVALID) // and its type was dependent when parsed
@@ -212,6 +213,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 			SYMBOLS_ASSERT(declaration->instance < memberEnclosing->children.size());
 			SYMBOLS_ASSERT(memberEnclosing->children[declaration->instance] == result);
 		}
+#endif
 		return result;
 	}
 
@@ -267,7 +269,6 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		}
 	}
 	SYMBOLS_ASSERT(tmp.bases.empty());
-	SYMBOLS_ASSERT(tmp.children.empty());
 	static size_t uniqueId = 0;
 	tmp.uniqueId = ++uniqueId;
 	return makeUniqueSimpleType(tmp);

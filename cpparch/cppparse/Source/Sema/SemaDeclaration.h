@@ -145,11 +145,12 @@ struct SemaDeclarationSuffix : public SemaBase
 		*/
 		addDependent(valueDependent, walker.valueDependent);
 
-		if(walker.qualifying != gUniqueTypeNull)
+		if(walker.qualifying != gUniqueTypeNull) // if this is a member definition qualified by the name of the enclosing class
 		{
 			SEMANTIC_ASSERT(walker.qualifying.isSimple());
 			enclosingType = &getSimpleType(walker.qualifying.value);
-			enclosingDependent = walker.enclosingDependent; // not using addDependent, workaround for issue when 'enclosing' is not (yet) referring to qualifying class in declarator 'S<T>::f()' 
+			enclosingDependent = walker.enclosingDependent; // not using addDependent, workaround for issue when 'enclosing' is not (yet) referring to qualifying class in declarator 'S<T>::f()'
+			enclosingInstantiation = enclosingType->declaration; // any dependent types/expressions in the member definition should be appended
 		}
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 

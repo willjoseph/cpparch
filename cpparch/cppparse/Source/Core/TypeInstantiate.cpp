@@ -389,19 +389,35 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 		instance.allowLookup = true; // prevent searching bases during lookup within incomplete instantiation
 		if(!allowDependent)
 		{
-#if 1
+			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
+			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
+
 			const Scope::DeclarationList& members = instance.declaration->enclosed->declarationList;
 			for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
 			{
 				Declaration& declaration = *(*i);
 
-				// instantiate dependent member typedefs
-				if(isMember(declaration)
-					&& isTypedef(declaration))
+				// substitute dependent members
+				if(declaration.type.isDependent
+					&& declaration.type.dependentIndex != INDEX_INVALID)
 				{
-					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
-					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
-					getUniqueType(declaration.type, childContext);
+					if(isUsing(declaration))
+					{
+						// TODO: substitute type of dependent using-declaration when class is instantiated
+					}
+					else if(declaration.type.dependentIndex < instance.substitutedTypes.size()) // if the type is already substituted
+					{
+						// do nothing
+					}
+					else
+					{
+						SYMBOLS_ASSERT(declaration.type.dependentIndex == instance.substitutedTypes.size());
+						Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
+						InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
+						UniqueTypeWrapper type = substitute(getUniqueType(declaration.type), childContext);
+						SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
+						instance.substitutedTypes.push_back(type);
+					}
 				}
 
 				if(!isNonStaticDataMember(declaration))
@@ -419,27 +435,9 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				}
 				addNonStaticMember(instance, type);
 			}
-#endif
-			
-#if 0
-			if(!original.children.empty()
-				&& &instance != &original) // TODO: this will be an assert when instantiateClass is no longer called at the beginning of a template-definition
-			{
-				SYMBOLS_ASSERT(instance.declaration->isComplete);
-				instance.children.reserve(original.children.size());
-				InstanceLocations::const_iterator l = original.childLocations.begin();
-				for(InstantiatedTypes::const_iterator i = original.children.begin(); i != original.children.end(); ++i, ++l)
-				{
-					InstantiationContext childContext(*l, &instance, 0, context.enclosingScope);
-					UniqueTypeWrapper substituted = substitute(*i, childContext);
-					SYMBOLS_ASSERT(!isDependent(substituted));
-					instance.children.push_back(substituted);
-					addNonStaticMember(instance, substituted, childContext);
-				}
-			}
-#endif
 
-#if 1
+			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
+
 			const DeferredExpressions& expressions = instance.declaration->dependentConstructs.expressions;
 			for(DeferredExpressions::const_iterator i = expressions.begin(); i != expressions.end(); ++i)
 			{
@@ -457,8 +455,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				{
 					SubstitutedExpression substituted = substituteExpression(expression, childContext);
 				}
-			}
-#endif		
+			}	
 
 #if 0
 			const DeferredExpressionTypes& expressionTypes = instance.declaration->enclosed->expressionTypes;
@@ -476,28 +473,6 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				const DeferredExpressionValue& expression = *i;
 				InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
 				ExpressionValue value = expression.callback(childContext);
-			}
-#endif
-
-#if 1
-			if(!original.childExpressions.empty()
-				&& &instance != &original) // TODO: this will be an assert when instantiateClass is no longer called at the beginning of a template-definition
-			{
-				SYMBOLS_ASSERT(instance.declaration->isComplete);
-				instance.childExpressions.reserve(original.childExpressions.size());
-				for(InstantiatedExpressions::const_iterator i = original.childExpressions.begin(); i != original.childExpressions.end(); ++i)
-				{
-					const DeferredExpression& expression = *i;
-					InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
-					if(expression.message != NAME_NULL) // if this is a static_assert
-					{
-#if 0 // TODO: check that the expression is convertible to bool
-						ExpressionType type = typeOfExpressionWrapper(expression, childContext);
-						SYMBOLS_ASSERT(!isDependent(type));
-#endif
-						evaluateStaticAssert(expression, expression.message.c_str(), childContext);
-					}
-				}
 			}
 #endif
 

@@ -163,11 +163,12 @@ struct Type
 	Dependent dependent;
 	ScopePtr enclosingTemplate;
 	UniqueType unique;
+	std::size_t dependentIndex; // the index into the array of dependent types within the enclosing instantiated template
 	bool isDependent; // true if the type is dependent in the context in which it was parsed
 	bool isImplicitTemplateId; // true if this is a template but the template-argument-clause has not been specified
 	bool isEnclosingClass; // true if this is the type of an enclosing class
 	Type(Declaration* declaration, const AstAllocator<int>& allocator)
-		: id(0), declaration(declaration), templateArguments(allocator), qualifying(allocator), enclosingTemplate(0), unique(0), isDependent(false), isImplicitTemplateId(false), isEnclosingClass(false)
+		: id(0), declaration(declaration), templateArguments(allocator), qualifying(allocator), enclosingTemplate(0), unique(0), dependentIndex(INDEX_INVALID), isDependent(false), isImplicitTemplateId(false), isEnclosingClass(false)
 	{
 	}
 	void swap(Type& other)
@@ -180,6 +181,7 @@ struct Type
 		std::swap(dependent, other.dependent);
 		std::swap(enclosingTemplate, other.enclosingTemplate);
 		std::swap(unique, other.unique);
+		std::swap(dependentIndex, other.dependentIndex);
 		std::swap(isDependent, other.isDependent);
 		std::swap(isImplicitTemplateId, other.isImplicitTemplateId);
 		std::swap(isEnclosingClass, other.isEnclosingClass);
@@ -409,12 +411,13 @@ private:
 struct DependentConstructs
 {
 	DeferredExpressions expressions;
+	std::size_t typeCount;
 #if 0
 	DeferredExpressionTypes expressionTypes; // the type-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
 	DeferredExpressionValues expressionValues; // the value-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
 #endif
 	DependentConstructs(const AstAllocator<int>& allocator)
-		: expressions(allocator)
+		: expressions(allocator), typeCount(0)
 #if 0
 		, expressionTypes(allocator)
 		, expressionValues(allocator)

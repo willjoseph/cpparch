@@ -192,6 +192,13 @@ struct TooFewTemplateArgumentsError : TypeErrorBase
 };
 
 
+inline UniqueTypeWrapper getSubstitutedType(const Type& type, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(type.dependentIndex != INDEX_INVALID);
+	SYMBOLS_ASSERT(context.enclosingType != 0);
+	SYMBOLS_ASSERT(type.dependentIndex < context.enclosingType->substitutedTypes.size());
+	return context.enclosingType->substitutedTypes[type.dependentIndex];
+}
 
 inline UniqueTypeWrapper getUniqueType(const TypeId& type, const InstantiationContext& context, bool allowDependent = false);
 inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationContext& context, bool allowDependent = false);
@@ -205,6 +212,7 @@ inline UniqueTypeWrapper getUniqueTypeImpl(const T& type, const InstantiationCon
 	{
 		UniqueTypeWrapper substituted = substitute(result, context);
 		SYMBOLS_ASSERT(!isDependent(substituted));
+		SYMBOLS_ASSERT(type.dependentIndex == INDEX_INVALID || getSubstitutedType(type, context) == substituted);
 		return substituted;
 	}
 	return result;

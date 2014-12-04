@@ -435,8 +435,7 @@ struct SimpleType
 	const SimpleType* enclosing; // the enclosing template
 	UniqueBases bases;
 	TypeLayout layout;
-	InstantiatedTypes children; // the dependent types in the template
-	InstantiatedExpressions childExpressions; // the dependent expressions in the template
+	InstantiatedTypes substitutedTypes; // the types instantiated when this class template is instantiated
 	bool instantiated;
 	bool instantiating;
 	bool allowLookup;

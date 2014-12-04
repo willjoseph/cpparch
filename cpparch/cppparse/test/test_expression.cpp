@@ -1,4 +1,34 @@
 
+namespace N475 // TEMP TEST
+{
+	template<int N>
+	struct A
+	{
+		static const int value = N;
+		typedef A<N + 1> next;
+		typedef A<N - 1> prior;
+	};
+	
+	int i = A<0>::value;
+}
+
+namespace N474 // test substitution of dependent member types when class template is implicitly instantiated
+{
+	template<typename T>
+	struct A
+	{
+		typedef T Type; // typedef
+		T m; // non-static data member
+		static T sm; // static data member 
+		T mf(); // non-static member function
+		static T smf(); // non-static member function
+		template<typename U>
+		T tmf(U); // member template function
+	};
+
+	typedef A<int>::Type Type;
+}
+
 namespace N473 // test using-declaration naming function found via ADL
 {
 	namespace N
@@ -19,8 +49,8 @@ namespace N473 // test using-declaration naming function found via ADL
 	}
 
 	int i = f(N::A());
-
 }
+
 namespace N472 // test behaviour of dependent using-declaration naming member function of class template
 {
 	template<typename T>
@@ -158,7 +188,7 @@ namespace N470 // test redeclaration of type introduced by using-declaration
 	namespace N
 	{
 		using M::A;
-		class A;
+		class A; // TODO: should redeclare M::A ?
 	}
 
 	static_assert(sizeof(N::A) == sizeof(M::A), ""); // Clang fails here
