@@ -1357,6 +1357,33 @@ inline BacktrackCallback makePopDeferredExpressionValueCallback(const Expression
 }
 #endif
 
+inline void substituteDeferredMemberDeclaration(Declaration& declaration, const InstantiationContext& context)
+{
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+
+	// substitute dependent members
+	if(declaration.type.isDependent
+		&& declaration.type.dependentIndex != INDEX_INVALID)
+	{
+		if(isUsing(declaration))
+		{
+			// TODO: substitute type of dependent using-declaration when class is instantiated
+		}
+		else if(declaration.type.dependentIndex < instance.substitutedTypes.size()) // if the type is already substituted
+		{
+			// do nothing
+		}
+		else
+		{
+			SYMBOLS_ASSERT(declaration.type.dependentIndex == instance.substitutedTypes.size());
+			UniqueTypeWrapper type = substitute(getUniqueType(declaration.type), context);
+			SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
+			instance.substitutedTypes.push_back(type);
+		}
+	}
+}
+
+
 struct SemaBase : public SemaState
 {
 	typedef SemaBase Base;
@@ -1392,6 +1419,27 @@ struct SemaBase : public SemaState
 	}
 #endif
 
+	void addDeferredMemberDeclaration(Declaration& declaration, const char* message = 0)
+	{
+		if(!declaration.type.isDependent
+			|| enclosingInstantiation == 0)
+		{
+			return;
+		}
+		if(isUsing(declaration))
+		{
+			// TODO: substitute type of dependent using-declaration when class is instantiated
+		}
+		else if(declaration.type.dependentIndex == INDEX_INVALID) // if this is not a redeclaration/definition
+		{
+			// substitute type of dependent declaration when class is instantiated
+			declaration.type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
+		}
+		DeferredSubstitution substitution = makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(
+			declaration, getLocation());
+		enclosingInstantiation->dependentConstructs.substitutions.push_back(substitution);
+	}
+
 	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
 	{
 		if(!expression.isDependent
@@ -1399,7 +1447,11 @@ struct SemaBase : public SemaState
 		{
 			return;
 		}
-		enclosingInstantiation->dependentConstructs.expressions.push_back(DeferredExpression(expression, getLocation(), TokenValue(message)));
+		DeferredSubstitution substitution = makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
+			*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
+			getLocation()
+		);
+		enclosingInstantiation->dependentConstructs.substitutions.push_back(substitution);
 	}
 
 	template<typename T>
@@ -1612,15 +1664,7 @@ struct SemaBase : public SemaState
 			&& declaration->type.isDependent
 			&& !declaration->isTemplate) // TODO: substitute function-template signature
 		{
-			if(isUsing(*declaration))
-			{
-				// TODO: substitute type of dependent using-declaration when class is instantiated
-			}
-			else if(declaration->type.dependentIndex == INDEX_INVALID) // if this is not a redeclaration/definition
-			{
-				// substitute type of dependent declaration when class is instantiated
-				declaration->type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
-			}
+			addDeferredMemberDeclaration(*declaration);
 		}
 
 		return declaration;

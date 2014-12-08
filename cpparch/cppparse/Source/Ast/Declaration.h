@@ -382,27 +382,46 @@ typedef DisableDefaultConstructor<List<struct DeferredExpressionType, AstAllocat
 typedef DisableDefaultConstructor<List<struct DeferredExpressionValue, AstAllocator<int> > > DeferredExpressionValues;
 #endif
 
-struct DeferredExpression : ExpressionWrapper
+
+struct InstantiationContext;
+
+struct DeferredSubstitution
 {
-	DeferredExpression(const ExpressionWrapper& expression, const Location& location, TokenValue message)
-		: ExpressionWrapper(expression), location(location), message(message)
-	{
-	}
+	void(*thunk)(void*, const InstantiationContext&);
+	void* object;
 	Location location;
-	TokenValue message; // if non-null, this is a static_assert
+
+	template<typename T, void target(T&, const InstantiationContext&)>
+	static void thunkGeneric(void* object, const InstantiationContext& context)
+	{
+		target(*static_cast<T*>(object), context);
+	}
+	void operator()(const InstantiationContext& context) const
+	{
+		thunk(object, context);
+	}
 };
 
-typedef ListReference<struct DeferredExpression, AstAllocator<int> > DeferredExpressions2;
+template<typename T, void target(T&, const InstantiationContext&)>
+inline DeferredSubstitution makeDeferredSubstitution(T& object, const Location& location)
+{
+	DeferredSubstitution result = { &DeferredSubstitution::thunkGeneric<T, target>, &object, location };
+	return result;
+}
+
+
+
+typedef ListReference<struct DeferredSubstitution, AstAllocator<int> > DeferredSubstitutions2;
 
 // wrapper to disable default-constructor
-struct DeferredExpressions : public DeferredExpressions2
+struct DeferredSubstitutions : public DeferredSubstitutions2
 {
-	DeferredExpressions(const AstAllocator<int>& allocator)
-		: DeferredExpressions2(allocator)
+	DeferredSubstitutions(const AstAllocator<int>& allocator)
+		: DeferredSubstitutions2(allocator)
 	{
 	}
 private:
-	DeferredExpressions()
+	DeferredSubstitutions()
 	{
 	}
 };
@@ -410,14 +429,14 @@ private:
 // A collection of dependent constructs that will be substituted at the point of instantiation
 struct DependentConstructs
 {
-	DeferredExpressions expressions;
+	DeferredSubstitutions substitutions;
 	std::size_t typeCount;
 #if 0
 	DeferredExpressionTypes expressionTypes; // the type-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
 	DeferredExpressionValues expressionValues; // the value-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
 #endif
 	DependentConstructs(const AstAllocator<int>& allocator)
-		: expressions(allocator), typeCount(0)
+		: substitutions(allocator), typeCount(0)
 #if 0
 		, expressionTypes(allocator)
 		, expressionValues(allocator)

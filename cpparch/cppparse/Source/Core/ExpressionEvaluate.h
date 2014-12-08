@@ -2181,4 +2181,31 @@ inline SubstitutedExpression substituteExpression(const ExpressionWrapper& expre
 		evaluateExpression(expression, context));
 }
 
+struct DeferredExpression : ExpressionWrapper
+{
+	DeferredExpression(const ExpressionWrapper& expression, TokenValue message)
+		: ExpressionWrapper(expression), message(message)
+	{
+	}
+	TokenValue message; // if non-null, this is a static_assert
+};
+
+inline void substituteDeferredExpression(DeferredExpression& expression, const InstantiationContext& context)
+{
+#if 1 // TODO: check that the expression is convertible to bool
+	ExpressionType type = typeOfExpressionWrapper(expression, context);
+	SYMBOLS_ASSERT(!isDependent(type));
+#endif
+	if(expression.message != NAME_NULL)
+	{
+		evaluateStaticAssert(expression, expression.message.c_str(), context);
+	}
+	else
+	{
+		SubstitutedExpression substituted = substituteExpression(expression, context);
+	}
+}
+
+
+
 #endif

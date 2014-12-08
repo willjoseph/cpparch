@@ -347,8 +347,6 @@ typedef UniqueTypeArray TemplateArgumentsInstance;
 typedef std::vector<UniqueTypeWrapper> InstantiatedTypes;
 
 
-typedef std::vector<DeferredExpression> InstantiatedExpressions;
-
 
 typedef std::vector<const struct SimpleType*> UniqueBases;
 

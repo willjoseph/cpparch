@@ -389,14 +389,12 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 		instance.allowLookup = true; // prevent searching bases during lookup within incomplete instantiation
 		if(!allowDependent)
 		{
-			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
-			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
-
 			const Scope::DeclarationList& members = instance.declaration->enclosed->declarationList;
 			for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
 			{
 				Declaration& declaration = *(*i);
 
+#if 0
 				// substitute dependent members
 				if(declaration.type.isDependent
 					&& declaration.type.dependentIndex != INDEX_INVALID)
@@ -419,6 +417,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 						instance.substitutedTypes.push_back(type);
 					}
 				}
+#endif
 
 				if(!isNonStaticDataMember(declaration))
 				{
@@ -436,26 +435,18 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				addNonStaticMember(instance, type);
 			}
 
-			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
+			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
+			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
 
-			const DeferredExpressions& expressions = instance.declaration->dependentConstructs.expressions;
-			for(DeferredExpressions::const_iterator i = expressions.begin(); i != expressions.end(); ++i)
+			const DeferredSubstitutions& substitutions = instance.declaration->dependentConstructs.substitutions;
+			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 			{
-				const DeferredExpression& expression = *i;
-				InstantiationContext childContext(expression.location, &instance, 0, context.enclosingScope);
-#if 1 // TODO: check that the expression is convertible to bool
-				ExpressionType type = typeOfExpressionWrapper(expression, childContext);
-				SYMBOLS_ASSERT(!isDependent(type));
-#endif
-				if(expression.message != NAME_NULL)
-				{
-					evaluateStaticAssert(expression, expression.message.c_str(), childContext);
-				}
-				else
-				{
-					SubstitutedExpression substituted = substituteExpression(expression, childContext);
-				}
+				const DeferredSubstitution& substitution = *i;
+				InstantiationContext childContext(substitution.location, &instance, 0, context.enclosingScope);
+				substitution(childContext);
 			}	
+
+			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
 
 #if 0
 			const DeferredExpressionTypes& expressionTypes = instance.declaration->enclosed->expressionTypes;
