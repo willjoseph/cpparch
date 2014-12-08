@@ -1858,61 +1858,6 @@ inline ExpressionValue evaluateExpression(const PostfixOperatorExpression& node,
 	return EXPRESSIONRESULT_INVALID;
 }
 
-
-//=============================================================================
-#if 0
-
-template<typename Result>
-struct ExpressionEvaluateThunk
-{
-};
-
-template<>
-struct ExpressionEvaluateThunk<ExpressionType>
-{
-	template<typename E>
-	static ExpressionType apply(const E& e, const InstantiationContext& context)
-	{
-		return typeOfExpression(e, context);
-	}
-};
-
-template<>
-struct ExpressionEvaluateThunk<ExpressionValue>
-{
-	template<typename E>
-	static ExpressionValue apply(const E& e, const InstantiationContext& context)
-	{
-		return evaluateExpression(e, context);
-	}
-};
-
-template<typename Result, typename E>
-Result expressionEvaluateThunk(const ExpressionNode* node, const InstantiationContext& context)
-{
-	return ExpressionEvaluateThunk<Result>::apply(static_cast<const ExpressionNodeGeneric<E>*>(node)->value, context);
-}
-
-template<typename Result, typename E>
-ExpressionEvaluateCallback<Result> makeExpressionEvaluateCallback(const ExpressionNodeGeneric<E>* node)
-{
-	ExpressionEvaluateCallback<Result> result ={ node, &expressionEvaluateThunk<Result, E> };
-	return result;
-}
-
-template<typename E>
-DeferredExpressionType makeDeferredExpressionType(const ExpressionNodeGeneric<E>* node, const Location& location)
-{
-	return DeferredExpressionType(makeExpressionEvaluateCallback<ExpressionType>(node), location);
-}
-
-template<typename E>
-DeferredExpressionValue makeDeferredExpressionValue(const ExpressionNodeGeneric<E>* node, const Location& location)
-{
-	return DeferredExpressionValue(makeExpressionEvaluateCallback<ExpressionValue>(node), location);
-}
-
-#endif
 //=============================================================================
 
 struct SubstitutedExpression

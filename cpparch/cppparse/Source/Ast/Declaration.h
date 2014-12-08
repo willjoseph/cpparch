@@ -328,61 +328,6 @@ const TemplateParameters TEMPLATEPARAMETERS_NULL = TemplateParameters(AST_ALLOCA
 // ----------------------------------------------------------------------------
 
 
-#if 0
-struct InstantiationContext;
-struct ExpressionNode;
-
-template<typename Result>
-struct ExpressionEvaluateCallback
-{
-	typedef Result(*EvaluateThunk)(const ExpressionNode*, const InstantiationContext& context);
-	Result operator()(const InstantiationContext& context) const
-	{
-		return thunk(p, context);
-	}
-	const ExpressionNode* p;
-	EvaluateThunk thunk;
-};
-
-struct DeferredExpressionType
-{
-	ExpressionEvaluateCallback<ExpressionType> callback;
-	Location location;
-	DeferredExpressionType(const ExpressionEvaluateCallback<ExpressionType>& callback, const Location& location)
-		: callback(callback), location(location)
-	{
-	}
-};
-
-struct DeferredExpressionValue
-{
-	ExpressionEvaluateCallback<ExpressionValue> callback;
-	Location location;
-	DeferredExpressionValue(const ExpressionEvaluateCallback<ExpressionValue>& callback, const Location& location)
-		: callback(callback), location(location)
-	{
-	}
-};
-
-template<typename Base>
-struct DisableDefaultConstructor : public Base
-{
-	DisableDefaultConstructor(const AstAllocator<int>& allocator)
-		: Base(allocator)
-	{
-	}
-private:
-	DisableDefaultConstructor()
-	{
-	}
-};
-
-typedef DisableDefaultConstructor<List<struct DeferredExpressionType, AstAllocator<int> > > DeferredExpressionTypes;
-
-typedef DisableDefaultConstructor<List<struct DeferredExpressionValue, AstAllocator<int> > > DeferredExpressionValues;
-#endif
-
-
 struct InstantiationContext;
 
 struct DeferredSubstitution
@@ -411,7 +356,7 @@ inline DeferredSubstitution makeDeferredSubstitution(T& object, const Location& 
 
 
 
-typedef ListReference<struct DeferredSubstitution, AstAllocator<int> > DeferredSubstitutions2;
+typedef List<struct DeferredSubstitution, AstAllocator<int> > DeferredSubstitutions2;
 
 // wrapper to disable default-constructor
 struct DeferredSubstitutions : public DeferredSubstitutions2
@@ -431,16 +376,9 @@ struct DependentConstructs
 {
 	DeferredSubstitutions substitutions;
 	std::size_t typeCount;
-#if 0
-	DeferredExpressionTypes expressionTypes; // the type-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
-	DeferredExpressionValues expressionValues; // the value-dependent sub-expressions to evaluate on instantiation (if this is a class template or function template)
-#endif
+
 	DependentConstructs(const AstAllocator<int>& allocator)
 		: substitutions(allocator), typeCount(0)
-#if 0
-		, expressionTypes(allocator)
-		, expressionValues(allocator)
-#endif
 	{
 	}
 };

@@ -1321,41 +1321,17 @@ inline const char* getIdentifierType(IdentifierFunc func)
 	return "<unknown>";
 }
 
-#if 0
-inline void popDeferredExpressionType(const ExpressionNode* p, LexerAllocator& allocator)
-{
-	Scope* enclosingTemplate = p->enclosingTemplate;
-	SYMBOLS_ASSERT(enclosingTemplate != 0);
-	SYMBOLS_ASSERT(!enclosingTemplate->expressionTypes.empty());
 
-	const DeferredExpressionType& deferred = enclosingTemplate->expressionTypes.back();
-	SYMBOLS_ASSERT(p == deferred.callback.p);
-	enclosingTemplate->expressionTypes.pop_back(); // TODO: optimise
+inline void popDeferredSubstitution(Declaration* p, LexerAllocator& allocator)
+{
+	p->dependentConstructs.substitutions.pop_back(); // TODO: optimise - though this happens extremely rarely
 }
 
-inline BacktrackCallback makePopDeferredExpressionTypeCallback(const ExpressionNode* p)
+inline BacktrackCallback makePopDeferredSubstitutionCallback(Declaration* p)
 {
-	BacktrackCallback result = { BacktrackCallbackThunk<const ExpressionNode, &popDeferredExpressionType >::thunk, const_cast<ExpressionNode*>(p) };
+	BacktrackCallback result = { BacktrackCallbackThunk<Declaration, &popDeferredSubstitution >::thunk, p };
 	return result;
 }
-
-inline void popDeferredExpressionValue(const ExpressionNode* p, LexerAllocator& allocator)
-{
-	Scope* enclosingTemplate = p->enclosingTemplate;
-	SYMBOLS_ASSERT(enclosingTemplate != 0);
-	SYMBOLS_ASSERT(!enclosingTemplate->expressionValues.empty());
-
-	const DeferredExpressionValue& deferred = enclosingTemplate->expressionValues.back();
-	SYMBOLS_ASSERT(p == deferred.callback.p);
-	enclosingTemplate->expressionValues.pop_back(); // TODO: optimise
-}
-
-inline BacktrackCallback makePopDeferredExpressionValueCallback(const ExpressionNode* p)
-{
-	BacktrackCallback result = { BacktrackCallbackThunk<const ExpressionNode, &popDeferredExpressionValue >::thunk, const_cast<ExpressionNode*>(p) };
-	return result;
-}
-#endif
 
 inline void substituteDeferredMemberDeclaration(Declaration& declaration, const InstantiationContext& context)
 {
@@ -1383,17 +1359,46 @@ inline void substituteDeferredMemberDeclaration(Declaration& declaration, const 
 	}
 }
 
+#if 0 // experimental
+struct SemaStateDebug : SemaState
+{
+	DeferredSubstitutions debugDeferredSubstitutions;
+	SemaStateDebug(SemaContext& context)
+		: SemaState(context), debugDeferredSubstitutions(context)
+	{
+	}
+	SemaStateDebug(const SemaState& state)
+		: SemaState(state), debugDeferredSubstitutions(context)
+	{
+		commitDebug();
+	}
+	~SemaStateDebug()
+	{
+		if(enclosingInstantiation != DeclarationPtr(0))
+		{
+			SYMBOLS_ASSERT(&debugDeferredSubstitutions.back() == &enclosingInstantiation->dependentConstructs.substitutions.back());
+		}
+	}
+	void commitDebug()
+	{
+		if(enclosingInstantiation != DeclarationPtr(0))
+		{
+			debugDeferredSubstitutions = enclosingInstantiation->dependentConstructs.substitutions;
+		}
+	}
+};
+#endif
 
 struct SemaBase : public SemaState
 {
-	typedef SemaBase Base;
+	typedef SemaState Base;
 
 	SemaBase(SemaContext& context)
-		: SemaState(context)
+		: Base(context)
 	{
 	}
 	SemaBase(const SemaState& state)
-		: SemaState(state)
+		: Base(state)
 	{
 	}
 	Scope* newScope(const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN)
@@ -1401,23 +1406,13 @@ struct SemaBase : public SemaState
 		return allocatorNew(context, Scope(context, name, type));
 	}
 
-#if 0
-	template<typename T>
-	void addDeferredExpressionType(Scope* enclosingTemplate, const ExpressionNodeGeneric<T>* e)
-	{
-		enclosingTemplate->expressionTypes.push_back(makeDeferredExpressionType(e, getLocation()));
-		const DeferredExpressionType& deferred = enclosingTemplate->expressionTypes.back();
-		addBacktrackCallback(makePopDeferredExpressionTypeCallback(deferred.callback.p));
-	}
 
-	template<typename T>
-	void addDeferredExpressionValue(Scope* enclosingTemplate, const ExpressionNodeGeneric<T>* e)
+
+	void addDeferredSubstitution(const DeferredSubstitution& substitution)
 	{
-		enclosingTemplate->expressionValues.push_back(makeDeferredExpressionValue(e, getLocation()));
-		const DeferredExpressionValue& deferred = enclosingTemplate->expressionValues.back();
-		addBacktrackCallback(makePopDeferredExpressionValueCallback(deferred.callback.p));
+		enclosingInstantiation->dependentConstructs.substitutions.push_back(substitution);
+		addBacktrackCallback(makePopDeferredSubstitutionCallback(enclosingInstantiation));
 	}
-#endif
 
 	void addDeferredMemberDeclaration(Declaration& declaration, const char* message = 0)
 	{
@@ -1435,9 +1430,9 @@ struct SemaBase : public SemaState
 			// substitute type of dependent declaration when class is instantiated
 			declaration.type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
 		}
-		DeferredSubstitution substitution = makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(
-			declaration, getLocation());
-		enclosingInstantiation->dependentConstructs.substitutions.push_back(substitution);
+		addDeferredSubstitution(
+			makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(
+				declaration, getLocation()));
 	}
 
 	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
@@ -1447,11 +1442,10 @@ struct SemaBase : public SemaState
 		{
 			return;
 		}
-		DeferredSubstitution substitution = makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
-			*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
-			getLocation()
-		);
-		enclosingInstantiation->dependentConstructs.substitutions.push_back(substitution);
+		addDeferredSubstitution(
+			makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
+				*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
+				getLocation()));
 	}
 
 	template<typename T>
@@ -1486,21 +1480,7 @@ struct SemaBase : public SemaState
 				result.value = value.value;
 			}
 		}
-#if 0
-		if(templateParamScope == 0 // if this expression does not occur within a template parameter list
-			&& enclosingTemplate != 0) // TODO: this can happen because we incorrectly mark 'undeclared(x)' as type-dependent
-		{
-			const ExpressionNodeGeneric<T>* e = static_cast<ExpressionNodeGeneric<T>*>(p);
-			if(result.isTypeDependent)
-			{
-				addDeferredExpressionType(enclosingTemplate, e);
-			}
-			if(result.isValueDependent)
-			{
-				addDeferredExpressionValue(enclosingTemplate, e);
-			}
-		}
-#endif
+
 		return result;
 	}
 
@@ -1974,13 +1954,13 @@ typename EnableIf<HasAction<SemaT, ID>::value>::Type
 template<typename SemaT, typename Inner, typename Args>
 CPPP_INLINE void semaCommit(SemaT& walker, const SemaPush<Inner, CommitNull, Args>& inner)
 {
-	// do nothing
+	// don't call commit, even if declared
 }
 
 template<typename SemaT, typename Inner, typename Args>
 void semaCommit(SemaT& walker, const SemaPush<Inner, CommitEnable, Args>& inner)
 {
-	walker.commit();
+	walker.commit(); // we expect commit to be declared
 }
 
 struct Once

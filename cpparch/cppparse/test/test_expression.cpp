@@ -1,15 +1,20 @@
 
-namespace N475 // TEMP TEST
+
+namespace N475 // test parse of qualified template-id containing type name
 {
-	template<int N>
-	struct A
+	namespace M
 	{
-		static const int value = N;
-		typedef A<N + 1> next;
-		typedef A<N - 1> prior;
+		template<typename>
+		struct A
+		{
+		};
+	}
+
+	template<class T, int N>
+	struct B
+	{
+		void f(M::A<T[N]>); // TODO: causes unnecessary backtrack?
 	};
-	
-	int i = A<0>::value;
 }
 
 namespace N474 // test substitution of dependent member types when class template is implicitly instantiated
