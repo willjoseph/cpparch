@@ -204,7 +204,7 @@ inline UniqueTypeWrapper getUniqueType(const TypeId& type, const InstantiationCo
 inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationContext& context, bool allowDependent = false);
 
 template<typename T>
-inline UniqueTypeWrapper getUniqueTypeImpl(const T& type, const InstantiationContext& context, bool allowDependent)
+inline UniqueTypeWrapper getUniqueTypeImpl(const T& type, const InstantiationContext& context, bool allowDependent, bool isTemplateArgument = false)
 {
 	UniqueTypeWrapper result = getUniqueType(type);
 	if(type.isDependent
@@ -212,6 +212,12 @@ inline UniqueTypeWrapper getUniqueTypeImpl(const T& type, const InstantiationCon
 	{
 		UniqueTypeWrapper substituted = substitute(result, context);
 		SYMBOLS_ASSERT(!isDependent(substituted));
+		if(type.dependentIndex == INDEX_INVALID
+			&& !isTemplateArgument)
+		{
+			int bleh = 0;
+		}
+
 		SYMBOLS_ASSERT(type.dependentIndex == INDEX_INVALID || getSubstitutedType(type, context) == substituted);
 		return substituted;
 	}

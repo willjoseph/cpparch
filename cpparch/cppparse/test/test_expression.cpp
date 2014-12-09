@@ -1,4 +1,45 @@
 
+#if 0 // TODO: C++11: explicit specialization of enum
+namespace N477 // test parse of explicit specialization
+{
+	template<typename T>
+	struct A
+	{
+		enum E { X };
+	};
+
+	template<>
+	enum A<int>::E { Y };
+
+	int i = A<float>::X;
+	int j = A<int>::Y;
+}
+#endif
+
+namespace TEST
+{
+	template<typename T>
+	struct Bool
+	{
+		enum { value = false };
+	};
+
+	struct S
+	{
+		template<bool b = Bool<int>::value> // default template-argument parse should not be deferred - should be parsed immediately
+		class M;
+	};
+}
+
+namespace N476 // test that template default-argument is not substituted unless used
+{
+	template<typename T, typename U = typename T::Type>
+	struct A
+	{
+	};
+
+	A<int, int> a;
+}
 
 namespace N475 // test parse of qualified template-id containing type name
 {

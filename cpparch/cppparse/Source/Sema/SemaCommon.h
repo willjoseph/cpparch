@@ -1019,11 +1019,6 @@ struct SemaState
 		enclosingScope = scope;
 	}
 
-	static void addBase(Declaration* declaration, const Type& base)
-	{
-		declaration->enclosed->bases.push_front(base);
-	}
-
 	Declaration* getDeclaratorQualifying() const
 	{
 		if(qualifying_p == TypePtr(0))
@@ -1333,29 +1328,37 @@ inline BacktrackCallback makePopDeferredSubstitutionCallback(Declaration* p)
 	return result;
 }
 
+inline void substituteDeferredBase(Type& type, const InstantiationContext& context)
+{
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+
+	// substitute dependent members
+	SYMBOLS_ASSERT(type.isDependent);
+	SYMBOLS_ASSERT(type.dependentIndex != INDEX_INVALID);
+
+	SYMBOLS_ASSERT(type.dependentIndex == instance.substitutedTypes.size());
+	UniqueTypeWrapper substituted = substitute(getUniqueType(type), context);
+	SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
+	instance.substitutedTypes.push_back(substituted);
+}
+
 inline void substituteDeferredMemberDeclaration(Declaration& declaration, const InstantiationContext& context)
 {
 	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
 
 	// substitute dependent members
-	if(declaration.type.isDependent
-		&& declaration.type.dependentIndex != INDEX_INVALID)
+	SYMBOLS_ASSERT(declaration.type.isDependent);
+	SYMBOLS_ASSERT(declaration.type.dependentIndex != INDEX_INVALID);
+	if(isUsing(declaration))
 	{
-		if(isUsing(declaration))
-		{
-			// TODO: substitute type of dependent using-declaration when class is instantiated
-		}
-		else if(declaration.type.dependentIndex < instance.substitutedTypes.size()) // if the type is already substituted
-		{
-			// do nothing
-		}
-		else
-		{
-			SYMBOLS_ASSERT(declaration.type.dependentIndex == instance.substitutedTypes.size());
-			UniqueTypeWrapper type = substitute(getUniqueType(declaration.type), context);
-			SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
-			instance.substitutedTypes.push_back(type);
-		}
+		// TODO: substitute type of dependent using-declaration when class is instantiated
+	}
+	else
+	{
+		SYMBOLS_ASSERT(declaration.type.dependentIndex == instance.substitutedTypes.size());
+		UniqueTypeWrapper substituted = substitute(getUniqueType(declaration.type), context);
+		SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
+		instance.substitutedTypes.push_back(substituted);
 	}
 }
 
@@ -1414,7 +1417,22 @@ struct SemaBase : public SemaState
 		addBacktrackCallback(makePopDeferredSubstitutionCallback(enclosingInstantiation));
 	}
 
-	void addDeferredMemberDeclaration(Declaration& declaration, const char* message = 0)
+	void addDeferredBase(Type& type)
+	{
+		if(!type.isDependent
+			|| enclosingInstantiation == 0)
+		{
+			return;
+		}
+		SYMBOLS_ASSERT(type.dependentIndex == INDEX_INVALID);
+		// substitute type of base when class is instantiated
+		type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
+		addDeferredSubstitution(
+			makeDeferredSubstitution<Type, substituteDeferredBase>(
+			type, getLocation()));
+	}
+
+	void addDeferredMemberDeclaration(Declaration& declaration)
 	{
 		if(!declaration.type.isDependent
 			|| enclosingInstantiation == 0)
@@ -1429,10 +1447,10 @@ struct SemaBase : public SemaState
 		{
 			// substitute type of dependent declaration when class is instantiated
 			declaration.type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
+			addDeferredSubstitution(
+				makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(
+					declaration, getLocation()));
 		}
-		addDeferredSubstitution(
-			makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(
-				declaration, getLocation()));
 	}
 
 	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
@@ -1482,6 +1500,12 @@ struct SemaBase : public SemaState
 		}
 
 		return result;
+	}
+
+	void addBase(Declaration* declaration, const Type& base)
+	{
+		declaration->enclosed->bases.push_front(base);
+		addDeferredBase(declaration->enclosed->bases.front());
 	}
 
 	void addBacktrackCallback(const BacktrackCallback& callback)
@@ -1586,8 +1610,9 @@ struct SemaBase : public SemaState
 		}
 	}
 
-	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor)
+	Declaration* declareObject(Scope* originalParent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor)
 	{
+		Scope* parent = originalParent;
 		// [namespace.memdef]
 		// Every name first declared in a namespace is a member of that namespace. If a friend declaration in a non-local class
 		// first declares a class or function (this implies that the name of the class or function is unqualified) the friend
@@ -1637,11 +1662,11 @@ struct SemaBase : public SemaState
 			}
 		}
 			
-		if(isMember(*declaration)
+		if(declaration->type.isDependent
+			&& originalParent != 0
+			&& originalParent->type == SCOPETYPE_CLASS
 			&& !isClass(*declaration)
 			&& !isEnum(*declaration)
-			&& !isEnumerator(*declaration)
-			&& declaration->type.isDependent
 			&& !declaration->isTemplate) // TODO: substitute function-template signature
 		{
 			addDeferredMemberDeclaration(*declaration);

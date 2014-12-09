@@ -107,6 +107,11 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 			}
 			enumerator.initializer = value;
 		}
+
+		if(enumerator.type.isDependent)
+		{
+			addDeferredMemberDeclaration(enumerator);
+		}
 	}
 };
 

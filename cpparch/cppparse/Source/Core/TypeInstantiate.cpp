@@ -364,6 +364,26 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			return TYPELAYOUT_NONE; // TODO: this can occur when the primary template is incomplete, and a specialization was not chosen
 		}
 
+		if(!allowDependent)
+		{
+			instance.allowLookup = true; // temporary workaround
+
+			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
+			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
+
+			const DeferredSubstitutions& substitutions = instance.declaration->dependentConstructs.substitutions;
+			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
+			{
+				const DeferredSubstitution& substitution = *i;
+				InstantiationContext childContext(substitution.location, &instance, 0, context.enclosingScope);
+				substitution(childContext);
+			}
+
+			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
+
+			instance.allowLookup = false; // temporary workaround
+		}
+
 		SYMBOLS_ASSERT(instance.declaration->type.unique != 0);
 		// the is the (possibly dependent) unique type of the unspecialized (template) class on which this specialization is based
 		const SimpleType& original = getSimpleType(instance.declaration->type.unique);
@@ -394,31 +414,6 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			{
 				Declaration& declaration = *(*i);
 
-#if 0
-				// substitute dependent members
-				if(declaration.type.isDependent
-					&& declaration.type.dependentIndex != INDEX_INVALID)
-				{
-					if(isUsing(declaration))
-					{
-						// TODO: substitute type of dependent using-declaration when class is instantiated
-					}
-					else if(declaration.type.dependentIndex < instance.substitutedTypes.size()) // if the type is already substituted
-					{
-						// do nothing
-					}
-					else
-					{
-						SYMBOLS_ASSERT(declaration.type.dependentIndex == instance.substitutedTypes.size());
-						Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
-						InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
-						UniqueTypeWrapper type = substitute(getUniqueType(declaration.type), childContext);
-						SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
-						instance.substitutedTypes.push_back(type);
-					}
-				}
-#endif
-
 				if(!isNonStaticDataMember(declaration))
 				{
 					continue;
@@ -434,19 +429,6 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				}
 				addNonStaticMember(instance, type);
 			}
-
-			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
-			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
-
-			const DeferredSubstitutions& substitutions = instance.declaration->dependentConstructs.substitutions;
-			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
-			{
-				const DeferredSubstitution& substitution = *i;
-				InstantiationContext childContext(substitution.location, &instance, 0, context.enclosingScope);
-				substitution(childContext);
-			}	
-
-			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
 
 			instance.hasCopyAssignmentOperator = hasCopyAssignmentOperator(instance, context);
 		}

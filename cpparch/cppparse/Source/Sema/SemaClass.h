@@ -199,7 +199,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		}
 		type.isDependent = isDependentOld(type);
 		type.isImplicitTemplateId = declaration->isTemplate;
-		type.isEnclosingClass = true;
+		type.isInjectedClassName = true;
 		bool isExplicitSpecialization = isSpecialization && declaration->templateParams.empty();
 		bool allowDependent = type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
 		declaration->type.isDependent = type.isDependent;

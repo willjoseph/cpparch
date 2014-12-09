@@ -58,7 +58,7 @@ inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argu
 		return pushType(gUniqueTypeNull, NonType(result.value));
 	}
 
-	return getUniqueType(argument.type, context, allowDependent && argument.type.isDependent);
+	return getUniqueTypeImpl(argument.type, context, allowDependent && argument.type.isDependent, true);
 }
 
 
@@ -204,22 +204,12 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	if(isTypedef(*declaration))
 	{
 		UniqueTypeWrapper result = getUniqueType(declaration->type, setEnclosingType(context, memberEnclosing), allowDependent);
-#if 0
-		if(memberEnclosing != 0 // if the typedef is a member
-			&& !allowDependent // and we expect the enclosing class to have been instantiated (qualified access, e.g. C<T>::m)
-			&& declaration->instance != INDEX_INVALID) // and its type was dependent when parsed
-		{
-			SYMBOLS_ASSERT(memberEnclosing->instantiated); // assert that the enclosing class was instantiated
-			SYMBOLS_ASSERT(declaration->instance < memberEnclosing->children.size());
-			SYMBOLS_ASSERT(memberEnclosing->children[declaration->instance] == result);
-		}
-#endif
 		return result;
 	}
 
 	if(declaration->isTemplate
 		&& type.isImplicitTemplateId // if no template argument list was specified
-		&& !type.isEnclosingClass) // and the type is not the name of an enclosing class
+		&& !type.isInjectedClassName) // and the type is not the name of an enclosing class
 	{
 		// this is a template-name
 		return UniqueTypeWrapper(pushUniqueType(gUniqueTypes, UNIQUETYPE_NULL, TemplateTemplateArgument(declaration, memberEnclosing)));
@@ -232,9 +222,19 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		SYMBOLS_ASSERT(isClass(*declaration));
 		tmp.declaration = tmp.primary = findPrimaryTemplate(declaration);
 
-		bool isEnclosingSpecialization = type.isEnclosingClass && isSpecialization(*type.declaration);
+		// [temp.local]
+		// Like normal (non-template) classes, class templates have an injected-class-name. The injected-class-
+		// name can be used as a template-name or a type-name.When it is used with a template-argument-list,
+		// as a template-argument for a template template-parameter, or as the final identifier in the elaborated-type-specifier
+		// of a friend class template declaration, it refers to the class template itself.Otherwise, it is equivalent
+		// to the template-name followed by the template-parameters of the class template enclosed in <>.
+		// 
+		// Within the scope of a class template specialization or partial specialization, when the injected-class-name is
+		// used as a type-name, it is equivalent to the template-name followed by the template-arguments of the class
+		// template specialization or partial specialization enclosed in <>.
 
-		// [temp.local]: when the name of a class template is used without arguments, substitute the parameters (in case of an enclosing explicit/partial-specialization, substitute the arguments
+		// when the name of a class template is used without arguments, substitute the parameters (in case of an enclosing explicit/partial-specialization, substitute the arguments)
+		bool isEnclosingSpecialization = type.isInjectedClassName && isSpecialization(*type.declaration);
 		const TemplateArguments& defaults = tmp.declaration->templateParams.defaults;
 		SYMBOLS_ASSERT(!defaults.empty());
 		if(type.isImplicitTemplateId // if no template argument list was specified
@@ -242,7 +242,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		{
 			// when the type refers to a template-name outside an enclosing class, it is a template-template-parameter:
 			// we substitute the primary template's (possibly dependent) template parameters.
-			bool dependent = allowDependent || !type.isEnclosingClass;
+			bool dependent = allowDependent || !type.isInjectedClassName;
 			makeUniqueTemplateParameters(tmp.declaration->templateParams, tmp.templateArguments, context, dependent);
 		}
 		else

@@ -93,7 +93,7 @@ struct SemaTypeName : public SemaBase
 			const SimpleType* enclosingTemplate = findEnclosingPrimaryTemplate(enclosingType, type.declaration);
 			if(enclosingTemplate != 0) // if this is the name of an enclosing class-template definition (which may be an explicit/partial specialization)
 			{
-				type.isEnclosingClass = true; // this is an implicit template-id
+				type.isInjectedClassName = true; // this is an implicit template-id
 				type.declaration = enclosingTemplate->declaration; // the type should refer to the enclosing class-template definition (which may be an explicit/partial specialization)
 			}
 		}

@@ -166,9 +166,9 @@ struct Type
 	std::size_t dependentIndex; // the index into the array of dependent types within the enclosing instantiated template
 	bool isDependent; // true if the type is dependent in the context in which it was parsed
 	bool isImplicitTemplateId; // true if this is a template but the template-argument-clause has not been specified
-	bool isEnclosingClass; // true if this is the type of an enclosing class
+	bool isInjectedClassName; // true if this is the type of an enclosing class
 	Type(Declaration* declaration, const AstAllocator<int>& allocator)
-		: id(0), declaration(declaration), templateArguments(allocator), qualifying(allocator), enclosingTemplate(0), unique(0), dependentIndex(INDEX_INVALID), isDependent(false), isImplicitTemplateId(false), isEnclosingClass(false)
+		: id(0), declaration(declaration), templateArguments(allocator), qualifying(allocator), enclosingTemplate(0), unique(0), dependentIndex(INDEX_INVALID), isDependent(false), isImplicitTemplateId(false), isInjectedClassName(false)
 	{
 	}
 	void swap(Type& other)
@@ -184,7 +184,7 @@ struct Type
 		std::swap(dependentIndex, other.dependentIndex);
 		std::swap(isDependent, other.isDependent);
 		std::swap(isImplicitTemplateId, other.isImplicitTemplateId);
-		std::swap(isEnclosingClass, other.isEnclosingClass);
+		std::swap(isInjectedClassName, other.isInjectedClassName);
 	}
 	Type& operator=(Declaration* declaration)
 	{
@@ -457,7 +457,6 @@ public:
 	bool isCStyle; // true if this is a class-declaration preceded by 'typedef'
 	bool isUnion; // true if this is the declaration of a union
 	bool isDestructor; // true if this is the declaration of a destructor
-	std::size_t instance;
 
 	Declaration(
 		const AstAllocator<int>& allocator,
@@ -493,8 +492,7 @@ public:
 		isEnumerator(false),
 		isCStyle(false),
 		isUnion(false),
-		isDestructor(false),
-		instance(INDEX_INVALID)
+		isDestructor(false)
 	{
 	}
 	Declaration() :
@@ -529,7 +527,6 @@ public:
 		std::swap(isCStyle, other.isCStyle);
 		std::swap(isUnion, other.isUnion);
 		std::swap(isDestructor, other.isDestructor);
-		std::swap(instance, other.instance);
 	}
 };
 
