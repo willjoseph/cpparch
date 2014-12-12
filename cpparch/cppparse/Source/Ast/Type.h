@@ -96,30 +96,6 @@ inline bool isTypedef(const Declaration& declaration)
 
 inline bool isType(const Declaration& declaration)
 {
-	bool expected = isTypedef(declaration)
-		|| declaration.type.declaration == &gSpecial
-		|| isArithmetic(declaration)
-		|| isClass(declaration)
-		|| isEnum(declaration);
-
-	if(&declaration == &gCtor)
-	{
-		expected = false;
-	}
-
-	if(isUsing(declaration))
-	{
-		if(declaration.usingMember == 0) // if we are within pointOfDeclaration()
-		{
-			// don't bother checking..
-			expected = declaration.isType;
-		}
-		else
-		{
-			expected = declaration.usingMember == &gDependentTypeInstance || isType(**declaration.usingMember);
-		}
-	}
-	SYMBOLS_ASSERT(declaration.isType == expected);
 	return declaration.isType;
 }
 
@@ -130,9 +106,8 @@ inline bool isNamespace(const Declaration& declaration)
 
 inline bool isFunction(const Declaration& declaration)
 {
-	SYMBOLS_ASSERT(declaration.type.unique != 0 || isType(declaration) || isNamespace(declaration) || isUsing(declaration));
-	return declaration.type.unique != 0
-		&& getUniqueType(declaration.type).isFunction();
+	SYMBOLS_ASSERT(!isUsing(declaration));
+	return declaration.isFunction;
 }
 
 inline bool isMember(const Declaration& declaration)

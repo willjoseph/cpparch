@@ -111,10 +111,9 @@ inline bool isFunctionName(const Declaration& declaration)
 
 inline bool isAdlFunctionName(const Declaration& declaration)
 {
-	return isFunctionName(declaration)
-		|| (isUsing(declaration)
-			&& declaration.usingMember != 0
-			&& isAdlFunctionName(**declaration.usingMember));
+	return isUsing(declaration) // NOTE: only namespaces are searched, meaning the name cannot be dependent
+		? declaration.usingMember != 0 && isAdlFunctionName(**declaration.usingMember)
+		: isFunctionName(declaration);
 }
 
 typedef LookupFilterDefault<isAdlFunctionName, true> IsAdlFunctionName;

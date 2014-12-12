@@ -297,6 +297,63 @@ inline IntegralConstant conditional(IntegralConstant first, IntegralConstant sec
 
 
 
+// ----------------------------------------------------------------------------
+inline bool isPointerToMemberExpression(const UnaryExpression& unaryExpression)
+{
+	extern Name gOperatorAndId;
+	if(unaryExpression.operatorName != gOperatorAndId
+		|| !isIdExpression(unaryExpression.first))
+	{
+		return false;
+	}
+	const IdExpression& idExpression = getIdExpression(unaryExpression.first);
+	return idExpression.qualifying != 0 // qualified
+		&& !isStatic(*idExpression.declaration) // non static
+		&& isMember(*idExpression.declaration); // member
+}
+
+inline bool isPointerToMemberExpression(ExpressionNode* node)
+{
+	return isUnaryExpression(node)
+		&& isPointerToMemberExpression(getUnaryExpression(node));
+}
+
+inline bool isPointerToFunctionExpression(const IdExpression& idExpression, const InstantiationContext& context)
+{
+	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(idExpression.qualifying, idExpression.declaration), context);
+	return isFunction(*qualified.declaration);
+}
+
+inline bool isPointerToFunctionExpression(const UnaryExpression& unaryExpression, const InstantiationContext& context)
+{
+	return isIdExpression(unaryExpression.first)
+		&& isPointerToFunctionExpression(getIdExpression(unaryExpression.first), context);
+}
+
+inline bool isPointerToFunctionExpression(ExpressionNode* node, const InstantiationContext& context)
+{
+	return (isUnaryExpression(node) && isPointerToFunctionExpression(getUnaryExpression(node), context))
+		|| (isIdExpression(node) && isPointerToFunctionExpression(getIdExpression(node), context));
+}
+
+inline bool isDependentPointerToMemberExpression(const UnaryExpression& unaryExpression)
+{
+	extern Name gOperatorAndId;
+
+	return unaryExpression.operatorName == gOperatorAndId
+		&& isDependentIdExpression(unaryExpression.first);
+}
+
+inline bool isLiteralZeroExpression(ExpressionNode* expression)
+{
+	if(!isIntegralConstantExpression(expression))
+	{
+		return false;
+	}
+	const IntegralConstantExpression& ice = getIntegralConstantExpression(expression);
+	return ice.value.value == 0;
+}
+
 
 // ----------------------------------------------------------------------------
 // expression evaluation
@@ -314,17 +371,17 @@ inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, c
 }
 
 inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context);
-inline bool isOverloaded(const DeclarationInstance& declaration);
+inline bool isOverloaded(const DeclarationInstance& declaration, const SimpleType* enclosing, const InstantiationContext& context);
 
-inline bool isOverloadedFunction(const DeclarationInstance& declaration)
+inline bool isOverloadedFunction(const DeclarationInstance& declaration, const SimpleType* enclosing, const InstantiationContext& context)
 {
-	return isFunction(*declaration)
-		&& isOverloaded(declaration);
+	return (isUsing(*declaration) || isFunction(*declaration))
+		&& isOverloaded(declaration, enclosing, context);
 }
 
-inline bool isOverloadedFunctionIdExpression(const IdExpression& idExpression)
+inline bool isOverloadedFunctionIdExpression(const IdExpression& idExpression, const InstantiationContext& context)
 {
-	return isOverloadedFunction(idExpression.declaration); // true if this id-expression names an overloaded function
+	return isOverloadedFunction(idExpression.declaration, idExpression.qualifying, context); // true if this id-expression names an overloaded function
 }
 
 inline bool isLvalue(const Declaration& declaration)
@@ -387,16 +444,16 @@ inline void addUniqueOverload(OverloadSet& result, const Overload& overload)
 }
 
 
-inline bool isOverloaded(const DeclarationInstance& declaration)
+inline bool isOverloaded(const DeclarationInstance& declaration, const SimpleType* memberEnclosing, const InstantiationContext& context)
 {
-	SYMBOLS_ASSERT(isFunction(*declaration));
+	SYMBOLS_ASSERT(isUsing(*declaration) || isFunction(*declaration));
 	bool found = false;
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			SYMBOLS_ASSERT(!isDependent(p->usingBase)); // TODO
-			if(isOverloaded(*p->usingMember))
+			QualifiedDeclaration qualified = getUsingMember(*p, memberEnclosing, context);
+			if(isOverloadedFunction(qualified.declaration, qualified.enclosing, context))
 			{
 				return true;
 			}
@@ -431,6 +488,7 @@ inline bool isOverloaded(const DeclarationInstance& declaration)
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, const InstantiationContext& context, bool fromUsing = false)
 {
+	SYMBOLS_ASSERT(isUsing(*declaration) || isFunction(*declaration));
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
@@ -453,6 +511,7 @@ inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declar
 
 inline void addOverloaded(OverloadSet& result, const DeclarationInstance& declaration, const KoenigAssociated& associated = KoenigAssociated(), bool fromUsing = false)
 {
+	SYMBOLS_ASSERT(isUsing(*declaration) || isFunction(*declaration));
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
@@ -734,7 +793,7 @@ inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const Dec
 		return makeCopyAssignmentOperatorType(*idEnclosing);
 	}
 
-	if(isOverloadedFunction(declaration))
+	if(isOverloadedFunction(declaration, qualifying, context))
 	{
 		// [temp.arg.explicit]
 		// In contexts where deduction is done and fails, or in contexts where deduction
@@ -1373,7 +1432,7 @@ inline ExpressionType typeOfExpression(const DependentIdExpression& node, const 
 
 inline ExpressionType typeOfExpression(const IdExpression& node, const InstantiationContext& context)
 {
-	if(isOverloadedFunctionIdExpression(node))
+	if(isOverloadedFunctionIdExpression(node, context))
 	{
 		// can't evaluate id-expression within function-call-expression
 		return gOverloadedExpressionType; // do not evaluate the type!
@@ -1548,12 +1607,12 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 {
 	SYMBOLS_ASSERT(node.declaration->templateParameter == INDEX_INVALID);
 
-	if(isPointerToFunctionExpression(node))
+	if(isPointerToFunctionExpression(node, context))
 	{
 		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
 	}
 
-	if(isOverloadedFunctionIdExpression(node))
+	if(isOverloadedFunctionIdExpression(node, context))
 	{
 		return EXPRESSIONRESULT_INVALID; // TODO: overload resolution when function name used as template argument
 	}
@@ -1684,7 +1743,7 @@ inline ExpressionValue evaluateExpression(const SizeofExpression& node, const In
 	{
 		return EXPRESSIONRESULT_ZERO; // TODO
 	}
-	if(isPointerToFunctionExpression(node.operand))
+	if(isPointerToFunctionExpression(node.operand, context))
 	{
 		return EXPRESSIONRESULT_ZERO; // TODO
 	}
@@ -1717,7 +1776,7 @@ inline ExpressionValue evaluateExpression(const UnaryExpression& node, const Ins
 	{
 		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of member
 	}
-	if(isPointerToFunctionExpression(node))
+	if(isPointerToFunctionExpression(node, context))
 	{
 		return EXPRESSIONRESULT_ZERO; // TODO: unique value for address of function
 	}

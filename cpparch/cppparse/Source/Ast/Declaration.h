@@ -453,6 +453,7 @@ public:
 	bool isTemplate;
 	bool isTemplateName; // true if this is a template declaration, or an overload of a template declaration
 	bool isSpecialization;
+	bool isFunction;
 	bool isFunctionDefinition;
 	bool isEnumerator; // true if this is the declaration of an enumerator
 	bool isCStyle; // true if this is a class-declaration preceded by 'typedef'
@@ -490,6 +491,7 @@ public:
 		isTemplate(isTemplate),
 		isTemplateName(isTemplate),
 		isSpecialization(isSpecialization),
+		isFunction(false),
 		isFunctionDefinition(false),
 		isEnumerator(false),
 		isCStyle(false),
@@ -526,6 +528,7 @@ public:
 		std::swap(isTemplate, other.isTemplate);
 		std::swap(isTemplateName, other.isTemplateName);
 		std::swap(isSpecialization, other.isSpecialization);
+		std::swap(isFunction, other.isFunction);
 		std::swap(isFunctionDefinition, other.isFunctionDefinition);
 		std::swap(isEnumerator, other.isEnumerator);
 		std::swap(isCStyle, other.isCStyle);

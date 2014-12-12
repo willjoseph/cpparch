@@ -896,6 +896,7 @@ struct SemaState
 		SEMANTIC_ASSERT(isClassKey(*type.declaration) || !hasTemplateParamDefaults(params)); // 14.1-9: a default template-arguments may be specified in a class template declaration/definition (not for a function or class-member)
 		SEMANTIC_ASSERT(!isSpecialization || isTemplate); // only a template can be a specialization
 		SEMANTIC_ASSERT(!isTemplate || isSpecialization || !params.empty()); // only a specialization may have an empty template parameter clause <>
+		SEMANTIC_ASSERT(type.unique != 0 || isType || type.declaration == &gNamespace || type.declaration == &gUsing || type.declaration == &gEnumerator);
 
 		context.parserContext.allocator.deferredBacktrack(); // flush cached parse-tree
 
@@ -904,13 +905,14 @@ struct SemaState
 		SEMANTIC_ASSERT(!name.value.empty());
 
 		SEMANTIC_ASSERT(type.declaration != &gUsing
-			|| type.declaration != &gUsing == (specifiers.isTypedef
+				|| type.declaration != &gUsing == (specifiers.isTypedef
 				|| type.declaration == &gSpecial
 				|| type.declaration == &gArithmetic
 				|| type.declaration == &gClass
 				|| type.declaration == &gEnum));
 
 		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
+		declaration.isFunction = type.unique != 0 && getUniqueType(type).isFunction();
 		SEMANTIC_ASSERT(!isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
 		declaration.location = getLocation();
 		declaration.uniqueId = ++uniqueId;
@@ -948,8 +950,8 @@ struct SemaState
 				throw SemanticError();
 			}
 
-			if(isFunction(declaration)
-				&& instance->isTemplateName)
+			if(instance->isTemplateName
+				&& isFunction(declaration))
 			{
 				// quick hack - if any template overload of a function has been declared, all subsequent declarations are template names
 				declaration.isTemplateName = true;

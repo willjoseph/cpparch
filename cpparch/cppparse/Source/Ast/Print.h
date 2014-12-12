@@ -445,7 +445,7 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 		{
 			printName(name->scope);
 			printer.out << getValue(name->getName());
-			if(isFunction(*name))
+			if(!isUsing(*name) && isFunction(*name))
 			{
 				printParameters(getParameterTypes(name->type.unique));
 			}

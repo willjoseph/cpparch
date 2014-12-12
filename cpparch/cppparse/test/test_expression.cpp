@@ -1,4 +1,5 @@
 
+
 namespace N493 // test instantiation of template parameter used in qualified name lookup within member anonymous union definition
 {
 	template<typename T>
@@ -1906,6 +1907,36 @@ namespace N434
 	};
 
 	STATIC_ASSERT_IS_SAME(A<(int)&(((S*)0)->m)>, A<(int)&(((S*)0)->m)>); // offsetof should produce a unique expression
+}
+#endif
+
+
+namespace N495
+{
+	struct A
+	{
+		int f(int);
+	};
+
+	STATIC_ASSERT_IS_SAME(decltype(&A::f), int(A::*)(int));
+}
+
+#if 0 // TODO: evaluate type of pointer to member via dependent using-declaration
+namespace N494 // test behaviour of dependent using-declaration naming member function of class template, used in pointer to member
+{
+	template<typename T>
+	struct A
+	{
+		T f(T);
+	};
+
+	template<typename T>
+	struct B : A<T>
+	{
+		using A<T>::f;
+	};
+
+	STATIC_ASSERT_IS_SAME(decltype(&B<int>::f), int(A<int>::*)(int));
 }
 #endif
 
