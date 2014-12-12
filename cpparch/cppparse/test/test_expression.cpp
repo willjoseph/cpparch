@@ -1,4 +1,118 @@
 
+namespace N493 // test instantiation of template parameter used in qualified name lookup within member anonymous union definition
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 1;
+	};
+	template<typename T>
+	struct A
+	{
+		union
+		{
+			int m[T::value];
+		};
+		typedef int Type;
+	};
+	typedef B<int> T;
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N492 // test instantiation of template parameter used in qualified name lookup within member unscoped enum definition
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 0;
+	};
+	template<typename T>
+	struct A
+	{
+		enum E
+		{
+			X = T::value
+		};
+		typedef int Type;
+	};
+	typedef B<int> T;
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N491 // test instantiation of template parameter used in qualified name lookup within member class definition
+{
+	template<typename T>
+	struct B
+	{
+	};
+	template<typename T>
+	struct A
+	{
+		class C
+		{
+			T m;
+		};
+		typedef int Type;
+	};
+	typedef B<int> T;
+	typedef A<T>::Type Type;
+	static_assert(!__is_instantiated(T), "");
+}
+
+namespace N490 // test instantiation of template parameter used in qualified name lookup within parameter declaration of member declaration
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+	template<typename T>
+	struct A
+	{
+		void mf(typename T::Type);
+		typedef int Type;
+	};
+	typedef B<int> T;
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N489 // test instantiation of template parameter used in parameter declaration of member declaration
+{
+	template<typename T>
+	struct B
+	{
+	};
+	template<typename T>
+	struct A
+	{
+		void mf(T);
+		typedef int Type;
+	};
+	typedef B<int> T;
+	typedef A<T>::Type Type;
+	static_assert(!__is_instantiated(T), "");
+}
+
+namespace N488 // test instantiation of template parameter used in member declaration
+{
+	template<typename T>
+	struct B
+	{
+	};
+	template<typename T>
+	struct A
+	{
+		T m;
+		typedef int Type;
+	};
+	typedef B<int> T;
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
 namespace N486 // test parse of member-initializer containing dependent expression
 {
 	template<bool b>
@@ -54,6 +168,7 @@ namespace N485 // test instantiation of template parameter when used in double s
 	static_assert(!__is_instantiated(T), "");
 	typedef A<T>::Type Type;
 	static_assert(__is_instantiated(T), "");
+	static_assert(__is_instantiated(I<sizeof(sizeof(T))>), "");
 }
 
 namespace N484 // test instantiation of template parameter when used in double sizeof within member declaration
@@ -169,18 +284,22 @@ namespace N482 // test instantiation of template parameter when NOT used in memb
 	static_assert(!__is_instantiated(T), "");
 }
 
-namespace N479
+namespace N479 // test is-instantiated
 {
 	struct A
 	{
 	};
+	static_assert(__is_instantiated(int), "");
+	static_assert(__is_instantiated(A), "");
+}
+
+namespace N487 // test instantiation of template used in qualified name lookup
+{
 	template<typename T>
 	struct B
 	{
 		typedef T Type;
 	};
-	static_assert(__is_instantiated(int), "");
-	static_assert(__is_instantiated(A), "");
 	static_assert(!__is_instantiated(B<int>), "");
 	typedef B<int>::Type Type;
 	static_assert(__is_instantiated(B<int>), "");

@@ -419,13 +419,12 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				{
 					continue;
 				}
-				UniqueTypeWrapper type = getUniqueType(declaration.type);
+				// the member declaration should be found by name lookup during its instantation
+				Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
+				InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
+				UniqueTypeWrapper type = getUniqueType(declaration.type, childContext);
 				if(declaration.type.isDependent)
 				{
-					// the member declaration should be found by name lookup during its instantation
-					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
-					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
-					type = substitute(type, childContext);
 					requireCompleteObjectType(type, childContext);
 				}
 				addNonStaticMember(instance, type);
