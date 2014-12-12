@@ -130,7 +130,10 @@ struct BuiltInDependentNonType : BuiltInType
 {
 	BuiltInDependentNonType(DeclarationPtr declaration, UniqueTypeWrapper type)
 	{
-		value = pushBuiltInType(value, DependentNonType(makeBuiltInExpression(NonTypeTemplateParameter(declaration, type))));
+		ExpressionWrapper expression = ExpressionWrapper(makeBuiltInExpression(NonTypeTemplateParameter(declaration, type)), false, true);
+		expression.isUnique = true;
+		expression.type = ExpressionType(type, false);
+		value = pushBuiltInType(value, DependentNonType(expression));
 	}
 };
 
@@ -916,7 +919,9 @@ struct MakeDependentArray
 {
 	static BuiltInType apply(BuiltInType inner)
 	{
-		return BuiltInType(pushBuiltInType(inner, DependentArrayType(makeBuiltInExpression(NonTypeTemplateParameter(&gNonTypeTemplateParameterDeclaration, gSignedInt)))));
+		ExpressionWrapper expression = ExpressionWrapper(makeBuiltInExpression(NonTypeTemplateParameter(&gNonTypeTemplateParameterDeclaration, gSignedInt)), false, true);
+		expression.type = ExpressionType(gSignedInt, false); // non-lvalue
+		return BuiltInType(pushBuiltInType(inner, DependentArrayType(expression)));
 	}
 };
 

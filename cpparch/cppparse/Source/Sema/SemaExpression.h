@@ -266,7 +266,6 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		addDependent(valueDependent, walker.valueDependent);
 		setExpressionType(symbol, expression.type);
 	}
-#if 1
 	SEMA_POLICY(cpp::expression_list, SemaPolicyPushSrc<struct SemaExpressionList>)
 	void action(cpp::expression_list* symbol, const SemaExpressionList& walker) // a comma-separated list of assignment_expression
 	{
@@ -287,14 +286,6 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		}
 		setExpressionType(symbol, expression.type);
 	}
-#else
-	SEMA_POLICY(cpp::expression_list, SemaPolicyIdentity)
-	void action(cpp::expression_list* symbol) // a comma-separated list of assignment_expression
-	{
-		// [expr.comma] The type and value of the result are the type and value of the right operand
-		setExpressionType(symbol, expression.type);
-	}
-#endif
 	SEMA_POLICY(cpp::unary_operator, SemaPolicyIdentity)
 	void action(cpp::unary_operator* symbol)
 	{

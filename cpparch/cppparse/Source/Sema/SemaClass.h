@@ -62,6 +62,7 @@ struct SemaClassHead : public SemaBase
 		: SemaBase(state), declaration(0), id(0), parent(enclosingScope), arguments(context), isCStyle(isCStyle), isUnion(false), isSpecialization(false)
 	{
 		enclosingInstantiation = 0; // ignore expressions in class-head in case of partial specialization: template<int i> C<i>
+		enclosingDependentConstructs = 0;
 	}
 
 	SEMA_POLICY(cpp::class_key, SemaPolicyIdentityCached)
@@ -120,9 +121,16 @@ struct SemaMemberDeclaration : public SemaBase, SemaMemberDeclarationResult
 {
 	SEMA_BOILERPLATE;
 
+	DependentConstructs declarationDependent; // contains the dependent types and expressions within the declaration
+
 	SemaMemberDeclaration(const SemaState& state)
-		: SemaBase(state)
+		: SemaBase(state), declarationDependent(context)
 	{
+		SEMANTIC_ASSERT(enclosingInstantiation != 0);
+		if(enclosingDependentConstructs == &enclosingInstantiation->dependentConstructs) // if we are not already declaring a member, e.g. member-declaration -> template-declaration -> member-declaration
+		{
+			enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within the declaration
+		}
 	}
 	SEMA_POLICY(cpp::member_template_declaration, SemaPolicyPush<struct SemaTemplateDeclaration>)
 	void action(cpp::member_template_declaration* symbol, const SemaDeclarationResult& walker)
@@ -144,8 +152,9 @@ struct SemaMemberDeclaration : public SemaBase, SemaMemberDeclarationResult
 	{
 	}
 	SEMA_POLICY(cpp::using_declaration, SemaPolicyPush<struct SemaUsingDeclaration>)
-	void action(cpp::using_declaration* symbol, const SemaUsingDeclaration& walker)
+	void action(cpp::using_declaration* symbol, const SemaDeclarationResult& walker)
 	{
+		declaration = walker.declaration;
 	}
 	SEMA_POLICY(cpp::static_assert_declaration, SemaPolicyPush<struct SemaStaticAssertDeclaration>)
 	void action(cpp::static_assert_declaration* symbol, const SemaStaticAssertDeclaration& walker)
@@ -220,7 +229,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 	SEMA_POLICY(cpp::member_declaration, SemaPolicyPush<struct SemaMemberDeclaration>)
 	void action(cpp::member_declaration* symbol, const SemaMemberDeclaration& walker)
 	{
-		endMemberDeclaration(walker.declaration);
+		endMemberDeclaration(walker.declaration, walker.declarationDependent);
 	}
 	void action(cpp::terminal<boost::wave::T_RIGHTBRACE> symbol)
 	{
@@ -248,6 +257,8 @@ struct SemaMemInitializerId : public SemaQualified
 	SemaMemInitializerId(const SemaState& state)
 		: SemaQualified(state), isTypename(false)
 	{
+		enclosingInstantiation = 0; // ignore dependent expressions in mem-initializer-id
+		enclosingDependentConstructs = 0;
 	}
 	void action(cpp::terminal<boost::wave::T_COLON_COLON> symbol)
 	{

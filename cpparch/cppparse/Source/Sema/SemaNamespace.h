@@ -6,7 +6,7 @@
 #include "SemaIdExpression.h"
 #include "SemaNamespaceName.h"
 
-struct SemaUsingDeclaration : public SemaQualified
+struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 {
 	SEMA_BOILERPLATE;
 
@@ -32,7 +32,7 @@ struct SemaUsingDeclaration : public SemaQualified
 			? gUniqueTypeNull
 			: getUniqueType(*qualifying_p);
 
-		LookupResultRef declaration = isTypename ? gDependentTypeInstance : gDependentObjectInstance;
+		LookupResultRef existingDeclaration = isTypename ? gDependentTypeInstance : gDependentObjectInstance;
 
 		// [namespace.udecl]
 		// If a using-declaration uses the keyword typename and specifies a dependent name, the name introduced
@@ -43,25 +43,25 @@ struct SemaUsingDeclaration : public SemaQualified
 		if(!isTypename
 			&& !isDependentOld(qualifying_p))
 		{
-			declaration = walker.declaration;
-			if(declaration == &gUndeclared
-				|| !(isObject(*declaration) || isTypeName(*declaration)))
+			existingDeclaration = walker.declaration;
+			if(existingDeclaration == &gUndeclared
+				|| !(isObject(*existingDeclaration) || isTypeName(*existingDeclaration)))
 			{
-				return reportIdentifierMismatch(symbol, *walker.id, declaration, "object-name or type-name");
+				return reportIdentifierMismatch(symbol, *walker.id, existingDeclaration, "object-name or type-name");
 			}
 
-			isType = isTypeName(*declaration);
-			isTemplate = isTemplateName(*declaration);
+			isType = isTypeName(*existingDeclaration);
+			isTemplate = isTemplateName(*existingDeclaration);
 		}
 		else
 		{
 			SYMBOLS_ASSERT(qualifyingType != gUniqueTypeNull); // TODO: non-fatal error: cannot use 'typename' with a member of a namespace
 		}
 
-		Declaration* usingDeclaration = declareUsing(enclosingScope, walker.id, qualifyingType, declaration, isType, isTemplate);
+		declaration = declareUsing(enclosingScope, walker.id, qualifyingType, existingDeclaration, isType, isTemplate);
 		if(qualifying_p != TypePtr(0))
 		{
-			addDependent(usingDeclaration->type.dependent, qualifying_p->dependent);
+			addDependent(declaration->type.dependent, qualifying_p->dependent);
 		}
 
 		return true;

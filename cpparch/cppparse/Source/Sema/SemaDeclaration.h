@@ -150,7 +150,9 @@ struct SemaDeclarationSuffix : public SemaBase
 			SEMANTIC_ASSERT(walker.qualifying.isSimple());
 			enclosingType = &getSimpleType(walker.qualifying.value);
 			enclosingDependent = walker.enclosingDependent; // not using addDependent, workaround for issue when 'enclosing' is not (yet) referring to qualifying class in declarator 'S<T>::f()'
+
 			enclosingInstantiation = enclosingType->declaration; // any dependent types/expressions in the member definition should be appended
+			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		}
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 
@@ -199,6 +201,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		commit();
 
 		enclosingInstantiation = declaration; // for dependent constructs in the member initializer
+		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTPAREN> symbol) // begins initializer_parenthesis
 	{
@@ -223,6 +226,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		}
 
 		enclosingInstantiation = declaration; // any dependent expressions in the function definition should be appended
+		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 
 		// NOTE: we must ensure that symbol-table modifications within the scope of this function are undone on parse fail
 		pushScope(newScope(enclosingScope->getUniqueName(), SCOPETYPE_LOCAL));

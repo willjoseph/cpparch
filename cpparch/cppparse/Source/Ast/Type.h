@@ -599,8 +599,8 @@ inline bool operator<(const DependentTypename& left, const DependentTypename& ri
 // Evaluation is deferred until the enclosing template is instantiated.
 struct DependentNonType
 {
-	UniqueExpression expression;
-	DependentNonType(UniqueExpression expression)
+	ExpressionWrapper expression;
+	explicit DependentNonType(const ExpressionWrapper& expression)
 		: expression(expression)
 	{
 	}
@@ -608,7 +608,7 @@ struct DependentNonType
 
 inline bool operator<(const DependentNonType& left, const DependentNonType& right)
 {
-	return left.expression < right.expression;
+	return left.expression.p < right.expression.p;
 }
 
 // ----------------------------------------------------------------------------
@@ -617,7 +617,7 @@ inline bool operator<(const DependentNonType& left, const DependentNonType& righ
 struct DependentDecltype
 {
 	ExpressionWrapper expression;
-	DependentDecltype(ExpressionWrapper expression)
+	explicit DependentDecltype(const ExpressionWrapper& expression)
 		: expression(expression)
 	{
 	}
@@ -749,8 +749,8 @@ inline const ArrayType& getArrayType(UniqueType type)
 // Can be combined with other types to form T[expr]
 struct DependentArrayType
 {
-	UniqueExpression expression;
-	DependentArrayType(UniqueExpression expression)
+	ExpressionWrapper expression;
+	explicit DependentArrayType(const ExpressionWrapper& expression)
 		: expression(expression)
 	{
 	}

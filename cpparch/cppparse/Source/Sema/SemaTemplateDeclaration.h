@@ -138,7 +138,9 @@ struct SemaTemplateParameterClause : public SemaBase, SemaTemplateParameterClaus
 		clearTemplateParams();
 		enclosingScope->templateDepth = templateDepth;
 		enclosingDeferred = 0; // don't defer parse of default-argument for non-type template-parameter
+
 		enclosingInstantiation = 0; // ignore dependent constructs in template parameter list
+		enclosingDependentConstructs = 0;
 	}
 	SEMA_POLICY_ARGS(cpp::template_parameter_list, SemaPolicyPushIndexCommit<struct SemaTemplateParameterList>, 0)
 	void action(cpp::template_parameter_list* symbol, const SemaTemplateParameterList& walker)

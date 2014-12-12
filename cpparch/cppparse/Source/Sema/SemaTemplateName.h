@@ -44,6 +44,7 @@ struct SemaTemplateArgumentList : public SemaBase
 		argument.expression = walker.expression;
 		argument.source = getLocation();
 		SEMANTIC_ASSERT(isDependentOld(argument.valueDependent) || argument.expression.isConstant);
+		addDeferredExpression(argument.expression);
 		return true;
 	}
 	SEMA_POLICY(cpp::template_argument_list, SemaPolicyPushCommit<struct SemaTemplateArgumentList>)

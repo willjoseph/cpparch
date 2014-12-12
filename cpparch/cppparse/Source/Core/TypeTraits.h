@@ -71,6 +71,11 @@ inline bool isConvertibleTo(UniqueTypeWrapper from, UniqueTypeWrapper to, const 
 	return getIcsRank(to, from, context, false, from.isReference()) != ICSRANK_INVALID;
 }
 
+inline bool isInstantiated(UniqueTypeWrapper type, const InstantiationContext& context)
+{
+	return !isClass(type) ? true : getSimpleType(type.value).instantiated;
+}
+
 
 inline UnaryTypeTraitsOp getUnaryTypeTraitsOp(cpp::typetraits_unary* symbol)
 {
@@ -91,6 +96,7 @@ inline UnaryTypeTraitsOp getUnaryTypeTraitsOp(cpp::typetraits_unary* symbol)
 	case cpp::typetraits_unary::IS_POD: return isPod;
 	case cpp::typetraits_unary::IS_POLYMORPHIC: return isPolymorphic;
 	case cpp::typetraits_unary::IS_UNION: return isUnion;
+	case cpp::typetraits_unary::IS_INSTANTIATED: return isInstantiated;
 	default: break;
 	}
 	throw SymbolsError();

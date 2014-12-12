@@ -393,18 +393,19 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 		instance.bases.reserve(std::distance(bases.begin(), bases.end()));
 		for(Types::const_iterator i = bases.begin(); i != bases.end(); ++i)
 		{
+			const Type& base = *i;
 			// TODO: check compliance: the point of instantiation of a base is the point of declaration of the enclosing (template) class
 			// .. along with the point of instantiation of types required when naming the base type. e.g. struct C : A<T>::B {}; struct C : B<A<T>::value> {};
 			InstantiationContext baseContext = InstantiationContext(original.instantiation, &instance, 0, context.enclosingScope);
-			UniqueTypeId base = getUniqueType(*i, baseContext, allowDependent);
-			SYMBOLS_ASSERT((*i).unique != 0);
-			SYMBOLS_ASSERT((*i).isDependent || base.value == (*i).unique);
-			if(allowDependent && (*i).isDependent)
+			UniqueTypeId type = getUniqueType(base, baseContext, allowDependent);
+			SYMBOLS_ASSERT(base.unique != 0);
+			SYMBOLS_ASSERT(base.isDependent || type.value == base.unique);
+			if(allowDependent && base.isDependent)
 			{
 				// this occurs during 'instantiation' of a template class definition, in which case we postpone instantiation of this dependent base
 				continue;
 			}
-			instance.layout = addMember(instance.layout, addBase(instance, base, baseContext));
+			instance.layout = addMember(instance.layout, addBase(instance, type, baseContext));
 		}
 		instance.allowLookup = true; // prevent searching bases during lookup within incomplete instantiation
 		if(!allowDependent)

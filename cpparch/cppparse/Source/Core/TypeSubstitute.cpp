@@ -37,7 +37,7 @@ inline UniqueTypeWrapper substitute(Declaration* declaration, const SimpleType* 
 			{
 				throw TooFewTemplateArgumentsError(context.source);
 			}
-			UniqueTypeWrapper argument = makeUniqueTemplateArgument(*i, setEnclosingTypeSafe(context, &result), isDependent(result)); // evaluate template-parameter defaults in the context of the owning template
+			UniqueTypeWrapper argument = makeUniqueTemplateArgument(*i, setEnclosingTypeSafe(context, &result), isDependent(result), true); // evaluate template-parameter defaults in the context of the owning template
 			UniqueTypeWrapper substituted = substitute(argument, setEnclosingTypeSafe(context, &result)); // substitute template-parameter defaults in the context of the owning template
 			result.templateArguments.push_back(substituted); // handles when template-param-default depends on a template param that was also defaulted
 		}

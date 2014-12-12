@@ -1447,6 +1447,7 @@ namespace cpp
 			IS_STANDARD_LAYOUT,
 			IS_LITERAL_TYPE,
 			UNDERLYING_TYPE,
+			IS_INSTANTIATED,
 		} id;
 		terminal_choice2 value;
 		FOREACH1(value);

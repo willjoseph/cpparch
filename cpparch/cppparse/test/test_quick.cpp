@@ -4321,21 +4321,6 @@ namespace N84
 	};
 }
 
-namespace N81
-{
-	template<typename T>
-	struct Bool
-	{
-		enum { value = false };
-	};
-
-	struct S
-	{
-		template<bool b = Bool<int>::value> // default template-argument parse should not be deferred - should be parsed immediately
-		class M;
-	};
-}
-
 namespace N82
 {
 	void f()

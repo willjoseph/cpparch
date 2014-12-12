@@ -1,4 +1,209 @@
 
+namespace N486 // test parse of member-initializer containing dependent expression
+{
+	template<bool b>
+	struct B
+	{
+	};
+
+	template<bool b>
+	struct A : B<b>
+	{
+		A() : B<b>()
+		{
+		}
+	};
+}
+
+namespace N81 // test parse of template declaration with template-parameter-clause containing default-argument
+{
+	template<typename T>
+	struct Bool
+	{
+		enum { value = false };
+	};
+
+	struct S
+	{
+		template<bool b = Bool<int>::value> // default template-argument parse should not be deferred - should be parsed immediately
+		class M;
+	};
+}
+
+
+namespace N485 // test instantiation of template parameter when used in double sizeof within function-style cast within member declaration
+{
+	template<int>
+	struct I
+	{
+		typedef int Type;
+		static const int value = 0;
+	};
+	template<typename T>
+	struct A
+	{
+		typedef int Type;
+		int m[typename I<sizeof(sizeof(T))>::Type(0)];
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	typedef B<int> T;
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N484 // test instantiation of template parameter when used in double sizeof within member declaration
+{
+	template<int>
+	struct I
+	{
+	};
+	template<typename T>
+	struct A
+	{
+		typedef I<sizeof(sizeof(T))> Type;
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	typedef B<int> T;
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N483 // test instantiation of template parameter when used in double sizeof within member declaration
+{
+	template<typename T>
+	struct A
+	{
+		typedef int Type;
+		static int m[sizeof(sizeof(T))];
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	typedef B<int> T;
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+
+namespace N478 // test instantiation of class containing member template function with non-type template-parameter and dependent return-type
+{
+	template<typename T>
+	struct A
+	{
+		template<int N>
+		struct B
+		{
+			typedef int type;
+		};
+		template<int N>
+		typename B<N>::type& get();
+	};
+
+	typedef A<int>::B<0>::type type;
+}
+
+namespace N481 // test instantiation of template parameter when used in sizeof within member declaration
+{
+	template<typename T>
+	struct A
+	{
+		static int m[sizeof(T)];
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	typedef B<int> T;
+	static_assert(!__is_instantiated(T), "");
+	int i = A<T>::m[0];
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N480 // test instantiation of template parameter when used in member typedef
+{
+	template<typename T>
+	struct A
+	{
+		typedef typename T::Type Type;
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	typedef B<int> T;
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N482 // test instantiation of template parameter when NOT used in member typedef
+{
+	template<typename T>
+	struct A
+	{
+		typedef int Type;
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	typedef B<int> T;
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(!__is_instantiated(T), "");
+}
+
+namespace N479
+{
+	struct A
+	{
+	};
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+	static_assert(__is_instantiated(int), "");
+	static_assert(__is_instantiated(A), "");
+	static_assert(!__is_instantiated(B<int>), "");
+	typedef B<int>::Type Type;
+	static_assert(__is_instantiated(B<int>), "");
+}
+
+namespace N474 // test substitution of dependent member types when class template is implicitly instantiated
+{
+	template<typename T>
+	struct A
+	{
+		typedef T Type; // typedef
+		T m; // non-static data member
+		static T sm; // static data member 
+		T mf(); // non-static member function
+		static T smf(); // non-static member function
+		template<typename U>
+		T tmf(U); // member template function
+		int bm : sizeof(T); // bitfield
+	};
+
+	typedef A<int>::Type Type;
+}
+
 #if 0 // TODO: C++11: explicit specialization of enum
 namespace N477 // test parse of explicit specialization
 {
@@ -16,20 +221,6 @@ namespace N477 // test parse of explicit specialization
 }
 #endif
 
-namespace TEST
-{
-	template<typename T>
-	struct Bool
-	{
-		enum { value = false };
-	};
-
-	struct S
-	{
-		template<bool b = Bool<int>::value> // default template-argument parse should not be deferred - should be parsed immediately
-		class M;
-	};
-}
 
 namespace N476 // test that template default-argument is not substituted unless used
 {
@@ -56,23 +247,6 @@ namespace N475 // test parse of qualified template-id containing type name
 	{
 		void f(M::A<T[N]>); // TODO: causes unnecessary backtrack?
 	};
-}
-
-namespace N474 // test substitution of dependent member types when class template is implicitly instantiated
-{
-	template<typename T>
-	struct A
-	{
-		typedef T Type; // typedef
-		T m; // non-static data member
-		static T sm; // static data member 
-		T mf(); // non-static member function
-		static T smf(); // non-static member function
-		template<typename U>
-		T tmf(U); // member template function
-	};
-
-	typedef A<int>::Type Type;
 }
 
 namespace N473 // test using-declaration naming function found via ADL

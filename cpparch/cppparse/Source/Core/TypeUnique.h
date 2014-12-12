@@ -42,7 +42,7 @@ inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const
 }
 
 
-inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argument, const InstantiationContext& context, bool allowDependent)
+inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argument, const InstantiationContext& context, bool allowDependent, bool allowSubstitution = false)
 {
 	SYMBOLS_ASSERT(argument.type.declaration != 0);
 	extern Declaration gNonType;
@@ -58,7 +58,7 @@ inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argu
 		return pushType(gUniqueTypeNull, NonType(result.value));
 	}
 
-	return getUniqueTypeImpl(argument.type, context, allowDependent && argument.type.isDependent, true);
+	return getUniqueTypeImpl(argument.type, context, allowDependent && argument.type.isDependent, allowSubstitution);
 }
 
 
@@ -87,14 +87,21 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 		}
 		else
 		{
-			UniqueExpression expression = makeUniqueExpression(NonTypeTemplateParameter(argument.declaration, getUniqueType(argument.declaration->type)));
+			UniqueTypeWrapper type = getUniqueType(argument.declaration->type);
+
+			ExpressionWrapper expression = ExpressionWrapper(makeUniqueExpression(NonTypeTemplateParameter(argument.declaration, type)), isDependent(type), true);
+			expression.isUnique = true;
+			if(!expression.isTypeDependent)
+			{
+				expression.type = ExpressionType(substitute(type, context), false); // non-lvalue
+			}
 			if(allowDependent)
 			{
 				result = pushType(gUniqueTypeNull, DependentNonType(expression));
 			}
 			else
 			{
-				ExpressionValue value = evaluateExpressionImpl(expression, context);
+				ExpressionValue value = evaluateExpression(expression, context);
 				SYMBOLS_ASSERT(value.isConstant);
 				result = pushType(gUniqueTypeNull, NonType(value.value));
 			}
@@ -262,7 +269,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 				const TemplateArgument& argument = isTemplateParamDefault ? (*i) : (*a++);
 				SYMBOLS_ASSERT(argument.type.declaration != 0); // TODO: non-fatal error: not enough template arguments!
 				const SimpleType* enclosing = isTemplateParamDefault ? &tmp : context.enclosingType; // resolve dependent template-parameter-defaults in context of template class
-				UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, InstantiationContext(argument.source, enclosing, 0, context.enclosingScope), allowDependent);
+				UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, InstantiationContext(argument.source, enclosing, 0, context.enclosingScope), allowDependent, true);
 				tmp.templateArguments.push_back(result);
 			}
 			SYMBOLS_ASSERT(allowDependent || !tmp.templateArguments.empty()); // dependent types may have no arguments
