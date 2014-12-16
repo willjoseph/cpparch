@@ -1424,6 +1424,11 @@ inline ExpressionType typeOfExpression(const DependentIdExpression& node, const 
 		return gNullExpressionType; // do not evaluate the type!
 	}
 	const IdExpression expression = substituteIdExpression(node, context);
+	if(isOverloadedFunctionIdExpression(expression, context))
+	{
+		// can't evaluate id-expression within function-call-expression
+		return gOverloadedExpressionType; // do not evaluate the type!
+	}
 	ExpressionType result = typeOfIdExpression(expression.qualifying, expression.declaration, expression.templateArguments, expression.isQualified, context);
 	SYMBOLS_ASSERT(!isDependent(result));
 

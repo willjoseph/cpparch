@@ -951,9 +951,10 @@ struct SemaState
 			}
 
 			if(instance->isTemplateName
+				&& !isUsing(declaration) // TODO: correctly interpret name as name of template when it is overloaded by a using-declaration
 				&& isFunction(declaration))
 			{
-				// quick hack - if any template overload of a function has been declared, all subsequent declarations are template names
+				// quick hack - if any template overload of a function has been declared, all subsequent overloads are template names
 				declaration.isTemplateName = true;
 			}
 
