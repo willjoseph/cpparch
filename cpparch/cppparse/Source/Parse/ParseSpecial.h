@@ -830,7 +830,6 @@ inline cpp::typetraits_unary* parseSymbol(ParserGeneric<SemaT>& parser, cpp::typ
 	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_IS_STANDARD_LAYOUT, cpp::typetraits_unary::IS_STANDARD_LAYOUT);
 	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_IS_LITERAL_TYPE, cpp::typetraits_unary::IS_LITERAL_TYPE);
 	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_UNDERLYING_TYPE, cpp::typetraits_unary::UNDERLYING_TYPE);
-	PARSE_SELECT_TOKEN(parser, result, boost::wave::T_IS_INSTANTIATED, cpp::typetraits_unary::IS_INSTANTIATED);
 	return result;
 }
 

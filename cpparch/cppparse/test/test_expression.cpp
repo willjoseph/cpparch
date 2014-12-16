@@ -290,7 +290,6 @@ namespace N479 // test is-instantiated
 	struct A
 	{
 	};
-	static_assert(__is_instantiated(int), "");
 	static_assert(__is_instantiated(A), "");
 }
 

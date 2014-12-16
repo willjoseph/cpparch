@@ -96,7 +96,6 @@ inline UnaryTypeTraitsOp getUnaryTypeTraitsOp(cpp::typetraits_unary* symbol)
 	case cpp::typetraits_unary::IS_POD: return isPod;
 	case cpp::typetraits_unary::IS_POLYMORPHIC: return isPolymorphic;
 	case cpp::typetraits_unary::IS_UNION: return isUnion;
-	case cpp::typetraits_unary::IS_INSTANTIATED: return isInstantiated;
 	default: break;
 	}
 	throw SymbolsError();

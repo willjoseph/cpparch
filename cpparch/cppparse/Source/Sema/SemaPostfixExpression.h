@@ -160,6 +160,41 @@ struct SemaOffsetof : public SemaBase
 	}
 };
 
+struct SemaIsInstantiated : public SemaBase
+{
+	SEMA_BOILERPLATE;
+
+	IntegralConstant value;
+	SemaIsInstantiated(const SemaState& state)
+		: SemaBase(state)
+	{
+	}
+	void action(cpp::terminal<boost::wave::T_LEFTPAREN> symbol)
+	{
+		// debugging
+	}
+	SEMA_POLICY(cpp::simple_type_specifier_name, SemaPolicyPush<struct SemaTypeSpecifier>)
+	void action(cpp::simple_type_specifier_name* symbol, const SemaTypeSpecifierResult& walker)
+	{
+		if(walker.type.declaration == 0)
+		{
+			value.value = true;
+			return; // fundamental type
+		}
+		Type type = walker.type;
+		makeUniqueTypeSafe(type);
+		SEMANTIC_ASSERT(!type.isDependent);
+		value.value = isInstantiated(getUniqueType(type), getInstantiationContext());
+	}
+	SEMA_POLICY(cpp::id_expression, SemaPolicyPushCommit<struct SemaIdExpression>)
+	void action(cpp::id_expression* symbol, SemaIdExpression& walker)
+	{
+		SEMANTIC_ASSERT(isIdExpression(walker.expression));
+		SEMANTIC_ASSERT(!walker.expression.isDependent);
+		value.value = false; // TODO
+	}
+};
+
 struct SemaPostfixExpression : public SemaBase
 {
 	SEMA_BOILERPLATE;
@@ -403,6 +438,11 @@ struct SemaPostfixExpression : public SemaBase
 		addDependent(valueDependent, walker.valueDependent);
 		bool isValueDependent = isDependentOld(valueDependent);
 		expression = makeExpression(OffsetofExpression(walker.type, walker.member), isValueDependent, false, isValueDependent);
+	}
+	SEMA_POLICY(cpp::postfix_expression_isinstantiated, SemaPolicyPush<struct SemaIsInstantiated>)
+	void action(cpp::postfix_expression_isinstantiated* symbol, const SemaIsInstantiated& walker)
+	{
+		expression = makeConstantExpression(IntegralConstantExpression(ExpressionType(gBool, false), walker.value));
 	}
 };
 

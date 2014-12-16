@@ -545,7 +545,7 @@ namespace cpp
 	struct postfix_expression_prefix : choice<postfix_expression_prefix>
 	{
 		typedef TYPELIST1(postfix_expression) Bases;
-		VISITABLE_BASE(TYPELIST8(
+		VISITABLE_BASE(TYPELIST9(
 			SYMBOLFWD(primary_expression),
 			SYMBOLFWD(postfix_expression_construct),
 			SYMBOLFWD(postfix_expression_cast),
@@ -553,7 +553,8 @@ namespace cpp
 			SYMBOLFWD(postfix_expression_typeidtype),
 			SYMBOLFWD(postfix_expression_typetraits_unary),
 			SYMBOLFWD(postfix_expression_typetraits_binary),
-			SYMBOLFWD(postfix_expression_offsetof)
+			SYMBOLFWD(postfix_expression_offsetof),
+			SYMBOLFWD(postfix_expression_isinstantiated)
 		));
 	};
 
@@ -568,9 +569,17 @@ namespace cpp
 		));
 	};
 
+	struct instantiated_id : choice<instantiated_id>
+	{
+		VISITABLE_BASE(TYPELIST2(
+			SYMBOLFWD(simple_type_specifier_name),
+			SYMBOLFWD(id_expression)
+			));
+	};
+
 	struct id_expression : choice<id_expression>
 	{
-		typedef TYPELIST2(declarator_id, primary_expression) Bases;
+		typedef TYPELIST3(declarator_id, primary_expression, instantiated_id) Bases;
 		VISITABLE_BASE(TYPELIST2(
 			SYMBOLFWD(qualified_id), // TODO: shared prefix ambiguity: 'identifier' vs 'nested-name-specifier'
 			SYMBOLFWD(unqualified_id)
@@ -1447,7 +1456,6 @@ namespace cpp
 			IS_STANDARD_LAYOUT,
 			IS_LITERAL_TYPE,
 			UNDERLYING_TYPE,
-			IS_INSTANTIATED,
 		} id;
 		terminal_choice2 value;
 		FOREACH1(value);
@@ -1497,6 +1505,16 @@ namespace cpp
 		symbol_required<id_expression> member;
 		terminal<boost::wave::T_RIGHTPAREN> rp;
 		FOREACH6(key, lp, type, comma, member, rp);
+	};
+
+	struct postfix_expression_isinstantiated
+	{
+		typedef TYPELIST1(postfix_expression_prefix) Bases;
+		terminal<boost::wave::T_IS_INSTANTIATED> key;
+		terminal<boost::wave::T_LEFTPAREN> lp;
+		symbol_required<instantiated_id> id;
+		terminal<boost::wave::T_RIGHTPAREN> rp;
+		FOREACH4(key, lp, id, rp);
 	};
 
 
@@ -2564,7 +2582,7 @@ namespace cpp
 
 	struct simple_type_specifier_name
 	{
-		typedef TYPELIST1(simple_type_specifier) Bases;
+		typedef TYPELIST2(simple_type_specifier, instantiated_id) Bases;
 		terminal_optional<boost::wave::T_COLON_COLON> isGlobal;
 		symbol_optional<nested_name_specifier> context;
 		symbol_required<type_name> id;
