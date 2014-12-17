@@ -1501,6 +1501,11 @@ struct SemaBase : public SemaState
 			}
 		}
 
+		if(!result.isDependent)
+		{
+			instantiateExpression(node, getInstantiationContext());
+		}
+
 		return result;
 	}
 

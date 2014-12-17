@@ -1,5 +1,52 @@
 
 
+namespace N494
+{
+	struct A
+	{
+		static int m;
+	};
+	static_assert(!__is_instantiated(A::m), "");
+	int i = A::m;
+	static_assert(__is_instantiated(A::m), "");
+}
+
+namespace N496
+{
+	template<typename T>
+	struct A
+	{
+		static const T m;
+	};
+
+	template<typename T>
+	const T A<T>::m = 0;
+
+	static_assert(!__is_instantiated(A<int>::m), "");
+	int i = A<int>::m;
+	static_assert(__is_instantiated(A<int>::m), "");
+}
+
+#if 0
+namespace N495
+{
+	template<typename T>
+	struct A
+	{
+		static const T m = 0;
+		static const T n;
+		typedef int Type;
+	};
+
+	template<typename T>
+	const T A<T>::n = T::dependent;
+
+	typedef A<int>::Type Type;
+	static_assert(__is_instantiated(A<int>::m), "");
+	static_assert(!__is_instantiated(A<int>::n), "");
+}
+#endif
+
 namespace N493 // test instantiation of template parameter used in qualified name lookup within member anonymous union definition
 {
 	template<typename T>

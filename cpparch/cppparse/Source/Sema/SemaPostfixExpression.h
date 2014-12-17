@@ -186,12 +186,25 @@ struct SemaIsInstantiated : public SemaBase
 		SEMANTIC_ASSERT(!type.isDependent);
 		value.value = isInstantiated(getUniqueType(type), getInstantiationContext());
 	}
-	SEMA_POLICY(cpp::id_expression, SemaPolicyPushCommit<struct SemaIdExpression>)
+	SEMA_POLICY(cpp::id_expression, SemaPolicyPush<struct SemaIdExpression>)
 	void action(cpp::id_expression* symbol, SemaIdExpression& walker)
 	{
-		SEMANTIC_ASSERT(isIdExpression(walker.expression));
-		SEMANTIC_ASSERT(!walker.expression.isDependent);
-		value.value = false; // TODO
+		SEMANTIC_ASSERT(!isDependentOld(walker.typeDependent));
+		SEMANTIC_ASSERT(!isDependentOld(walker.valueDependent));
+
+		const InstantiationContext& context = getInstantiationContext();
+
+		UniqueTypeWrapper qualifyingType = makeUniqueQualifying(walker.qualifying, context);
+		const SimpleType* qualifying = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
+		TemplateArgumentsInstance templateArguments;
+		makeUniqueTemplateArguments(walker.arguments, templateArguments, context);
+
+		SEMANTIC_ASSERT(!isOverloadedFunction(walker.declaration, qualifying, context)); // TODO: non-fatal error: only non-overloaded functions supported
+
+		QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifying, walker.declaration), context);
+		const SimpleType* idEnclosing = getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
+		const SimpleType& uniqueObject = makeUniqueObject(qualified.declaration, idEnclosing, templateArguments);
+		value.value = uniqueObject.instantiated;
 	}
 };
 

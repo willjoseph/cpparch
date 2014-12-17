@@ -780,6 +780,50 @@ inline ExpressionType typeOfNonStaticClassMemberAccessExpression(ExpressionType 
 	return result;
 }
 
+
+typedef SimpleType Object;
+
+inline const Object& makeUniqueObject(Declaration* declaration, const SimpleType* memberEnclosing, const TemplateArgumentsInstance& templateArguments)
+{
+	SYMBOLS_ASSERT(memberEnclosing == 0 || declaration->scope == memberEnclosing->declaration->enclosed);
+	SimpleType object = SimpleType(declaration, memberEnclosing);
+	object.templateArguments = templateArguments;
+	return getSimpleType(makeUniqueSimpleType(object).value);
+}
+
+inline void instantiateObject(const Object& uniqueObject, const InstantiationContext& context)
+{
+	if(!uniqueObject.instantiated)
+	{
+		const_cast<Object*>(&uniqueObject)->instantiated = true; // TODO: instantiate
+	}
+}
+
+template<typename T>
+inline void instantiateExpression(const T& node, const InstantiationContext& context)
+{
+}
+
+inline void instantiateExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	if(isOverloadedFunctionIdExpression(node, context))
+	{
+		return; // can't evaluate id-expression within function-call-expression
+	}
+
+	if(node.declaration == gDestructorInstance.p
+		|| node.declaration == gCopyAssignmentOperatorInstance.p)
+	{
+		return;
+	}
+
+	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(node.qualifying, node.declaration), context);
+	const SimpleType* idEnclosing = getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
+	const Object& uniqueObject = makeUniqueObject(qualified.declaration, idEnclosing, node.templateArguments);
+	instantiateObject(uniqueObject, context);
+}
+
+
 inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const DeclarationInstance& declaration, const TemplateArgumentsInstance& templateArguments, bool isQualified, const InstantiationContext& context)
 {
 	if(declaration == gDestructorInstance.p)
@@ -1979,6 +2023,7 @@ inline SubstitutedExpression substituteExpression(const DependentIdExpression& n
 
 inline SubstitutedExpression substituteExpression(const IdExpression& node, const InstantiationContext& context)
 {
+	instantiateExpression(node, context);
 	return SubstitutedExpression();
 }
 
