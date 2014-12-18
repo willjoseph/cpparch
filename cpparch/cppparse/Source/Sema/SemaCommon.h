@@ -482,6 +482,14 @@ inline bool isEquivalentTemplateParameters(const TemplateParameters& left, const
 	return true;
 }
 
+// returns true if both declarations refer to the same explicit specialization of a class member
+inline bool isEquivalentMemberSpecialization(const Declaration& declaration, const Declaration& other)
+{
+	SYMBOLS_ASSERT(declaration.isSpecialization && other.isSpecialization);
+	SYMBOLS_ASSERT(declaration.enclosingType != 0 && other.enclosingType != 0);
+	return declaration.enclosingType == other.enclosingType; // return true if both are members of the same unique class
+}
+
 inline bool isEquivalent(const Declaration& declaration, const Declaration& other)
 {
 	if(isClass(declaration)
@@ -529,7 +537,10 @@ inline bool isEquivalent(const Declaration& declaration, const Declaration& othe
 				// (only template overloads may differ in return type, return-type is not used to distinguish overloads, except for conversion-function)
 				: isEquivalent(getParameterTypes(l.value), getParameterTypes(r.value))); // and parameter-types match
 		}
-		return true; // redeclaring an object (cannot be overloaded)
+		// redeclaring an object, unless this is a new explicit specialization
+		return isSpecialization(declaration) == isSpecialization(other)
+			&& (!isSpecialization(declaration) // both are not explicit/partial specializations
+			|| isEquivalentMemberSpecialization(declaration, other)); // both are specializations and have matching arguments
 	}
 	return false;
 }
@@ -894,10 +905,14 @@ struct SemaState
 		SEMANTIC_ASSERT(templateParameter == INDEX_INVALID || ::isTemplate(*parent));
 		SEMANTIC_ASSERT(isTemplate || params.empty());
 		SEMANTIC_ASSERT(isClassKey(*type.declaration) || !hasTemplateParamDefaults(params)); // 14.1-9: a default template-arguments may be specified in a class template declaration/definition (not for a function or class-member)
-		SEMANTIC_ASSERT(!isSpecialization || isTemplate); // only a template can be a specialization
+		SEMANTIC_ASSERT(!isClassKey(*type.declaration) || !isSpecialization || isTemplate); // if this is a class, only a template can be a specialization
 		SEMANTIC_ASSERT(!isTemplate || isSpecialization || !params.empty()); // only a specialization may have an empty template parameter clause <>
 		SEMANTIC_ASSERT(type.unique != 0 || isType || type.declaration == &gNamespace || type.declaration == &gUsing || type.declaration == &gEnumerator);
-
+		if(parent != 0
+			&& parent->type == SCOPETYPE_CLASS) // if this is a class member
+		{
+			SEMANTIC_ASSERT(enclosingType != 0);
+		}
 		context.parserContext.allocator.deferredBacktrack(); // flush cached parse-tree
 
 		static size_t uniqueId = 0;
@@ -912,6 +927,7 @@ struct SemaState
 				|| type.declaration == &gEnum));
 
 		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
+		declaration.enclosingType = enclosingType;
 		declaration.isFunction = type.unique != 0 && getUniqueType(type).isFunction();
 		SEMANTIC_ASSERT(!isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
 		declaration.location = getLocation();
@@ -1637,9 +1653,8 @@ struct SemaBase : public SemaState
 		}
 	}
 
-	Declaration* declareObject(Scope* originalParent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor)
+	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor, bool isExplicitSpecialization)
 	{
-		Scope* parent = originalParent;
 		// [namespace.memdef]
 		// Every name first declared in a namespace is a member of that namespace. If a friend declaration in a non-local class
 		// first declares a class or function (this implies that the name of the class or function is unqualified) the friend
@@ -1653,7 +1668,6 @@ struct SemaBase : public SemaState
 		}
 
 		bool isTemplate = templateParams != 0;
-		bool isExplicitSpecialization = isTemplate && templateParams->empty();
 		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, specifiers.isTypedef, specifiers, isTemplate, getTemplateParams(), isExplicitSpecialization, TEMPLATEARGUMENTS_NULL, templateParameter, valueDependent); // 3.3.1.1
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
@@ -1665,7 +1679,8 @@ struct SemaBase : public SemaState
 
 		declaration->isDestructor = isDestructor;
 
-		if(declaration->templateParamScope == 0)
+		if(isTemplate
+			&& declaration->templateParamScope == 0)
 		{
 			declaration->templateParamScope = templateParamScope; // required by findEnclosingType
 		}

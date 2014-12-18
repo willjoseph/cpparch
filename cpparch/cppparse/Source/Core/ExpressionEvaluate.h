@@ -793,9 +793,16 @@ inline const Object& makeUniqueObject(Declaration* declaration, const SimpleType
 
 inline void instantiateObject(const Object& uniqueObject, const InstantiationContext& context)
 {
-	if(!uniqueObject.instantiated)
+	if(isFunction(*uniqueObject.declaration))
 	{
-		const_cast<Object*>(&uniqueObject)->instantiated = true; // TODO: instantiate
+		if(!uniqueObject.instantiated)
+		{
+			const_cast<Object*>(&uniqueObject)->instantiated = true; // TODO: instantiate
+		}
+	}
+	else
+	{
+		instantiateClass(uniqueObject, context);
 	}
 }
 

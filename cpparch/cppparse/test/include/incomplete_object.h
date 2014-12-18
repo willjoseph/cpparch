@@ -3,7 +3,7 @@
 
 struct S;
 struct U;
-namespace Object
+namespace IncompleteObject
 {
 	// [basic.types] objects shall not be defined to have an incomplete type
 	S s; // defines an object with type 'S'

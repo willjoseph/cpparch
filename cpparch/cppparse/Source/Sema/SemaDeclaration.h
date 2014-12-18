@@ -64,6 +64,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	cpp::default_argument* defaultArgument; // parsing of this symbol will be deferred if this is a member-declaration
 	bool isConversionFunction;
 	bool isDestructor;
+	bool isExplicitSpecialization;
 	CvQualifiers conversionFunctionQualifiers;
 
 
@@ -77,7 +78,8 @@ struct SemaDeclarationSuffix : public SemaBase
 		defaultArgument(0),
 		enclosed(0),
 		isConversionFunction(false),
-		isDestructor(false)
+		isDestructor(false),
+		isExplicitSpecialization(false)
 	{
 		*static_cast<Type*>(&type) = seq.type;
 		type.qualifiers = seq.qualifiers;
@@ -109,7 +111,7 @@ struct SemaDeclarationSuffix : public SemaBase
 				templateParamScope->parent = parent;
 				enclosed = templateParamScope; // for a static-member-variable definition, store template-params with different names than those in the class definition
 			}
-			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent, isDestructor);
+			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent, isDestructor, isExplicitSpecialization);
 
 			enclosingScope = parent;
 
@@ -166,6 +168,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		}
 
 		isDestructor = walker.isDestructor;
+		isExplicitSpecialization = walker.isExplicitSpecialization;
 	}
 	SEMA_POLICY(cpp::abstract_declarator, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::abstract_declarator* symbol, const SemaDeclarator& walker)
@@ -200,8 +203,12 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		commit();
 
-		enclosingInstantiation = declaration; // for dependent constructs in the member initializer
-		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
+		if(isMember(*declaration) // if this is the initializer in a class member declaration
+			|| isFunctionParameter(*declaration)) // or this is the initializer in a function parameter declaration (e.g. a default-argument)
+		{
+			enclosingInstantiation = declaration; // for dependent constructs in the initializer
+			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
+		}
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTPAREN> symbol) // begins initializer_parenthesis
 	{
@@ -287,6 +294,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	void action(cpp::initializer_clause* symbol, const SemaInitializer& walker) // initializer_default
 	{
 		SEMANTIC_ASSERT(declaration != 0);
+		SEMANTIC_ASSERT(declaration->initializer.p == 0); // declaration can't have two initializers
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
 		if(walker.count != 0

@@ -189,11 +189,6 @@ inline bool isObjectDefinition(const Declaration& declaration)
 		&& !isStaticMember(declaration);
 }
 
-inline bool isFunctionParameter(const Declaration& declaration)
-{
-	return declaration.scope != 0 && declaration.scope->type == SCOPETYPE_FUNCTION;
-}
-
 struct DependencyBuilder
 {
 	ModuleDependencyMap& moduleDependencies;

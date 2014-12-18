@@ -318,7 +318,9 @@ inline bool hasCopyAssignmentOperator(const SimpleType& classType, const Instant
 TypeLayout instantiateClass(const SimpleType& instanceConst, const InstantiationContext& context, bool allowDependent)
 {
 	SimpleType& instance = const_cast<SimpleType&>(instanceConst);
+#if 0 // allow non-class
 	SYMBOLS_ASSERT(isClass(*instance.declaration));
+#endif
 
 	if(context.enclosingType != 0)
 	{
@@ -356,7 +358,8 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			}
 		}
 
-		if(instance.declaration->enclosed == 0)
+		if(isClass(*instance.declaration)
+			&& instance.declaration->enclosed == 0)
 		{
 			std::cout << "instantiateClass failed: ";
 			printType(instance);
@@ -384,53 +387,56 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			instance.allowLookup = false; // temporary workaround
 		}
 
-		SYMBOLS_ASSERT(instance.declaration->type.unique != 0);
-		// the is the (possibly dependent) unique type of the unspecialized (template) class on which this specialization is based
-		const SimpleType& original = getSimpleType(instance.declaration->type.unique);
-
-		SYMBOLS_ASSERT(instance.declaration->enclosed != 0);
-		Types& bases = instance.declaration->enclosed->bases;
-		instance.bases.reserve(std::distance(bases.begin(), bases.end()));
-		for(Types::const_iterator i = bases.begin(); i != bases.end(); ++i)
+		if(isClass(*instance.declaration))
 		{
-			const Type& base = *i;
-			// TODO: check compliance: the point of instantiation of a base is the point of declaration of the enclosing (template) class
-			// .. along with the point of instantiation of types required when naming the base type. e.g. struct C : A<T>::B {}; struct C : B<A<T>::value> {};
-			InstantiationContext baseContext = InstantiationContext(original.instantiation, &instance, 0, context.enclosingScope);
-			UniqueTypeId type = getUniqueType(base, baseContext, allowDependent);
-			SYMBOLS_ASSERT(base.unique != 0);
-			SYMBOLS_ASSERT(base.isDependent || type.value == base.unique);
-			if(allowDependent && base.isDependent)
-			{
-				// this occurs during 'instantiation' of a template class definition, in which case we postpone instantiation of this dependent base
-				continue;
-			}
-			instance.layout = addMember(instance.layout, addBase(instance, type, baseContext));
-		}
-		instance.allowLookup = true; // prevent searching bases during lookup within incomplete instantiation
-		if(!allowDependent)
-		{
-			const Scope::DeclarationList& members = instance.declaration->enclosed->declarationList;
-			for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
-			{
-				Declaration& declaration = *(*i);
+			SYMBOLS_ASSERT(instance.declaration->type.unique != 0);
+			// the is the (possibly dependent) unique type of the unspecialized (template) class on which this specialization is based
+			const SimpleType& original = getSimpleType(instance.declaration->type.unique);
 
-				if(!isNonStaticDataMember(declaration))
+			SYMBOLS_ASSERT(instance.declaration->enclosed != 0);
+			Types& bases = instance.declaration->enclosed->bases;
+			instance.bases.reserve(std::distance(bases.begin(), bases.end()));
+			for(Types::const_iterator i = bases.begin(); i != bases.end(); ++i)
+			{
+				const Type& base = *i;
+				// TODO: check compliance: the point of instantiation of a base is the point of declaration of the enclosing (template) class
+				// .. along with the point of instantiation of types required when naming the base type. e.g. struct C : A<T>::B {}; struct C : B<A<T>::value> {};
+				InstantiationContext baseContext = InstantiationContext(original.instantiation, &instance, 0, context.enclosingScope);
+				UniqueTypeId type = getUniqueType(base, baseContext, allowDependent);
+				SYMBOLS_ASSERT(base.unique != 0);
+				SYMBOLS_ASSERT(base.isDependent || type.value == base.unique);
+				if(allowDependent && base.isDependent)
 				{
+					// this occurs during 'instantiation' of a template class definition, in which case we postpone instantiation of this dependent base
 					continue;
 				}
-				// the member declaration should be found by name lookup during its instantation
-				Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
-				InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
-				UniqueTypeWrapper type = getUniqueType(declaration.type, childContext);
-				if(declaration.type.isDependent)
-				{
-					requireCompleteObjectType(type, childContext);
-				}
-				addNonStaticMember(instance, type);
+				instance.layout = addMember(instance.layout, addBase(instance, type, baseContext));
 			}
+			instance.allowLookup = true; // prevent searching bases during lookup within incomplete instantiation
+			if(!allowDependent)
+			{
+				const Scope::DeclarationList& members = instance.declaration->enclosed->declarationList;
+				for(Scope::DeclarationList::const_iterator i = members.begin(); i != members.end(); ++i)
+				{
+					Declaration& declaration = *(*i);
 
-			instance.hasCopyAssignmentOperator = hasCopyAssignmentOperator(instance, context);
+					if(!isNonStaticDataMember(declaration))
+					{
+						continue;
+					}
+					// the member declaration should be found by name lookup during its instantation
+					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
+					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
+					UniqueTypeWrapper type = getUniqueType(declaration.type, childContext);
+					if(declaration.type.isDependent)
+					{
+						requireCompleteObjectType(type, childContext);
+					}
+					addNonStaticMember(instance, type);
+				}
+
+				instance.hasCopyAssignmentOperator = hasCopyAssignmentOperator(instance, context);
+			}
 		}
 		instance.instantiating = false;
 	}

@@ -110,6 +110,11 @@ inline bool isFunction(const Declaration& declaration)
 	return declaration.isFunction;
 }
 
+inline bool isFunctionParameter(const Declaration& declaration)
+{
+	return declaration.scope != 0 && declaration.scope->type == SCOPETYPE_FUNCTION;
+}
+
 inline bool isMember(const Declaration& declaration)
 {
 	return declaration.scope != 0 && declaration.scope->type == SCOPETYPE_CLASS;

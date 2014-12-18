@@ -394,13 +394,14 @@ public:
 	Location location; // the point of declaration
 	std::size_t uniqueId;
 	Scope* scope;
+	const SimpleType* enclosingType; // valid if this is a class member
 	Declaration* overloaded; // the previous item in the list of overloads to search during overload resolution
 
 	AbstractDeclaration()
 	{
 	}
 	AbstractDeclaration(Identifier& name, Scope* scope)
-		: name(&name), uniqueId(0), scope(scope), overloaded(0)
+		: name(&name), uniqueId(0), scope(scope), enclosingType(0), overloaded(0)
 	{
 	}
 	void swap(AbstractDeclaration& other)
@@ -409,6 +410,7 @@ public:
 		std::swap(location, other.location);
 		std::swap(uniqueId, other.uniqueId);
 		std::swap(scope, other.scope);
+		std::swap(enclosingType, other.enclosingType);
 		std::swap(overloaded, other.overloaded);
 	}
 	Identifier& getName()

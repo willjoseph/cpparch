@@ -1,4 +1,78 @@
 
+namespace N500 // test parse of dependent default-argument
+{
+	template<class T>
+	struct A
+	{
+		static int f(T x = sizeof(T))
+		{
+		}
+	};
+
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+#if 0 // TODO
+	int i = A<T>::f(); // instantiate dependent default argument
+	static_assert(__is_instantiated(T), "");
+#endif
+}
+
+namespace N499
+{
+	template<typename T>
+	struct A
+	{
+		int m;
+		void f()
+		{
+			int i = m;
+			return (i);
+		}
+	};
+}
+
+namespace N498
+{
+	template<typename T>
+	struct A
+	{
+		static const T m;
+	};
+
+	template<typename T>
+	const T A<T>::m = sizeof(T);
+
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	static_assert(!__is_instantiated(A<T>::m), "");
+	int i = A<T>::m;
+	static_assert(__is_instantiated(A<T>::m), "");
+	static_assert(__is_instantiated(T), "");
+}
+
+#if 0 // TODO: explicit specialization of class member
+namespace N497
+{
+	template<typename T>
+	struct A
+	{
+		static const T m;
+	};
+
+	template<typename T>
+	const T A<T>::m = 0;
+
+	template<>
+	const char A<char>::m = 1;
+
+	static_assert(A<char>::m == 1, ""); // TODO: find most recently declared specialization and search back from there
+	static_assert(A<int>::m == 0, "");
+}
+#endif
 
 namespace N494
 {

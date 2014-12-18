@@ -191,8 +191,9 @@ struct SemaDeclarator : public SemaBase
 	Dependent dependent; // track which template parameters the declarator's type depends on. e.g. 'T::* memberPointer', 'void f(T)'
 	TypeId conversionType; // the return-type, if this is a conversion-function declarator
 	bool isDestructor;
+	bool isExplicitSpecialization;
 	SemaDeclarator(const SemaState& state)
-		: SemaBase(state), id(&gAnonymousId), paramScope(0), typeSequence(context), memberPointer(context), conversionType(0, context), isDestructor(false)
+		: SemaBase(state), id(&gAnonymousId), paramScope(0), typeSequence(context), memberPointer(context), conversionType(0, context), isDestructor(false), isExplicitSpecialization(false)
 	{
 	}
 	void pushPointerType(cpp::ptr_operator* op)
@@ -240,6 +241,7 @@ struct SemaDeclarator : public SemaBase
 		qualifiers = walker.qualifiers;
 		memberPointer = walker.memberPointer;
 		conversionType = walker.conversionType;
+		isExplicitSpecialization = walker.isExplicitSpecialization;
 	}
 	SEMA_POLICY(cpp::declarator_ptr, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::declarator_ptr* symbol, SemaDeclarator& walker)
@@ -288,9 +290,9 @@ struct SemaDeclarator : public SemaBase
 			}
 		}
 
-
+		isExplicitSpecialization = templateParams != 0
+			&& templateParams->empty();
 		if(templateParams != 0
-			&& !templateParams->empty()
 			&& consumeTemplateParams(walker.qualifying))
 		{
 			templateParams = 0;
@@ -348,6 +350,7 @@ struct SemaDeclarator : public SemaBase
 		SYMBOLS_ASSERT(typeSequence.empty());
 		typeSequence = walker.typeSequence;
 		conversionType = walker.conversionType;
+		isExplicitSpecialization = walker.isExplicitSpecialization;
 	}
 	SEMA_POLICY(cpp::direct_abstract_declarator, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::direct_abstract_declarator* symbol, const SemaDeclarator& walker)
