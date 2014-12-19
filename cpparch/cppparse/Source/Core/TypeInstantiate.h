@@ -225,7 +225,8 @@ inline bool isCompleteTypeRequired(const Declaration& declaration)
 		|| isEnumerator(declaration)
 		|| isFunction(declaration)
 		|| isUsing(declaration)
-		|| isFunctionParameter(declaration))
+		|| isFunctionParameter(declaration)
+		|| isExtern(declaration))
 	{
 		return false;
 	}

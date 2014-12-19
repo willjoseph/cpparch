@@ -1,4 +1,10 @@
 
+namespace N503 // test that type of extern declaration is not required to be complete
+{
+	struct U;
+
+	extern U u; // not a definition
+}
 
 namespace N501 // test instantiation of declaration within member function
 {
