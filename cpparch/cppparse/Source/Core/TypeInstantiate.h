@@ -213,16 +213,34 @@ inline bool isAnonymousUnion(const SimpleType& classType)
 	return isAnonymousUnion(*classType.declaration);
 }
 
+// returns true if this declaration requires a complete type at the point of declaration
+inline bool isCompleteTypeRequired(const Declaration& declaration)
+{
+	if(isMember(declaration)
+		&& isStatic(declaration))
+	{
+		return false;
+	}
+	if(isType(declaration)
+		|| isEnumerator(declaration)
+		|| isFunction(declaration)
+		|| isUsing(declaration)
+		|| isFunctionParameter(declaration))
+	{
+		return false;
+	}
+	return true;
+}
+
+// returns true if this declaration is a member that contributes to the layout of the class
 inline bool isNonStaticDataMember(const Declaration& declaration)
 {
-	return isMember(declaration) // just members, for now
-		&& !isClass(declaration)
+	return isMember(declaration)
+		&& !isType(declaration) // member class/enum/typedef
 		&& !isUsing(declaration)
-		&& !isEnum(declaration)
 		&& !isEnumerator(declaration)
-		&& !isFunction(declaration) // member functions are not instantiated when class is implicitly instantiated
-		&& !isStatic(declaration) // static members are not instantiated when class is implicitly instantiated
-		&& !isTypedef(declaration); // member typedefs are not instantiated when class is implicitly instantiated
+		&& !isFunction(declaration)
+		&& !isStatic(declaration);
 }
 
 

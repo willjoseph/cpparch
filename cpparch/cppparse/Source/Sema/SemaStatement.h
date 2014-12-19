@@ -40,6 +40,7 @@ struct SemaStatement : public SemaBase
 	SEMA_POLICY(cpp::simple_declaration, SemaPolicyPush<struct SemaSimpleDeclaration>)
 	void action(cpp::simple_declaration* symbol, const SemaSimpleDeclarationResult& walker)
 	{
+		endDeclaration(walker.declaration);
 	}
 	SEMA_POLICY(cpp::try_block, SemaPolicyPush<struct SemaTryBlock>)
 	void action(cpp::try_block* symbol, const SemaTryBlock& walker)
@@ -79,8 +80,9 @@ struct SemaStatement : public SemaBase
 	{
 	}
 	SEMA_POLICY(cpp::using_declaration, SemaPolicyPush<struct SemaUsingDeclaration>)
-	void action(cpp::using_declaration* symbol, const SemaUsingDeclaration& walker)
+	void action(cpp::using_declaration* symbol, const SemaDeclarationResult& walker)
 	{
+		endDeclaration(walker.declaration);
 	}
 	SEMA_POLICY(cpp::using_directive, SemaPolicyPush<struct SemaUsingDirective>)
 	void action(cpp::using_directive* symbol, const SemaUsingDirective& walker)

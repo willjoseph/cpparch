@@ -5822,7 +5822,7 @@ namespace N
 
 namespace N
 {
-	class X;
+	class X {};
 }
 
 namespace N

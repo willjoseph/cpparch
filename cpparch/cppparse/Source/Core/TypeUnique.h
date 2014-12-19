@@ -123,7 +123,6 @@ inline void makeUniqueTemplateArguments(const TemplateArguments& arguments, Temp
 	}
 }
 
-
 // unqualified object name: int, Object,
 // qualified object name: Qualifying::Object
 // unqualified typedef: Typedef, TemplateParam
@@ -193,8 +192,14 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	{
 		if(isDependent(declaration->usingBase)) // if this is a dependent using declaration with 'typename'
 		{
-			SYMBOLS_ASSERT(declaration->usingMember == &gDependentTypeInstance);
-			return pushType(gUniqueTypeNull, DependentTypename(declaration->getName().value, declaration->usingBase, TemplateArgumentsInstance(), false, false));
+			if(allowDependent)
+			{
+				SYMBOLS_ASSERT(declaration->usingMember == &gDependentTypeInstance);
+				return pushType(gUniqueTypeNull, DependentTypename(declaration->getName().value, declaration->usingBase, TemplateArgumentsInstance(), false, false));
+			}
+
+			QualifiedDeclaration substituted = substituteClassMember(declaration->usingBase, declaration->getName().value, setEnclosingTypeSafe(context, enclosing));
+			declaration = substituted.declaration;
 		}
 		else
 		{

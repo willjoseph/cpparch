@@ -2515,22 +2515,27 @@ namespace cpp
 		FOREACH1(expr);
 	};
 
+	struct parameter_initializer
+	{
+		terminal<boost::wave::T_ASSIGN> assign;
+		symbol_required<default_argument> expr;
+		FOREACH2(assign, expr);
+	};
+
 	struct parameter_declaration_default
 	{
 		typedef TYPELIST1(parameter_declaration_suffix) Bases;
 		symbol_required<declarator> decl;
-		terminal_suffix<boost::wave::T_ASSIGN> assign;
-		symbol_required<default_argument> init;
-		FOREACH3(decl, assign, init);
+		symbol_optional<parameter_initializer> init;
+		FOREACH2(decl, init);
 	};
 
 	struct parameter_declaration_abstract
 	{
 		typedef TYPELIST1(parameter_declaration_suffix) Bases;
 		symbol_optional<abstract_declarator> decl;
-		terminal_suffix<boost::wave::T_ASSIGN> assign;
-		symbol_required<default_argument> init;
-		FOREACH3(decl, assign, init);
+		symbol_optional<parameter_initializer> init;
+		FOREACH2(decl, init);
 	};
 
 	struct parameter_declaration_list

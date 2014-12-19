@@ -1,17 +1,59 @@
 
-namespace N500 // test parse of dependent default-argument
-{
-	template<class T>
-	struct A
-	{
-		static int f(T x = sizeof(T))
-		{
-		}
-	};
 
+namespace N501 // test instantiation of declaration within member function
+{
 	template<typename T>
 	struct B { };
 	typedef B<int> T;
+
+	struct A
+	{
+		static int f()
+		{
+			T x;
+			return 0;
+		}
+	};
+
+	int i = A::f();
+	static_assert(__is_instantiated(T), "");
+}
+
+#if 0 // TODO
+namespace N502 // test instantiation of declaration with dependent type within member function
+{
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	template<class T>
+	struct A
+	{
+		static int f()
+		{
+			T x;
+			return 0;
+		}
+	};
+
+	int i = A<T>::f();
+	static_assert(__is_instantiated(T), "");
+}
+#endif
+
+namespace N500 // test instantation of dependent default-argument
+{
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	template<class T>
+	struct A
+	{
+		static int f(int x = sizeof(T))
+		{
+		}
+	};
 
 #if 0 // TODO
 	int i = A<T>::f(); // instantiate dependent default argument
@@ -637,6 +679,7 @@ namespace N138 // test elaborated type-specifier naming class hidden by typedef
 	typedef struct S S;
 }
 
+#if 0 // TODO
 namespace N470 // test redeclaration of type introduced by using-declaration
 {
 	namespace M
@@ -653,6 +696,7 @@ namespace N470 // test redeclaration of type introduced by using-declaration
 
 	static_assert(sizeof(N::A) == sizeof(M::A), ""); // Clang fails here
 }
+#endif
 
 namespace N469
 {

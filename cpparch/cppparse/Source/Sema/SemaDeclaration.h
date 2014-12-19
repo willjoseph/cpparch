@@ -370,13 +370,19 @@ struct SemaDeclarationSuffix : public SemaBase
 	void action(cpp::parameter_declaration_default* symbol)
 	{
 		commit();
-		defaultArgument = symbol->init;
+		if(symbol->init != 0)
+		{
+			defaultArgument = symbol->init->expr;
+		}
 	}
 	SEMA_POLICY(cpp::parameter_declaration_abstract, SemaPolicyIdentity)
 	void action(cpp::parameter_declaration_abstract* symbol)
 	{
 		commit();
-		defaultArgument = symbol->init;
+		if(symbol->init != 0)
+		{
+			defaultArgument = symbol->init->expr;
+		}
 	}
 };
 

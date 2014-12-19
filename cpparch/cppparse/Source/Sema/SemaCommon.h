@@ -1450,7 +1450,7 @@ struct SemaBase : public SemaState
 				declaration, getLocation()));
 	}
 
-	void addDeferredMemberType(Declaration& declaration)
+	void addDeferredDeclarationType(Declaration& declaration)
 	{
 		if(!declaration.type.isDependent
 			|| enclosingInstantiation == 0)
@@ -1602,6 +1602,24 @@ struct SemaBase : public SemaState
 		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 	}
 
+	void endDeclaration(Declaration* declaration)
+	{
+		if(declaration == 0 // static-assert declaration
+			|| declaration == &gCtor
+			|| isClassKey(*declaration) // elaborated-type-specifier
+			|| isClass(*declaration)
+			|| isEnum(*declaration)) // nested class or enum
+		{
+			return;
+		}
+
+		if(declaration->type.isDependent
+			&& !declaration->isTemplate) // TODO: substitute function-template signature
+		{
+			addDeferredDeclarationType(*declaration);
+		}
+	}
+
 	void endMemberDeclaration(Declaration* declaration, const DependentConstructs& declarationDependent)
 	{
 		if(declaration == 0 // static-assert declaration
@@ -1622,7 +1640,7 @@ struct SemaBase : public SemaState
 		if(declaration->type.isDependent
 			&& !declaration->isTemplate) // TODO: substitute function-template signature
 		{
-			addDeferredMemberType(*declaration);
+			addDeferredDeclarationType(*declaration);
 		}
 
 		if(isUsing(*declaration)) // using-declaration
@@ -1688,21 +1706,23 @@ struct SemaBase : public SemaState
 		// the type of an object is required to be complete
 		// a member's type must be instantiated before the point of declaration of the member, to prevent the member being found by name lookup during the instantiation
 		UniqueTypeWrapper uniqueType = getUniqueType(type);
+
+		if(!type.isDependent
+			&& isCompleteTypeRequired(*declaration))
+		{
+			const InstantiationContext& context = getInstantiationContext();
+			requireCompleteObjectType(uniqueType, context);
+		}
+
 		SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
 		// NOTE: this check must occur after the declaration because an out-of-line definition of a static member is otherwise not known to be static
-		if(enclosingClass != 0 // if the enclosing class is not an anonymous union
-			&& isNonStaticDataMember(*declaration)) // and the declaration is a non-static data member
+		if(enclosingClass != 0 // if the enclosing class is valid
+			&& isNonStaticDataMember(*declaration) // and the declaration is a non-static data member
+			&& !type.isDependent
+			&& !enclosingClass->declaration->isTemplate) // if this is a not member of a class template
 		{
-			if(!type.isDependent)
-			{
-				const InstantiationContext& context = getInstantiationContext();
-				requireCompleteObjectType(uniqueType, context);
-				if(!enclosingClass->declaration->isTemplate)
-				{
-					addNonStaticMember(*enclosingClass, uniqueType);
-				}
-			}
-		}
+			addNonStaticMember(*enclosingClass, uniqueType);
+		}// otherwise the layout is not known until the point of instantiation
 
 		return declaration;
 	}

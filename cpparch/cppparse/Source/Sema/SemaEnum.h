@@ -114,7 +114,7 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 			enumerator.initializer = value;
 		}
 
-		addDeferredMemberType(enumerator);
+		addDeferredDeclarationType(enumerator);
 	}
 };
 
