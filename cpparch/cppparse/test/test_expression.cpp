@@ -1,4 +1,45 @@
 
+namespace N505
+{
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		static const int m = sizeof(sizeof(T));
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N504
+{
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		static const int m;
+		typedef int Type;
+	};
+
+	template<typename T>
+	const int A<T>::m = sizeof(sizeof(T));
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(!__is_instantiated(T), "");
+	int i = A<T>::m;
+	static_assert(__is_instantiated(T), "");
+}
+
 namespace N503 // test that type of extern declaration is not required to be complete
 {
 	struct U;
@@ -84,6 +125,10 @@ namespace N499
 namespace N498
 {
 	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	template<typename T>
 	struct A
 	{
 		static const T m;
@@ -91,10 +136,6 @@ namespace N498
 
 	template<typename T>
 	const T A<T>::m = sizeof(T);
-
-	template<typename T>
-	struct B { };
-	typedef B<int> T;
 
 	static_assert(!__is_instantiated(A<T>::m), "");
 	int i = A<T>::m;
@@ -148,26 +189,6 @@ namespace N496
 	int i = A<int>::m;
 	static_assert(__is_instantiated(A<int>::m), "");
 }
-
-#if 0
-namespace N495
-{
-	template<typename T>
-	struct A
-	{
-		static const T m = 0;
-		static const T n;
-		typedef int Type;
-	};
-
-	template<typename T>
-	const T A<T>::n = T::dependent;
-
-	typedef A<int>::Type Type;
-	static_assert(__is_instantiated(A<int>::m), "");
-	static_assert(!__is_instantiated(A<int>::n), "");
-}
-#endif
 
 namespace N493 // test instantiation of template parameter used in qualified name lookup within member anonymous union definition
 {
@@ -1000,18 +1021,6 @@ namespace N453
 }
 #endif
 
-namespace N452 // test deferred checking of dependent expression in initializer of static member
-{
-	template<typename T>
-	struct A
-	{
-		typedef T Type;
-		static const int value = T::dependent; // initializer expression should not be evaluated until member is used
-	};
-
-	typedef A<int>::Type Type;
-}
-
 #if 0 // TODO: clang fails to compile this
 namespace N451
 {
@@ -1418,6 +1427,7 @@ namespace N426
 	A<int> a;
 }
 
+#if 0 // TODO: need to allow this?
 namespace N425
 {
 	int f(void*);
@@ -1434,6 +1444,7 @@ namespace N425
 
 	A<int> a;
 }
+#endif
 
 namespace N424
 {

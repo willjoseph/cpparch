@@ -203,7 +203,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		commit();
 
-		if(isMember(*declaration) // if this is the initializer in a class member declaration
+		if((enclosingDeferred == 0 && isMember(*declaration)) // if this is the initializer in a class member definition
 			|| isFunctionParameter(*declaration)) // or this is the initializer in a function parameter declaration (e.g. a default-argument)
 		{
 			enclosingInstantiation = declaration; // for dependent constructs in the initializer
