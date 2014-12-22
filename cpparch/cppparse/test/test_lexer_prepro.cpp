@@ -50017,8 +50017,8 @@ namespace boost
 		template<class T, int Level, int Tracking, unsigned int Version=0, class ETII=extended_type_info_impl<T>, class Wrapper=mpl::false_>
 		struct traits: public basic_traits
 		{
-			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(Version==0||Level>=object_class_info)>)>boost_static_assert_typedef___COUNTER__;
-			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(Tracking==track_never||Level>=object_serializable)>)>boost_static_assert_typedef___COUNTER__;
+			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(Version==0||Level>=object_class_info)>)>boost_static_assert_typedef___COUNTER__1;
+			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(Tracking==track_never||Level>=object_serializable)>)>boost_static_assert_typedef___COUNTER__2;
 			typedef typename mpl::int_<Level>level;
 			typedef typename mpl::int_<Tracking>tracking;
 			typedef typename mpl::int_<Version>version;
