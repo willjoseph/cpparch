@@ -358,14 +358,8 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			}
 		}
 
-		if(isClass(*instance.declaration)
-			&& instance.declaration->enclosed == 0)
-		{
-			std::cout << "instantiateClass failed: ";
-			printType(instance);
-			std::cout << std::endl;
-			return TYPELAYOUT_NONE; // TODO: this can occur when the primary template is incomplete, and a specialization was not chosen
-		}
+		// TODO: non-fatal error: cannot instantiate incomplete class
+		SYMBOLS_ASSERT(!isClass(*instance.declaration) || instance.declaration->enclosed != 0); // TODO: this can occur when the primary template is incomplete, and a specialization was not chosen
 
 		if(!allowDependent)
 		{

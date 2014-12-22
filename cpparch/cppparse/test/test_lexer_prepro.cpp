@@ -17319,10 +17319,10 @@ namespace boost
 		template<class Category, class Traversal>
 		struct iterator_category_with_traversal: Category, Traversal
 		{
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_convertible<typename iterator_category_to_traversal<Category>::type, Traversal>))0, 1)));
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_arg((void(*)(is_iterator_category<Category>))0, 1)));
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_category<Traversal>))0, 1)));
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_traversal<Category>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__1=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_convertible<typename iterator_category_to_traversal<Category>::type, Traversal>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__2=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_arg((void(*)(is_iterator_category<Category>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__3=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_category<Traversal>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__4=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_traversal<Category>))0, 1)));
 		};
 		template<class Traversal, class ValueParam, class Reference>
 		struct facade_iterator_category_impl
@@ -47757,9 +47757,9 @@ namespace boost
 				typedef typename mpl::if_<full_form, Arg2, Arg1>::type key_from_value_type;
 				typedef typename mpl::if_<full_form, Arg3, Arg2>::type supplied_compare_type;
 				typedef typename mpl::eval_if<mpl::is_na<supplied_compare_type>, index_args_default_compare<key_from_value_type>, mpl::identity<supplied_compare_type> >::type compare_type;
-				typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(is_tag<tag_list_type>::value)>)>boost_static_assert_typedef___COUNTER__;
-				typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(!mpl::is_na<key_from_value_type>::value)>)>boost_static_assert_typedef___COUNTER__;
-				typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(!mpl::is_na<compare_type>::value)>)>boost_static_assert_typedef___COUNTER__;
+				typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(is_tag<tag_list_type>::value)>)>boost_static_assert_typedef___COUNTER__1;
+				typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(!mpl::is_na<key_from_value_type>::value)>)>boost_static_assert_typedef___COUNTER__2;
+				typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(!mpl::is_na<compare_type>::value)>)>boost_static_assert_typedef___COUNTER__3;
 			};
 		}
 	}
@@ -48510,8 +48510,8 @@ namespace boost
 			typedef ::boost::detail::lower_alignment<Align>t1;
 			typedef typename mpl::if_c< ::boost::detail::is_aligned< ::boost::alignment_of<t1>::value, Align>::value, t1, ::boost::detail::max_align>::type align_t;
 			static const std::size_t found=alignment_of<align_t>::value;
-			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(found>=Align)>)>boost_static_assert_typedef___COUNTER__;
-			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(found%Align==0)>)>boost_static_assert_typedef___COUNTER__;
+			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(found>=Align)>)>boost_static_assert_typedef___COUNTER__1;
+			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(found%Align==0)>)>boost_static_assert_typedef___COUNTER__2;
 		public:
 			typedef align_t type;
 		};
@@ -50230,8 +50230,8 @@ namespace boost
 		template<class Base, class Derived>
 		typename detail::base_cast<Base, Derived>::type&base_object(Derived&d)
 		{
-			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)((is_base_and_derived<Base, Derived>::value))>)>boost_static_assert_typedef___COUNTER__;
-			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(!is_pointer<Derived>::value)>)>boost_static_assert_typedef___COUNTER__;
+			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)((is_base_and_derived<Base, Derived>::value))>)>boost_static_assert_typedef___COUNTER__2;
+			typedef ::boost::static_assert_test<sizeof(::boost::STATIC_ASSERTION_FAILURE<(bool)(!is_pointer<Derived>::value)>)>boost_static_assert_typedef___COUNTER__1;
 			typedef typename detail::base_cast<Base, Derived>::type type;
 			detail::base_register<type, Derived>::invoke();
 			return access::cast_reference<type, Derived>(d);

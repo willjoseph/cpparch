@@ -18480,10 +18480,10 @@ namespace boost
 		template<class Category, class Traversal>
 		struct iterator_category_with_traversal: Category, Traversal
 		{
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_convertible<typename iterator_category_to_traversal<Category>::type, Traversal>))0, 1)));
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_arg((void(*)(is_iterator_category<Category>))0, 1)));
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_category<Traversal>))0, 1)));
-			static const std::size_t mpl_assertion_in_line___COUNTER__=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_traversal<Category>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__1=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_convertible<typename iterator_category_to_traversal<Category>::type, Traversal>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__2=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_arg((void(*)(is_iterator_category<Category>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__3=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_category<Traversal>))0, 1)));
+			static const std::size_t mpl_assertion_in_line___COUNTER__4=sizeof(boost::mpl::assertion_failed<false>(boost::mpl::assert_not_arg((void(*)(is_iterator_traversal<Category>))0, 1)));
 		};
 		template<class Traversal, class ValueParam, class Reference>
 		struct facade_iterator_category_impl

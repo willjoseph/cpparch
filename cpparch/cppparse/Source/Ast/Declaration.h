@@ -446,8 +446,8 @@ public:
 	std::size_t templateParameter;
 	TemplateParameters templateParams;
 	TemplateArguments templateArguments; // non-empty if this is an explicit (or partial) specialization
-	DependentConstructs declarationDependent; // the dependent types and expressions within the declaration
-	DependentConstructs dependentConstructs; // the dependent types and expressions within the definition
+	DependentConstructs declarationDependent; // the dependent types and expressions within the declaration: substituted when the enclosing template class/function is instantiated
+	DependentConstructs dependentConstructs; // the dependent types and expressions within the definition: substituted when this class/member definition is instantiated
 	UniqueTypeWrapper usingBase; // if this is a class-member using-declaration, the type of the qualifying base-class (may be dependent)
 	const DeclarationInstance* usingMember; // if this is a using-declaration, the declaration that is referred to
 	bool isComplete; // for class declarations, set to true when the closing brace is parsed.

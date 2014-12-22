@@ -1,4 +1,39 @@
 
+namespace N507 // test instantiation of class template with out of line member function template definition
+{
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(U);
+
+		typedef int Type;
+	};
+
+	template<typename T>
+	template<typename U>
+	void A<T>::f(U)
+	{
+	}
+
+	typedef A<int>::Type Type;
+}
+
+namespace N506 // test that dependent friend functions are not treated as redeclarations 
+{
+	template<class T>
+	struct A
+	{
+		friend void f(T);
+	};
+
+	template<class T>
+	struct B
+	{
+		friend void f(T);
+	};
+}
+
 namespace N505
 {
 	template<typename T>

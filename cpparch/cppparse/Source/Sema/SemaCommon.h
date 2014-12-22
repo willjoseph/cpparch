@@ -524,6 +524,12 @@ inline bool isEquivalent(const Declaration& declaration, const Declaration& othe
 		UniqueTypeWrapper r = getUniqueType(other.type);
 		if(l.isFunction())
 		{
+			if(declaration.specifiers.isFriend && isDependent(l)
+				&& other.specifiers.isFriend && isDependent(r))
+			{
+				return false; // friend functions with dependent types cannot be declared more than once
+			}
+
 			// 13.2 [over.dcl] Two functions of the same name refer to the same function
 			// if they are in the same scope and have equivalent parameter declarations.
 			// TODO: also compare template parameter lists: <class, int> is not equivalent to <class, float>
@@ -728,6 +734,7 @@ struct SemaState
 		, templateParamScope(0)
 		, enclosingDeferred(0)
 		, enclosingInstantiation(0)
+		, enclosingDependentConstructs(0)
 		, enclosingDependent(0)
 		, templateDepth(0)
 		, isExplicitInstantiation(false)
@@ -1393,6 +1400,11 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 		UniqueTypeWrapper substituted = substitute(getUniqueType(declaration.type), context);
 		SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
 		instance.substitutedTypes.push_back(substituted);
+
+		if(isCompleteTypeRequired(declaration))
+		{
+			requireCompleteObjectType(substituted, context);
+		}
 	}
 }
 
@@ -1602,24 +1614,6 @@ struct SemaBase : public SemaState
 		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 	}
 
-	void endDeclaration(Declaration* declaration)
-	{
-		if(declaration == 0 // static-assert declaration
-			|| declaration == &gCtor
-			|| isClassKey(*declaration) // elaborated-type-specifier
-			|| isClass(*declaration)
-			|| isEnum(*declaration)) // nested class or enum
-		{
-			return;
-		}
-
-		if(declaration->type.isDependent
-			&& !declaration->isTemplate) // TODO: substitute function-template signature
-		{
-			addDeferredDeclarationType(*declaration);
-		}
-	}
-
 	void endMemberDeclaration(Declaration* declaration, const DependentConstructs& declarationDependent)
 	{
 		if(declaration == 0 // static-assert declaration
@@ -1631,17 +1625,9 @@ struct SemaBase : public SemaState
 			return;
 		}
 
-		if(!declaration->isTemplate) // TODO: substitute function-template signature
-		{
-			declaration->declarationDependent = declarationDependent;
-			addDeferredMemberDeclaration(*declaration);
-		}
-
-		if(declaration->type.isDependent
-			&& !declaration->isTemplate) // TODO: substitute function-template signature
-		{
-			addDeferredDeclarationType(*declaration);
-		}
+		SEMANTIC_ASSERT(declaration->declarationDependent.substitutions.empty());
+		declaration->declarationDependent = declarationDependent;
+		addDeferredMemberDeclaration(*declaration);
 
 		if(isUsing(*declaration)) // using-declaration
 		{
@@ -1712,6 +1698,11 @@ struct SemaBase : public SemaState
 		{
 			const InstantiationContext& context = getInstantiationContext();
 			requireCompleteObjectType(uniqueType, context);
+		}
+
+		if(type.isDependent)
+		{
+			addDeferredDeclarationType(*declaration);
 		}
 
 		SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
