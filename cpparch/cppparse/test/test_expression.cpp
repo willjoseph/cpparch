@@ -1,4 +1,18 @@
 
+namespace N508 // test instantiation of member function template declaration with member-pointer parameter
+{
+	template<typename T>
+	struct B
+	{
+		template<class U>
+		static int f(void(U::*)(void));
+
+		typedef int Type;
+	};
+
+	typedef B<int>::Type Type;
+}
+
 namespace N507 // test instantiation of class template with out of line member function template definition
 {
 	template<typename T>

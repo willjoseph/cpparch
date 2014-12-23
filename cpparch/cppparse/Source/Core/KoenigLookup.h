@@ -94,12 +94,6 @@ struct KoenigVisitor : TypeElementVisitor
 		: associated(associated)
 	{
 	}
-#if 0
-	virtual void visit(const Namespace& element)
-	{
-		SYMBOLS_ASSERT(false);
-	}
-#endif
 	virtual void visit(const DependentType& element) // deduce from T, TT, TT<...>
 	{
 	}

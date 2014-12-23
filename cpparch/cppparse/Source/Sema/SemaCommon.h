@@ -1372,20 +1372,29 @@ inline void substituteDeferredBase(Type& type, const InstantiationContext& conte
 
 inline void substituteDeferredMemberDeclaration(Declaration& declaration, const InstantiationContext& context)
 {
-	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
-
-	// substitute the dependent expressions in the declaration
+	// substitute the dependent types/expressions in the declaration
 	const DeferredSubstitutions& substitutions = declaration.declarationDependent.substitutions;
 	for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 	{
 		const DeferredSubstitution& substitution = *i;
-		substitution(context);
+		InstantiationContext childContext(substitution.location, context.enclosingType, 0, context.enclosingScope);
+		substitution(childContext);
 	}
+}
+
+inline void substituteDeferredMemberTemplateDeclaration(Declaration& declaration, const InstantiationContext& context)
+{
+	// dependent types/expressions may depend on a member template's parameters
+	SimpleType instance = SimpleType(&declaration, context.enclosingType);
+	makeUniqueTemplateParameters(declaration.templateParams, instance.templateArguments, context, true);
+
+	substituteDeferredMemberDeclaration(declaration, setEnclosingTypeSafe(context, &instance));
 }
 
 inline void substituteDeferredMemberType(Declaration& declaration, const InstantiationContext& context)
 {
-	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+	const SimpleType* enclosingType = isClass(*context.enclosingType->declaration) ? context.enclosingType : context.enclosingType->enclosing;
+	SimpleType& instance = *const_cast<SimpleType*>(enclosingType);
 
 	// substitute dependent members
 	SYMBOLS_ASSERT(declaration.type.isDependent);
@@ -1457,9 +1466,10 @@ struct SemaBase : public SemaState
 			return;
 		}
 
-		addDeferredSubstitution(
-			makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(
-				declaration, getLocation()));
+		DeferredSubstitution substitution = declaration.isTemplate
+			? makeDeferredSubstitution<Declaration, substituteDeferredMemberTemplateDeclaration>(declaration, getLocation())
+			: makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(declaration, getLocation());
+		addDeferredSubstitution(substitution);
 	}
 
 	void addDeferredDeclarationType(Declaration& declaration)
@@ -1622,6 +1632,7 @@ struct SemaBase : public SemaState
 			|| isClass(*declaration)
 			|| isEnum(*declaration)) // nested class or enum
 		{
+			SEMANTIC_ASSERT(declaration == 0 || declarationDependent.substitutions.empty()); // TODO: static-assert
 			return;
 		}
 

@@ -16,9 +16,6 @@
 
 struct TypeElementVisitor
 {
-#if 0
-	virtual void visit(const struct Namespace&) = 0;
-#endif
 	virtual void visit(const struct DependentType&) = 0;
 	virtual void visit(const struct DependentTypename&) = 0;
 	virtual void visit(const struct DependentNonType&) = 0;
@@ -174,12 +171,6 @@ struct UniqueTypeWrapper
 	{
 		return isEqual(getTypeInfo(*value), getTypeInfo<TypeElementGeneric<SimpleType> >());
 	}
-#if 0
-	bool isNamespace() const
-	{
-		return isEqual(getTypeInfo(*value), getTypeInfo<TypeElementGeneric<struct Namespace> >());
-	}
-#endif
 	bool isPointer() const
 	{
 		return isEqual(getTypeInfo(*value), getTypeInfo<TypeElementGeneric<PointerType> >());

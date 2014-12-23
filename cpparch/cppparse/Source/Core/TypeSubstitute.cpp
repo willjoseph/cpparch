@@ -4,6 +4,13 @@
 #include "TypeUnique.h" // TODO: for makeUniqueTemplateArgument, could be removed
 #include "Fundamental.h" // for gVoid
 
+// returns false if this type is definitely not a class
+bool isSubstitutedClass(UniqueTypeWrapper type)
+{
+	return type.isDependentType() // template parameter
+		|| (type.isSimple() && isClass(*getSimpleType(type.value).declaration)); // or class
+}
+
 void substitute(UniqueTypeArray& substituted, const UniqueTypeArray& dependent, const InstantiationContext& context)
 {
 	substituted.reserve(dependent.size());
@@ -69,12 +76,6 @@ struct SubstituteVisitor : TypeElementVisitor
 		: type(type), context(context)
 	{
 	}
-#if 0
-	virtual void visit(const Namespace& element)
-	{
-		SYMBOLS_ASSERT(false);
-	}
-#endif
 	virtual void visit(const DependentType& element) // substitute T, TT, TT<...>
 	{
 		std::size_t index = element.type->templateParameter;
@@ -131,45 +132,11 @@ struct SubstituteVisitor : TypeElementVisitor
 
 		Declaration* declaration = 0;
 		const SimpleType* memberEnclosing = 0;
-#if 0
-		if(element.qualifying == gUniqueTypeNull) // class member access: x.Dependent::
-		{
-			// If the id-expression in a class member access is a qualified-id of the form
-			//   class-name-or-namespace-name::...
-			// the class-name-or-namespace-name following the . or -> operator is looked up both in the context of the
-			// entire postfix-expression and in the scope of the class of the object expression. If the name is found only in
-			// the scope of the class of the object expression, the name shall refer to a class-name. If the name is found
-			// only in the context of the entire postfix-expression, the name shall refer to a class-name or namespace-name.
-			// If the name is found in both contexts, the class-name-or-namespace-name shall refer to the same entity.
 
-			// look up id both within type of object expression and in enclosing scope
-			// result may be namespace or class (template)
-			SYMBOLS_ASSERT(false); // TODO
-			// if result is class member, report error if it is not a type
-			// set memberEnclosing to the member's enclosing class
-		}
-		else // T::Dependent
-#endif
 		{
 			UniqueTypeWrapper qualifying = substitute(element.qualifying, context);
 			SYMBOLS_ASSERT(qualifying != gUniqueTypeNull);
-#if 0
-			if(qualifying.isNamespace())
-			{
-				// look up 'id' in namespace (only declarations visible at point of definition of template)
-				// result may be namespace or type
-				// if type, substitute within instantiation context
-				Scope& scope = *getNamespace(qualifying.value).declaration->enclosed;
-				std::size_t visibility = getPointOfInstantiation(*context.enclosingType);
-				LookupResultRef result = findNamespaceDeclaration(scope, id, element.isNested ? LookupFilter(IsNestedName(visibility)) : LookupFilter(IsAny(visibility)));
-				if(result == 0) // if the name was not found within the qualifying namespace
-				{
-					throw MemberNotFoundError(context.source, element.name, qualifying);
-				}
-				declaration = result;
-			}
-			else
-#endif
+
 			{
 				const SimpleType* enclosing = qualifying.isSimple() ? &getSimpleType(qualifying.value) : 0;
 				if(enclosing == 0
@@ -217,14 +184,6 @@ struct SubstituteVisitor : TypeElementVisitor
 				memberEnclosing = findEnclosingType(enclosing, declaration->scope); // the declaration must be a member of (a base of) the qualifying class: find which one.
 			}
 		}
-
-#if 0
-		if(isNamespace(*declaration))
-		{
-			type = pushType(gUniqueTypeNull, Namespace(declaration));
-			return;
-		}
-#endif
 
 		if(isClass(*declaration)
 			|| isEnum(*declaration))
@@ -325,8 +284,7 @@ struct SubstituteVisitor : TypeElementVisitor
 	{
 		UniqueTypeWrapper classType = substitute(element.type, context);
 		// [temp.deduct] Attempting to create "pointer to member of T" when T is not a class type.
-		if(!classType.isSimple()
-			|| !isClass(*getSimpleType(classType.value).declaration))
+		if(!isSubstitutedClass(classType))
 		{
 			throw QualifyingIsNotClassError(context.source, classType);
 		}

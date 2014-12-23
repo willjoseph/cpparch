@@ -207,13 +207,6 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 
 	std::vector<CvQualifiers> qualifierStack;
 
-#if 0
-	void visit(const Namespace& element)
-	{
-		printer.out << getValue(element.declaration->getName()) << ".";
-		visitTypeElement();
-	}
-#endif
 	void visit(const DependentType& element)
 	{
 		if(qualifierStack.back().isConst)

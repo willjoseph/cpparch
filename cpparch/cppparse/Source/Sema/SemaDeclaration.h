@@ -155,12 +155,6 @@ struct SemaDeclarationSuffix : public SemaBase
 
 			enclosingInstantiation = enclosingType->declaration; // any dependent types/expressions in the member definition should be appended
 			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
-
-			if(templateParamScope != 0) // if this is a member function template
-			{
-				enclosingInstantiation = 0; // TODO: substitute member function template declaration when class template is instantiated
-				enclosingDependentConstructs = 0; // ignore dependent constructs within the function template declaration
-			}
 		}
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 
@@ -405,11 +399,6 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 	SemaSimpleDeclaration(const SemaState& state, SemaDeclarationArgs args = SemaDeclarationArgs())
 		: SemaBase(state), args(args), seq(&gCtor, context)
 	{
-		if(templateParamScope != 0) // if this is a member function template
-		{
-			enclosingInstantiation = 0; // TODO: substitute member function template declaration when class template is instantiated
-			enclosingDependentConstructs = 0; // ignore dependent constructs within the function template declaration
-		}
 	}
 
 	SEMA_POLICY(cpp::decl_specifier_seq, SemaPolicyPush<struct SemaDeclSpecifierSeq>)

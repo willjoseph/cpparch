@@ -1738,12 +1738,16 @@ inline const NonType& substituteNonTypeTemplateParameter(const NonTypeTemplatePa
 	SYMBOLS_ASSERT(index != INDEX_INVALID);
 	const SimpleType* enclosingType = findEnclosingTemplate(context.enclosingType, node.declaration->scope);
 	SYMBOLS_ASSERT(enclosingType != 0);
-	SYMBOLS_ASSERT(!isDependent(*enclosingType)); // assert that the enclosing type is not dependent
 	SYMBOLS_ASSERT(!enclosingType->declaration->isSpecialization || enclosingType->instantiated); // a specialization must be instantiated (or in the process of instantiating)
 	const TemplateArgumentsInstance& templateArguments = enclosingType->declaration->isSpecialization
 		? enclosingType->deducedArguments : enclosingType->templateArguments;
 	SYMBOLS_ASSERT(index < templateArguments.size());
 	UniqueTypeWrapper argument = templateArguments[index];
+	if(argument.isDependentNonType())
+	{
+		static NonType invalid = NonType(IntegralConstant(-1)); // TODO: remove this: temporary workaround to allow substitution of expression in function declaration containing dependent non-type template parameters
+		return invalid;
+	}
 	SYMBOLS_ASSERT(argument.isNonType());
 	return getNonTypeValue(argument.value);
 }

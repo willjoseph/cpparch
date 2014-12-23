@@ -108,7 +108,7 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 		}
 		arguments.push_back(result);
 	}
-	SYMBOLS_ASSERT(!arguments.empty());
+	SYMBOLS_ASSERT(arguments.size() == arguments.capacity());
 }
 
 inline void makeUniqueTemplateArguments(const TemplateArguments& arguments, TemplateArgumentsInstance& templateArguments, const InstantiationContext& context, bool allowDependent)

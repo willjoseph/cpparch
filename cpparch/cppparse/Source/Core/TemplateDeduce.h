@@ -61,12 +61,6 @@ struct DeduceVisitor : TypeElementVisitor
 			result = false;
 		}
 	}
-#if 0
-	virtual void visit(const Namespace& element)
-	{
-		SYMBOLS_ASSERT(false);
-	}
-#endif
 	virtual void visit(const DependentType& element) // deduce from T, TT, TT<...>
 	{
 		if(element.templateParameterCount != 0) // TT or TT<..>

@@ -460,29 +460,6 @@ inline const SimpleType& getSimpleType(UniqueType type)
 	return static_cast<const TypeElementGeneric<SimpleType>*>(type.getPointer())->value;
 }
 
-// ----------------------------------------------------------------------------
-#if 0
-struct Namespace
-{
-	DeclarationPtr declaration;
-	Namespace(DeclarationPtr declaration)
-		: declaration(declaration)
-	{
-	}
-};
-
-inline const Namespace& getNamespace(UniqueType type)
-{
-	SYMBOLS_ASSERT(isEqual(getTypeInfo(*type), getTypeInfo<TypeElementGeneric<Namespace> >()));
-	return static_cast<const TypeElementGeneric<Namespace>*>(type.getPointer())->value;
-}
-
-
-inline bool operator<(const Namespace& left, const Namespace& right)
-{
-	return left.declaration.p < right.declaration.p;
-}
-#endif
 
 // ----------------------------------------------------------------------------
 // Represents a template-template-argument
