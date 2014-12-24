@@ -13,6 +13,26 @@ namespace N508 // test instantiation of member function template declaration wit
 	typedef B<int>::Type Type;
 }
 
+namespace N509 // test instantiation of dependent expression within declaration of member function template
+{
+	template<typename T>
+	struct B { };
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(U[sizeof(sizeof(T))]);
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
 namespace N507 // test instantiation of class template with out of line member function template definition
 {
 	template<typename T>
