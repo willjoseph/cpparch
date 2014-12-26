@@ -106,10 +106,10 @@ struct SemaDeclarationSuffix : public SemaBase
 			addDependent(type.dependent, typeDependent);
 			makeUniqueTypeSafe(type);
 			if(enclosed == 0
-				&& templateParamScope != 0)
+				&& enclosingTemplateScope != 0)
 			{
-				templateParamScope->parent = parent;
-				enclosed = templateParamScope; // for a static-member-variable definition, store template-params with different names than those in the class definition
+				enclosingTemplateScope->parent = parent;
+				enclosed = enclosingTemplateScope; // for a static-member-variable definition, store template-params with different names than those in the class definition
 			}
 			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent, isDestructor, isExplicitSpecialization);
 
@@ -505,7 +505,7 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				declaration = instance;
 				if(declaration->templateParamScope == 0)
 				{
-					declaration->templateParamScope = templateParamScope; // required by findEnclosingType
+					declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingType
 				}
 			}
 			seq.type = TypeId(declaration, context); // TODO: is this necessary?

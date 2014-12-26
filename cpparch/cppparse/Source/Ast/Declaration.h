@@ -452,6 +452,7 @@ public:
 	const DeclarationInstance* usingMember; // if this is a using-declaration, the declaration that is referred to
 	bool isComplete; // for class declarations, set to true when the closing brace is parsed.
 	bool isType; // true if this is declaration names a type
+	bool isTypeDependent; // if this is a function or object, true if this declaration's type is dependent on a template parameter of its enclosing class
 	bool isTemplate;
 	bool isTemplateName; // true if this is a template declaration, or an overload of a template declaration
 	bool isSpecialization;
@@ -490,6 +491,7 @@ public:
 		usingMember(0),
 		isComplete(false),
 		isType(isType),
+		isTypeDependent(false),
 		isTemplate(isTemplate),
 		isTemplateName(isTemplate),
 		isSpecialization(isSpecialization),
@@ -527,6 +529,7 @@ public:
 		std::swap(usingMember, other.usingMember);
 		std::swap(isComplete, other.isComplete);
 		std::swap(isType, other.isType);
+		std::swap(isTypeDependent, other.isTypeDependent);
 		std::swap(isTemplate, other.isTemplate);
 		std::swap(isTemplateName, other.isTemplateName);
 		std::swap(isSpecialization, other.isSpecialization);

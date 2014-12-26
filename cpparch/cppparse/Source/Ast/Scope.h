@@ -181,11 +181,12 @@ struct Scope : public ScopeCounter
 	DeclarationList declarationList;
 	size_t templateDepth; // if this scope is a template parameter scope, indicates the template nesting level, otherwise zero
 	mutable bool visited;
+	bool isClassTemplate;
 
 	Scope(const AstAllocator<int>& allocator, const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN)
 		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type),
 		bases(allocator), usingDirectives(allocator), declarationList(allocator),
-		templateDepth(0), visited(false)
+		templateDepth(0), visited(false), isClassTemplate(false)
 	{
 	}
 	~Scope()

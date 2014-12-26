@@ -14,7 +14,6 @@ struct SemaBaseSpecifier : public SemaQualified
 	SemaBaseSpecifier(const SemaState& state)
 		: SemaQualified(state), type(0, context)
 	{
-		clearTemplateParams(); // ignore templateParams within base-specifier
 	}
 
 	SEMA_POLICY(cpp::nested_name_specifier, SemaPolicyPushCached<struct SemaNestedNameSpecifier>)
@@ -104,6 +103,7 @@ struct SemaClassHead : public SemaBase
 		declaration = declareClass(parent, id, isCStyle, isUnion, isSpecialization, arguments);
 		enclosingScope = parent;
 		beginClassDefinition(declaration);
+		clearTemplateParams(); // ignore templateParams within base-clause
 	}
 	SEMA_POLICY(cpp::base_specifier, SemaPolicyPush<struct SemaBaseSpecifier>)
 	void action(cpp::base_specifier* symbol, const SemaBaseSpecifier& walker) 

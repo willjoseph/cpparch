@@ -89,6 +89,7 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 		enumerator.type.qualifiers = CvQualifiers(true, false); // an enumerator may be used in an integral constant expression
 		setDependent(enumerator.type); // the enumeration type is dependent if it is a member of a class template
 		makeUniqueTypeSafe(enumerator.type);
+		enumerator.isTypeDependent = enumerator.type.isDependent;
 		if(enumerator.initializer.p != 0)
 		{
 			SEMANTIC_ASSERT(isDependentOld(enumerator.valueDependent) || enumerator.initializer.isConstant);

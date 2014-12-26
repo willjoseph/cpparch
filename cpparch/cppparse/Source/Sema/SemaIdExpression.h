@@ -287,11 +287,18 @@ struct SemaIdExpression : public SemaQualified
 			const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
 			SEMANTIC_ASSERT(qualifyingClass == this->qualifyingClass);
 
+#if 1
+			const SimpleType* idEnclosing = qualifyingClass;
+#else
+			const SimpleType* idEnclosing = qualifyingClass == 0 && isDependentQualifying(enclosingType)
+				? 0
+				: getIdExpressionClass(qualifyingClass, *declaration, enclosingType);
+#endif
 
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
 				// TODO: check compliance: id-expression cannot be compared for equivalence unless it names a non-type template-parameter
-				? makeExpression(IdExpression(declaration, qualifyingClass, templateArguments, isQualified), isDependent, isTypeDependent, isValueDependent)
+				? makeExpression(IdExpression(declaration, idEnclosing, templateArguments, isQualified), isDependent, isTypeDependent, isValueDependent)
 				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependent, isTypeDependent, isValueDependent);
 
 			if(!isTypeDependent)

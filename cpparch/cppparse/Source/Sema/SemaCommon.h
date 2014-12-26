@@ -647,11 +647,11 @@ inline Declaration* findEnclosingClassTemplate(Declaration* dependent)
 	return 0;
 }
 
-inline bool isDependentImpl(Declaration* dependent, Scope* enclosing, Scope* templateParamScope)
+inline bool isDependentImpl(Declaration* dependent, Scope* enclosing, Scope* enclosingTemplateScope)
 {
 	return dependent != 0
 		&& (findScope(enclosing, dependent->scope) != 0
-		|| findScope(templateParamScope, dependent->scope) != 0); // if we are within the candidate template-parameter's template-definition
+		|| findScope(enclosingTemplateScope, dependent->scope) != 0); // if we are within the candidate template-parameter's template-definition
 }
 
 
@@ -714,7 +714,7 @@ struct SemaState
 	const SimpleType* memberClass;
 	ExpressionWrapper objectExpression; // the lefthand side of a class member access expression
 	SafePtr<const TemplateParameters> templateParams;
-	ScopePtr templateParamScope;
+	ScopePtr enclosingTemplateScope;
 	DeferredSymbols* enclosingDeferred;
 	DeclarationPtr enclosingInstantiation; // the enclosing declaration which will be later instantiated
 	DependentConstructs* enclosingDependentConstructs; // the container to which dependent types and expressions will be added
@@ -731,7 +731,7 @@ struct SemaState
 		, qualifyingClass(0)
 		, memberClass(0)
 		, templateParams(0)
-		, templateParamScope(0)
+		, enclosingTemplateScope(0)
 		, enclosingDeferred(0)
 		, enclosingInstantiation(0)
 		, enclosingDependentConstructs(0)
@@ -866,13 +866,13 @@ struct SemaState
 
 			if(!isQualified || !isUnqualifiedId)
 			{
-				if(templateParamScope != 0)
+				if(enclosingTemplateScope != 0)
 				{
 					// this occurs when looking up template parameters during parse of (but before the point of declaration of) a template class/function, 
-					if(result.append(::findDeclaration(*templateParamScope, id, filter)))
+					if(result.append(::findDeclaration(*enclosingTemplateScope, id, filter)))
 					{
 #ifdef LOOKUP_DEBUG
-						std::cout << "HIT: templateParamScope" << std::endl;
+						std::cout << "HIT: enclosingTemplateScope" << std::endl;
 #endif
 						return result;
 					}
@@ -1106,7 +1106,7 @@ struct SemaState
 
 	void clearTemplateParams()
 	{
-		templateParamScope = 0;
+		enclosingTemplateScope = 0;
 		templateParams = 0;
 	}
 
@@ -1150,10 +1150,10 @@ struct SemaState
 	void printScope()
 	{
 #if 1
-		if(templateParamScope != 0)
+		if(enclosingTemplateScope != 0)
 		{
 			std::cout << "template-params:" << std::endl;
-			::printScope(*templateParamScope);
+			::printScope(*enclosingTemplateScope);
 		}
 #endif
 		if(getQualifyingScope() != 0)
@@ -1171,7 +1171,7 @@ struct SemaState
 
 	bool isDependentImpl(Declaration* dependent) const
 	{
-		return ::isDependentImpl(dependent, enclosingScope, templateParamScope);
+		return ::isDependentImpl(dependent, enclosingScope, enclosingTemplateScope);
 	}
 	bool isDependentOld(const Dependent& dependent) const
 	{
@@ -1417,6 +1417,72 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 	}
 }
 
+#if 0 // TODO
+
+inline bool isDependentOverloaded(Declaration* declaration)
+{
+	for(Declaration* p = declaration; p != 0; p = p->overloaded)
+	{
+		if(p->isTypeDependent)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+inline bool isTypeDependentExpression(const IdExpression& idExpression, const InstantiationContext& context)
+{
+	// [temp.dep.expr]
+	// An id-expression is type-dependent if it contains
+	// - an identifier associated by name lookup with one or more declarations declared with a dependent type,
+	// - a template-id that is dependent,
+	// - a conversion-function-id that specifies a dependent type, or
+	// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
+	// or if it names a static data member of the current instantiation that has type "array of unknown bound of
+	// T" for some T.
+	return isDependentQualifying(idExpression.qualifying)
+		|| isDependent(idExpression.templateArguments) // the id-expression may have an explicit template argument list
+		|| (idExpression.qualifying == 0 // if qualified by a non-dependent type, named declaration cannot be dependent
+			&& isDependentOverloaded(idExpression.declaration));
+}
+
+inline bool isValueDependentExpression(const IdExpression& idExpression, const InstantiationContext& context)
+{
+	// [temp.dep.constexpr]
+	// An identifier is value-dependent if it is:
+	//  - a name declared with a dependent type,
+	// 	- the name of a non-type template parameter,
+	// 	- a constant with literal type and is initialized with an expression that is value-dependent.
+	return isDependentQualifying(idExpression.qualifying)
+		|| (idExpression.qualifying == 0 // if qualified by a non-dependent type, named declaration cannot be dependent
+			&& (idExpression.declaration->isTypeDependent
+				|| idExpression.declaration->initializer.isValueDependent));
+}
+
+inline void checkDependent(const IdExpression& idExpression, bool isTypeDependent, bool isValueDependent, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(isTypeDependentExpression(idExpression, context) == isTypeDependent);
+	SYMBOLS_ASSERT(isValueDependentExpression(idExpression, context) == isValueDependent);
+}
+#endif
+
+template<typename T>
+void checkDependent(const T& e, bool isTypeDependent, bool isValueDependent)
+{
+}
+
+template<typename T>
+inline bool isTypeDependentExpression(const T&)
+{
+	return false;
+}
+
+template<typename T>
+inline bool isValueDependentExpression(const T&)
+{
+	return false;
+}
 
 struct SemaBase : public SemaState
 {
@@ -1509,6 +1575,8 @@ struct SemaBase : public SemaState
 	template<typename T>
 	ExpressionWrapper makeExpression(const T& node, bool isDependent = false, bool isTypeDependent = false, bool isValueDependent = false)
 	{
+		checkDependent(node, isTypeDependent, isValueDependent);
+
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(node);
 		// TODO: the below is only necessary if dependent expressions are to contain indices into enclosing template
@@ -1543,6 +1611,7 @@ struct SemaBase : public SemaState
 		{
 			instantiateExpression(node, getInstantiationContext());
 		}
+
 
 		return result;
 	}
@@ -1581,6 +1650,10 @@ struct SemaBase : public SemaState
 		{
 			setDecoration(id, declaration);
 		}
+		if(enclosingTemplateScope != 0)
+		{
+			enclosingTemplateScope->isClassTemplate = true;
+		}
 		enclosed->name = declaration->getName();
 		declaration->isCStyle = isCStyle;
 		declaration->isUnion = isUnion;
@@ -1604,18 +1677,18 @@ struct SemaBase : public SemaState
 		// 	X in namespace N or in one of N's enclosing namespaces.
 
 		pushScope(declaration->enclosed);
-		if(templateParamScope != 0)
+		if(enclosingTemplateScope != 0)
 		{
 			// insert the template-parameter scope to enclose the class scope
-			SEMANTIC_ASSERT(findScope(enclosingScope, templateParamScope) == 0);
-			templateParamScope->parent = enclosingScope->parent;
-			enclosingScope->parent = templateParamScope; // required when looking up template-parameters from within a template class
+			SEMANTIC_ASSERT(findScope(enclosingScope, enclosingTemplateScope) == 0);
+			enclosingTemplateScope->parent = enclosingScope->parent;
+			enclosingScope->parent = enclosingTemplateScope; // required when looking up template-parameters from within a template class
 		}
 		if(declaration->isTemplate)
 		{
 			enclosingScope->templateDepth = templateDepth; // indicates that this is a template
 		}
-		declaration->templateParamScope = templateParamScope; // required by findEnclosingType
+		declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingType
 
 		if(!isAnonymousUnion(*declaration))
 		{
@@ -1697,7 +1770,14 @@ struct SemaBase : public SemaState
 		if(isTemplate
 			&& declaration->templateParamScope == 0)
 		{
-			declaration->templateParamScope = templateParamScope; // required by findEnclosingType
+			declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingType
+		}
+
+		if(declaration->type.isDependent) // if the declaration's type is dependent
+		{
+			// record whether the declaration's type depends on a template parameter of the enclosing class
+			declaration->isTypeDependent = !declaration->isTemplate // if this is not a function template declaration/definition
+				|| declaration->type.dependent.declaration->scope->isClassTemplate; // or the function template declaration's type depends on the template parameter of a class template
 		}
 
 		// the type of an object is required to be complete

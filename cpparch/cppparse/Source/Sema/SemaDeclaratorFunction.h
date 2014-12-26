@@ -35,13 +35,13 @@ struct SemaParameterDeclarationClause : public SemaBase
 		: SemaBase(state)
 	{
 		pushScope(newScope(makeIdentifier("$prototype"), SCOPETYPE_FUNCTION));
-		if(templateParamScope != 0)
+		if(enclosingTemplateScope != 0)
 		{
 			// insert the template-parameter scope to enclose the declarator scope
-			SEMANTIC_ASSERT(findScope(enclosingScope, templateParamScope) == 0);
-			templateParamScope->parent = enclosingScope->parent;
-			enclosingScope->parent = templateParamScope;
-			enclosingScope->templateDepth = templateParamScope->templateDepth;
+			SEMANTIC_ASSERT(findScope(enclosingScope, enclosingTemplateScope) == 0);
+			enclosingTemplateScope->parent = enclosingScope->parent;
+			enclosingScope->parent = enclosingTemplateScope;
+			enclosingScope->templateDepth = enclosingTemplateScope->templateDepth;
 		}
 		clearTemplateParams();
 	}

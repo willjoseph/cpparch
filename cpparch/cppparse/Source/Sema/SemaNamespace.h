@@ -62,6 +62,8 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 		if(qualifying_p != TypePtr(0))
 		{
 			addDependent(declaration->type.dependent, qualifying_p->dependent);
+			declaration->type.isDependent = isDependentOld(qualifying_p);
+			declaration->isTypeDependent = isDependentOld(qualifying_p);
 		}
 
 		return true;

@@ -890,10 +890,20 @@ inline bool isDependent(const UniqueTypeArray& types)
 	return false;
 }
 
+inline bool isDependent(const SimpleType& type);
+
+inline bool isDependentQualifying(const SimpleType* qualifying)
+{
+	if(qualifying == 0)
+	{
+		return false;
+	}
+	return isDependent(*qualifying);
+}
+
 inline bool isDependent(const SimpleType& type)
 {
-	if(type.enclosing
-		&& isDependent(*type.enclosing))
+	if(isDependentQualifying(type.enclosing))
 	{
 		return true;
 	}

@@ -130,9 +130,9 @@ struct SemaTemplateParameterClause : public SemaBase, SemaTemplateParameterClaus
 		: SemaBase(state), SemaTemplateParameterClauseResult(context)
 	{
 		// collect template-params into a new scope
-		if(templateParamScope != 0)
+		if(enclosingTemplateScope != 0)
 		{
-			pushScope(templateParamScope); // the existing template parameter scope encloses the new scope
+			pushScope(enclosingTemplateScope); // the existing template parameter scope encloses the new scope
 		}
 		pushScope(newScope(makeIdentifier("$template"), SCOPETYPE_TEMPLATE));
 		clearTemplateParams();
@@ -164,8 +164,8 @@ struct SemaTemplateDeclaration : public SemaBase, SemaDeclarationResult
 	SEMA_POLICY(cpp::template_parameter_clause, SemaPolicyPush<struct SemaTemplateParameterClause>)
 	void action(cpp::template_parameter_clause* symbol, const SemaTemplateParameterClause& walker)
 	{
-		templateParamScope = walker.enclosingScope;
-		enclosingScope = walker.enclosingScope->parent;
+		enclosingTemplateScope = walker.enclosingScope;
+		enclosingScope = enclosingTemplateScope->parent;
 		params = walker.params;
 		templateParams = &params;
 	}

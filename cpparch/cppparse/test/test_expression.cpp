@@ -1,4 +1,48 @@
 
+namespace N511
+{
+	template<class T>
+	T f()
+	{
+		return f(); // should correctly determine that the type of 'f' is dependent
+	}
+
+	template<typename T>
+	struct A
+	{
+		static T f(T t)
+		{
+			return t; // dependent
+		}
+
+		template<typename U>
+		static U g(U u)
+		{
+			return u; // dependent
+		}
+
+		static const T m1 = sizeof(f(0)); // initializer is dependent
+		static const T m2 = sizeof(g(0)); // initializer not dependent, does not depend on template parameter at this depth
+	};
+
+	int i = A<int>::m1; // initializer can't be dependent because: not within a template, qualified by non-dependent
+}
+
+namespace N510
+{
+	const int n = 1;
+	const int m = 1;
+
+	static const int i = n + m; // can determine type and value
+
+	template<int N>
+	struct A
+	{
+		template<int M>
+		void f(int[N + M]); // when instantiating A, must substitute expression
+	};
+}
+
 namespace N508 // test instantiation of member function template declaration with member-pointer parameter
 {
 	template<typename T>
