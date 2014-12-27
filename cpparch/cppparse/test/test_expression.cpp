@@ -1,4 +1,33 @@
 
+namespace N518
+{
+	template<typename T>
+	T* f(T t);
+	template<typename T>
+	void g(T* t)
+	{
+		f(0)[f(t)];
+	}
+}
+
+namespace N136 // test parse of unqualified name found in non-dependent base class
+{
+	struct B
+	{
+		int m;
+	};
+
+	template<typename T>
+	class D : public B
+	{
+		void f()
+		{
+			m = 0;
+		}
+	};
+}
+
+
 namespace N515 // test substitution of initializers containing two expressions, the first being value-dependent
 {
 	struct A
@@ -18,12 +47,66 @@ namespace N515 // test substitution of initializers containing two expressions, 
 	template<typename T>
 	int g(T t, bool b)
 	{
-		A a = { t, b };
+		A a ={ t, b };
 		return a.m;
 	}
 
 	int x = f(0, false);
 	int y = g(0, false);
+}
+
+namespace N517 // test parse of type-dependent unary-expression
+{
+	template<class T>
+	struct A
+	{
+		void f(T* p)
+		{
+			*p++;
+		}
+	};
+}
+
+
+namespace N516
+{
+	template<typename T>
+	class A : T
+	{
+	public:
+		A(T t) : T(t, 0, 0)
+		{
+		}
+	};
+}
+
+namespace N511
+{
+	template<class T>
+	T f(T t)
+	{
+		return f(t); // should correctly determine that the type of 'f(t)' is dependent
+	}
+
+	template<typename T>
+	struct A
+	{
+		static T f(T t)
+		{
+			return t; // dependent
+		}
+
+		template<typename U>
+		static U g(U u)
+		{
+			return u; // dependent
+		}
+
+		static const T m1 = sizeof(f(0)); // initializer is dependent
+		static const T m2 = sizeof(g(0)); // initializer not dependent, does not depend on template parameter at this depth
+	};
+
+	int i = A<int>::m1; // initializer can't be dependent because: not within a template, qualified by non-dependent
 }
 
 namespace N514
@@ -80,35 +163,6 @@ namespace N512 // test determination of dependentness of 'm'
 	};
 }
 
-
-namespace N511
-{
-	template<class T>
-	T f(T t)
-	{
-		return f(t); // should correctly determine that the type of 'f(t)' is dependent
-	}
-
-	template<typename T>
-	struct A
-	{
-		static T f(T t)
-		{
-			return t; // dependent
-		}
-
-		template<typename U>
-		static U g(U u)
-		{
-			return u; // dependent
-		}
-
-		static const T m1 = sizeof(f(0)); // initializer is dependent
-		static const T m2 = sizeof(g(0)); // initializer not dependent, does not depend on template parameter at this depth
-	};
-
-	int i = A<int>::m1; // initializer can't be dependent because: not within a template, qualified by non-dependent
-}
 
 namespace N510
 {

@@ -1728,6 +1728,10 @@ inline IdExpression substituteIdExpression(const DependentIdExpression& node, co
 
 inline ExpressionValue evaluateIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
 {
+	if(node.qualifying == gOverloaded) // if this is the name of an undeclared identifier (to be looked up via ADL)
+	{
+		return EXPRESSIONRESULT_INVALID;
+	}
 	const IdExpression expression = substituteIdExpression(node, context);
 	return evaluateIdExpression(expression, context);
 }

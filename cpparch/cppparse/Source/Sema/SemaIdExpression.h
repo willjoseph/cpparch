@@ -236,12 +236,19 @@ struct SemaIdExpression : public SemaQualified
 		else if(isIdentifier // the expression is 'identifier'
 			&& declaration == &gUndeclared) // the identifier was not previously declared
 		{
-			// defer name-lookup: this may be the id-expression in a dependent call to named function, to be found by ADL
+			// [temp.dep]
+			// In an expression of the form:
+			//   postfix-expression(expression-list)
+			// where the postfix-expression is an id-expression, the id-expression denotes a dependent name if
+			//  - any of the expressions in the expression-list is a type-dependent expression
+			//  - the unqualified-id of the id-expression is a template-id in which any of the template arguments
+			//    depends on a template parameter.
+
+			// defer name-lookup: this is id-expression in an unqualified call to named function, to be found by ADL
 			isUndeclared = true;
 			setDecoration(id, gDependentObjectInstance);
 
-			expression = makeExpression(DependentIdExpression(id->value, gOverloaded, TemplateArgumentsInstance(), isQualified),
-				false, true);
+			expression = makeExpression(DependentIdExpression(id->value, gOverloaded, TemplateArgumentsInstance(), isQualified));
 		}
 		else
 		{
@@ -291,9 +298,9 @@ struct SemaIdExpression : public SemaQualified
 			const SimpleType* idEnclosing = qualifyingClass;
 #else
 			const SimpleType* idEnclosing = getIdExpressionClass(qualifyingClass, *declaration, enclosingType);
-			if(isDependentQualifying(idEnclosing))
+			if(isDependentQualifying(idEnclosing)) // if the declaration is a member of the current instantiation
 			{
-				idEnclosing = qualifyingClass;
+				idEnclosing = qualifyingClass; // resolve the enclosing class later, when the expression is substituted
 			}
 #endif
 

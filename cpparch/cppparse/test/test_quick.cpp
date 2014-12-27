@@ -1658,23 +1658,6 @@ namespace N133
 	};
 }
 
-namespace N136
-{
-	struct B
-	{
-		int m;
-	};
-
-	template<typename T>
-	class D : public B
-	{
-		void f()
-		{
-			m = 0;
-		}
-	};
-}
-
 namespace N028
 {
 	template<typename T>

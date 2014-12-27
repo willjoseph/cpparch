@@ -311,8 +311,8 @@ struct SemaMemInitializer : public SemaBase
 		setDecoration(&symbol->value, declaration);
 		return true;
 	}
-	SEMA_POLICY(cpp::expression_list, SemaPolicyPush<struct SemaExpression>)
-	void action(cpp::expression_list* symbol, const SemaExpressionResult& walker)
+	SEMA_POLICY(cpp::expression_list_wrapper, SemaPolicyPush<struct SemaExpression>)
+	void action(cpp::expression_list_wrapper* symbol, const SemaExpressionResult& walker)
 	{
 	}
 	SEMA_POLICY(cpp::decltype_specifier, SemaPolicyPush<struct SemaDecltypeSpecifier>)

@@ -1429,6 +1429,30 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 
 #if 1 // TODO
 
+inline bool isTypeDependentArguments(const Arguments& arguments)
+{
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		if((*i).isTypeDependent)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+inline bool isValueDependentArguments(const Arguments& arguments)
+{
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		if((*i).isValueDependent)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 inline bool isDependentOverloaded(Declaration* declaration)
 {
 	for(Declaration* p = declaration; p != 0; p = p->overloaded)
@@ -1439,6 +1463,45 @@ inline bool isDependentOverloaded(Declaration* declaration)
 		}
 	}
 	return false;
+}
+
+inline bool isTypeDependentExpression(const CastExpression& expression)
+{
+	// [temp.dep.expr]
+	// Expressions of the following forms are type-dependent only if the type specified by
+	// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
+	//  ( type-id ) cast-expression
+	//  simple-type-specifier ( expression-list )
+	//  dynamic_cast < type-id > ( expression )
+	//  static_cast <type-id> (expression)
+	//  const_cast <type-id> (expression)
+	//  reinterpret_cast <type-id> (expression)
+	return isDependent(expression.type);
+}
+
+inline bool isValueDependentExpression(const CastExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// Expressions of the following form are value-dependent if either the type-id or simple-type-specifier is dependent
+	// or the expression or cast-expression is value-dependent:
+	//  ( type-id ) cast-expression
+	//  simple-type-specifier ( expression-list )
+	//  static_cast <type-id> (expression)
+	//  const_cast <type-id> (expression)
+	//  reinterpret_cast <type-id> (expression)
+	return isDependent(expression.type)
+		|| isValueDependentArguments(expression.arguments);
+	return true;
+}
+
+inline bool isTypeDependentExpression(const DependentIdExpression& expression)
+{
+	return expression.qualifying != gOverloaded;
+}
+
+inline bool isValueDependentExpression(const DependentIdExpression& expression)
+{
+	return expression.qualifying != gOverloaded;
 }
 
 inline bool isTypeDependentExpression(const IdExpression& idExpression)
@@ -1470,29 +1533,234 @@ inline bool isValueDependentExpression(const IdExpression& idExpression)
 				|| idExpression.declaration->initializer.isValueDependent));
 }
 
-inline void checkDependent(const IdExpression& idExpression, bool isTypeDependent, bool isValueDependent)
+inline bool isTypeDependentExpression(const ExpressionList& expression)
 {
-	SYMBOLS_ASSERT(isTypeDependentExpression(idExpression) == isTypeDependent);
-	SYMBOLS_ASSERT(isValueDependentExpression(idExpression) == isValueDependent);
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return isTypeDependentArguments(expression.expressions);
 }
+
+inline bool isValueDependentExpression(const ExpressionList& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return isValueDependentArguments(expression.expressions);
+}
+
+inline bool isTypeDependentExpression(const NonTypeTemplateParameter& expression)
+{
+	// [temp.dep.expr]
+	// An id-expression is type-dependent if it contains
+	//  - an identifier associated by name lookup with one or more declarations declared with a dependent type,
+	return isDependent(expression.type);
+}
+
+inline bool isValueDependentExpression(const NonTypeTemplateParameter& expression)
+{
+	// [temp.dep.constexpr]
+	// An identifier is value-dependent if it is:
+	// - the name of a non-type template parameter
+	return true;
+}
+
+inline bool isTypeDependentExpression(const SizeofExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// Expressions of the following forms are never type-dependent (because the type of the expression cannot be
+	// dependent):
+	//   sizeof unary-expression
+	return false;
+}
+
+inline bool isValueDependentExpression(const SizeofExpression& expression)
+{
+	// [temp.dep.expr]
+	// Expressions of the following form are value-dependent if the unary-expression or expression is type-dependent
+	//   sizeof unary-expression
+	return expression.operand.isTypeDependent;
+}
+
+inline bool isTypeDependentExpression(const SizeofTypeExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// Expressions of the following forms are never type-dependent (because the type of the expression cannot be
+	// dependent):
+	//   sizeof ( type-id )
+	return false;
+}
+
+inline bool isValueDependentExpression(const SizeofTypeExpression& expression)
+{
+	// [temp.dep.expr]
+	// Expressions of the following form are value-dependent if [..] the type-id is dependent
+	//   sizeof ( type-id )
+	return isDependent(expression.type);
+}
+
+inline bool isTypeDependentExpression(const UnaryExpression& expression)
+{
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return expression.first.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const UnaryExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return expression.first.isValueDependent;
+}
+
+inline bool isTypeDependentExpression(const BinaryExpression& expression)
+{
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return expression.first.isTypeDependent
+		|| expression.second.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const BinaryExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return expression.first.isValueDependent
+		|| expression.second.isValueDependent;
+}
+
+inline bool isTypeDependentExpression(const TernaryExpression& expression)
+{
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return expression.first.isTypeDependent
+		|| expression.second.isTypeDependent
+		|| expression.third.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const TernaryExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return expression.first.isValueDependent
+		|| expression.second.isValueDependent
+		|| expression.third.isValueDependent;
+}
+
+inline bool isTypeDependentExpression(const TypeTraitsUnaryExpression& expression)
+{
+	return false;
+}
+
+inline bool isValueDependentExpression(const TypeTraitsUnaryExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isTypeDependentExpression(const TypeTraitsBinaryExpression& expression)
+{
+	return false;
+}
+
+inline bool isValueDependentExpression(const TypeTraitsBinaryExpression& expression)
+{
+	return isDependent(expression.first)
+		|| isDependent(expression.second);
+}
+
+inline bool isTypeDependentExpression(const ExplicitTypeExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isValueDependentExpression(const ExplicitTypeExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isTypeDependentExpression(const MemberOperatorExpression& expression)
+{
+	return expression.left.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const MemberOperatorExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isTypeDependentExpression(const ObjectExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isValueDependentExpression(const ObjectExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isTypeDependentExpression(const ClassMemberAccessExpression& expression)
+{
+	return expression.left.isTypeDependent
+		|| expression.right.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const ClassMemberAccessExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isTypeDependentExpression(const OffsetofExpression& expression)
+{
+	// [support.types] The expression offsetof(type, member-designator) is never type-dependent and it is value-dependent if and only if type is dependent.
+	return false;
+}
+
+inline bool isValueDependentExpression(const OffsetofExpression& expression)
+{
+	// [support.types] The expression offsetof(type, member-designator) is never type-dependent and it is value-dependent if and only if type is dependent.
+	return isDependent(expression.type);
+}
+
+inline bool isTypeDependentExpression(const FunctionCallExpression& expression)
+{
+	return expression.left.isTypeDependent
+		|| isTypeDependentArguments(expression.arguments);
+}
+
+inline bool isValueDependentExpression(const FunctionCallExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isTypeDependentExpression(const SubscriptExpression& expression)
+{
+	return expression.left.isTypeDependent
+		|| expression.right.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const SubscriptExpression& expression)
+{
+	return expression.left.isValueDependent
+		|| expression.right.isValueDependent;
+}
+
+inline bool isTypeDependentExpression(const PostfixOperatorExpression& expression)
+{
+	return expression.operand.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const PostfixOperatorExpression& expression)
+{
+	return expression.operand.isValueDependent;
+}
+
 #endif
 
 template<typename T>
-void checkDependent(const T& e, bool isTypeDependent, bool isValueDependent)
+void checkDependent(const T& expression, bool isTypeDependent, bool isValueDependent)
 {
+	SYMBOLS_ASSERT(isTypeDependentExpression(expression) == isTypeDependent);
+	SYMBOLS_ASSERT(isValueDependentExpression(expression) == isValueDependent);
 }
 
-template<typename T>
-inline bool isTypeDependentExpression(const T&)
-{
-	return false;
-}
-
-template<typename T>
-inline bool isValueDependentExpression(const T&)
-{
-	return false;
-}
 
 struct SemaBase : public SemaState
 {
@@ -1981,11 +2249,14 @@ struct SemaBase : public SemaState
 			return expression;
 		}
 		addDependent(typeDependent, enclosingDependent); // TODO: NOT dependent if not a member of the current instantiation and current instantiation has no dependent base class 
+		bool isTypeDependent = isDependentOld(typeDependent);
 		ExpressionType objectExpressionType = typeOfEnclosingClass(getInstantiationContext());
-		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType), isDependentOld(enclosingDependent));
+		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType), isTypeDependent, isTypeDependent, false);
 		return makeExpression(
 			ClassMemberAccessExpression(left, expression),
-			left.isDependent | expression.isDependent, expression.isTypeDependent, expression.isValueDependent);
+			left.isDependent | expression.isDependent,
+			left.isTypeDependent | expression.isTypeDependent,
+			false);
 	}
 };
 

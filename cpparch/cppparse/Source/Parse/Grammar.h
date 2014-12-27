@@ -2119,7 +2119,7 @@ namespace cpp
 	{
 		symbol_required<mem_initializer_id> id;
 		terminal<boost::wave::T_LEFTPAREN> lp;
-		symbol_optional<expression_list> args;
+		symbol_optional<expression_list_wrapper> args;
 		terminal<boost::wave::T_RIGHTPAREN> rp;
 		FOREACH4(id, lp, args, rp);
 	};

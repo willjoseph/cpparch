@@ -951,6 +951,12 @@ inline bool isDependent(const DependentArrayType&)
 	return true;
 }
 
+inline bool isDependent(const ExpressionType& type)
+{
+	return isDependent(static_cast<const UniqueTypeWrapper&>(type));
+}
+
+
 template<typename T>
 inline bool isDependent(const T&)
 {
