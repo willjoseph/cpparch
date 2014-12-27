@@ -38,6 +38,7 @@ struct SemaInitializer : public SemaBase
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
+		SEMANTIC_ASSERT(expression.p == 0);
 		expression = walker.expression;
 		addDependent(valueDependent, walker.valueDependent);
 		addDeferredExpression(expression);
@@ -308,8 +309,8 @@ struct SemaDeclarationSuffix : public SemaBase
 		}
 	}
 	// handle initializer in separate context to avoid ',' confusing recognition of declaration
-	SEMA_POLICY(cpp::expression_list, SemaPolicyPush<struct SemaInitializer>)
-	void action(cpp::expression_list* symbol, const SemaInitializer& walker) // initializer_parenthesis
+	SEMA_POLICY(cpp::expression_list_wrapper, SemaPolicyPush<struct SemaExpression>)
+	void action(cpp::expression_list_wrapper* symbol, const SemaExpressionResult& walker) // initializer_parenthesis
 	{
 		SEMANTIC_ASSERT(declaration != 0);
 		declaration->initializer = walker.expression;

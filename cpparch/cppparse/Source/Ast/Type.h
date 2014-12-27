@@ -423,6 +423,7 @@ struct SimpleType
 	bool isAbstract; // true if this class or any of its bases has a pure virtual function
 	bool isEmpty; // true if this class is a non-union class with no members (other than bitfield size zero), no virtual functions, no virtual base classes, no non-empty base classes
 	bool isPod; // true if this class has no non-pod members, no base classes, no virtual functions, no constructor or destructor
+	bool isLocal; // true if this class is declared within a function definition (or a nested class thereof)
 	mutable bool visited; // used during findDeclaration to prevent infinite recursion
 	mutable bool dumped; // used during dumpTemplateInstantiations to prevent duplicates
 	Location instantiation;
@@ -432,11 +433,16 @@ struct SimpleType
 		: uniqueId(0), primary(declaration), declaration(declaration), enclosing(enclosing), layout(layout),
 		instantiated(false), instantiating(false), allowLookup(false),
 		hasCopyAssignmentOperator(false), hasVirtualDestructor(false), isPolymorphic(false), isAbstract(false),
-		isEmpty(true), isPod(true),
+		isEmpty(true), isPod(true), isLocal(false),
 		visited(false), dumped(false)
 	{
 		SYMBOLS_ASSERT(enclosing == 0 || isClass(*enclosing->declaration));
 		SYMBOLS_ASSERT(!isTypedef(*declaration));
+		// [class.local]
+		// A class can be declared within a function definition; such a class is called a local class.
+		// A class nested within a local class is a local class.
+		isLocal = (declaration->scope != 0 && declaration->scope->type == SCOPETYPE_LOCAL)
+			|| (enclosing != 0 && enclosing->isLocal);
 	}
 };
 

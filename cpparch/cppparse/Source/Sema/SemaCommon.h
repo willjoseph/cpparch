@@ -1314,6 +1314,16 @@ struct SemaState
 	}
 	void addDependentType(Dependent& dependent, Declaration* declaration)
 	{
+#if 1
+		if(!declaration->isTypeDependent)
+		{
+			return;
+		}
+		else if(declaration->isTemplate)
+		{
+			setDependentEnclosingTemplate(dependent, getClassDeclaration(findEnclosingTemplateScope(declaration->scope)));
+		}
+#endif
 		addDependent(dependent, declaration->type.dependent);
 	}
 	void addDependent(Dependent& dependent, const Type& type)
@@ -1417,7 +1427,7 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 	}
 }
 
-#if 0 // TODO
+#if 1 // TODO
 
 inline bool isDependentOverloaded(Declaration* declaration)
 {
@@ -1431,7 +1441,7 @@ inline bool isDependentOverloaded(Declaration* declaration)
 	return false;
 }
 
-inline bool isTypeDependentExpression(const IdExpression& idExpression, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const IdExpression& idExpression)
 {
 	// [temp.dep.expr]
 	// An id-expression is type-dependent if it contains
@@ -1443,11 +1453,11 @@ inline bool isTypeDependentExpression(const IdExpression& idExpression, const In
 	// T" for some T.
 	return isDependentQualifying(idExpression.qualifying)
 		|| isDependent(idExpression.templateArguments) // the id-expression may have an explicit template argument list
-		|| (idExpression.qualifying == 0 // if qualified by a non-dependent type, named declaration cannot be dependent
+		|| ((idExpression.qualifying == 0 || idExpression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
 			&& isDependentOverloaded(idExpression.declaration));
 }
 
-inline bool isValueDependentExpression(const IdExpression& idExpression, const InstantiationContext& context)
+inline bool isValueDependentExpression(const IdExpression& idExpression)
 {
 	// [temp.dep.constexpr]
 	// An identifier is value-dependent if it is:
@@ -1455,15 +1465,15 @@ inline bool isValueDependentExpression(const IdExpression& idExpression, const I
 	// 	- the name of a non-type template parameter,
 	// 	- a constant with literal type and is initialized with an expression that is value-dependent.
 	return isDependentQualifying(idExpression.qualifying)
-		|| (idExpression.qualifying == 0 // if qualified by a non-dependent type, named declaration cannot be dependent
+		|| ((idExpression.qualifying == 0 || idExpression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
 			&& (idExpression.declaration->isTypeDependent
 				|| idExpression.declaration->initializer.isValueDependent));
 }
 
-inline void checkDependent(const IdExpression& idExpression, bool isTypeDependent, bool isValueDependent, const InstantiationContext& context)
+inline void checkDependent(const IdExpression& idExpression, bool isTypeDependent, bool isValueDependent)
 {
-	SYMBOLS_ASSERT(isTypeDependentExpression(idExpression, context) == isTypeDependent);
-	SYMBOLS_ASSERT(isValueDependentExpression(idExpression, context) == isValueDependent);
+	SYMBOLS_ASSERT(isTypeDependentExpression(idExpression) == isTypeDependent);
+	SYMBOLS_ASSERT(isValueDependentExpression(idExpression) == isValueDependent);
 }
 #endif
 
@@ -1775,9 +1785,10 @@ struct SemaBase : public SemaState
 
 		if(declaration->type.isDependent) // if the declaration's type is dependent
 		{
-			// record whether the declaration's type depends on a template parameter of the enclosing class
+			// record whether the declaration's type should be considered dependent
 			declaration->isTypeDependent = !declaration->isTemplate // if this is not a function template declaration/definition
-				|| declaration->type.dependent.declaration->scope->isClassTemplate; // or the function template declaration's type depends on the template parameter of a class template
+				|| (enclosingInstantiation != 0 && isClass(*enclosingInstantiation) && enclosingInstantiation->isTemplate); // or the function template is found within a class template
+				//|| declaration->type.dependent.declaration->scope->isClassTemplate; // or the function template declaration's type depends on the template parameter of a class template
 		}
 
 		// the type of an object is required to be complete
@@ -1936,7 +1947,7 @@ struct SemaBase : public SemaState
 	{
 		for(Declaration* p = declaration; p != 0; p = p->overloaded)
 		{
-			addDependent(dependent, p->type);
+			addDependentType(dependent, p);
 		}
 	}
 	static ExpressionType binaryOperatorIntegralType(Name operatorName, ExpressionType left, ExpressionType right)

@@ -1271,13 +1271,19 @@ namespace cpp
 		FOREACH2(assign, clause);
 	};
 
+	struct expression_list_wrapper
+	{
+		symbol_required<expression_list> list;
+		FOREACH1(list);
+	};
+
 	struct initializer_parenthesis
 	{
 		typedef TYPELIST1(initializer) Bases;
 		terminal<boost::wave::T_LEFTPAREN> lp;
-		symbol_required<expression_list> list;
+		symbol_required<expression_list_wrapper> wrapper;
 		terminal<boost::wave::T_RIGHTPAREN> rp;
-		FOREACH3(lp, list, rp);
+		FOREACH3(lp, wrapper, rp);
 	};
 
 	struct postfix_expression_suffix : choice<postfix_expression_suffix>

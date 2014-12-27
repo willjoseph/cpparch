@@ -1,10 +1,92 @@
 
+namespace N515 // test substitution of initializers containing two expressions, the first being value-dependent
+{
+	struct A
+	{
+		A(int, bool);
+
+		int m;
+	};
+
+	template<typename T>
+	int f(T t, bool b)
+	{
+		A a(t, b);
+		return a.m;
+	}
+
+	template<typename T>
+	int g(T t, bool b)
+	{
+		A a = { t, b };
+		return a.m;
+	}
+
+	int x = f(0, false);
+	int y = g(0, false);
+}
+
+namespace N514
+{
+	template<int>
+	struct A
+	{
+	};
+
+	template<typename T>
+	void f(const T)
+	{
+		static const int i(sizeof(T));
+		A<i> a;
+	};
+}
+
+namespace N513
+{
+	template<typename T, typename U>
+	class A
+	{
+		void f()
+		{
+			struct B
+			{
+				T t;
+			} m;
+			static const int i = sizeof(m.t);
+		}
+	};
+}
+
+namespace N512 // test determination of dependentness of 'm'
+{
+	template<typename T>
+	struct C
+	{
+		enum E {};
+		static const E m = (E)0;
+	};
+
+	struct B : C<int>
+	{
+
+	};
+
+	template<typename T>
+	struct A : public B
+	{
+		void f(int a=m)
+		{
+		}
+	};
+}
+
+
 namespace N511
 {
 	template<class T>
-	T f()
+	T f(T t)
 	{
-		return f(); // should correctly determine that the type of 'f' is dependent
+		return f(t); // should correctly determine that the type of 'f(t)' is dependent
 	}
 
 	template<typename T>
