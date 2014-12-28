@@ -782,7 +782,7 @@ struct SemaState
 	}
 	bool allowNameLookup() const
 	{
-		if(isDependentOld(qualifying_p))
+		if(isDependentSafe(qualifying_p))
 		{
 			return false;
 		}
@@ -1198,6 +1198,15 @@ struct SemaState
 		Dependent dependent;
 		setDependent(dependent, qualifying.get());
 		return isDependentOld(dependent);
+	}
+	bool isDependentSafe(const TypePtr& qualifying) const
+	{
+		if(qualifying == TypePtr(0))
+		{
+			return false;
+		}
+		SEMANTIC_ASSERT(isDependentOld(qualifying) == qualifying.get()->isDependent);
+		return qualifying.get()->isDependent;
 	}
 	bool isDependentOld(const TemplateArguments& arguments) const
 	{
@@ -2461,7 +2470,7 @@ struct SemaBase : public SemaState
 
 	LookupResultRef lookupTemplate(const Identifier& id, LookupFilter filter)
 	{
-		if(!isDependentOld(qualifying_p))
+		if(!isDependentSafe(qualifying_p))
 		{
 			return LookupResultRef(findDeclaration(id, filter));
 		}
@@ -2487,7 +2496,6 @@ struct SemaBase : public SemaState
 	{
 		SYMBOLS_ASSERT(type.unique == 0); // type must not be uniqued twice
 		type.unique = makeUniqueType(type, getInstantiationContext()).value;
-		//SYMBOLS_ASSERT(type.unique->isDependent == type.isDependent);
 		type.isDependent = type.unique->isDependent;
 	}
 	void makeUniqueTypeSafe(Type& type)

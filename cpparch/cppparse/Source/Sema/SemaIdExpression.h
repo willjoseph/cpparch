@@ -220,12 +220,12 @@ struct SemaIdExpression : public SemaQualified
 	bool commit()
 	{
 		bool isQualified = !qualifying.empty();
-		UniqueTypeWrapper qualifyingType = makeUniqueQualifying(qualifying, getInstantiationContext(), isDependentOld(qualifying.get_ref()));
+		UniqueTypeWrapper qualifyingType = makeUniqueQualifying(qualifying, getInstantiationContext(), isDependentSafe(qualifying.get_ref()));
 
 		TemplateArgumentsInstance templateArguments;
-		makeUniqueTemplateArguments(arguments, templateArguments, getInstantiationContext(), isDependentOld(arguments));
+		makeUniqueTemplateArguments2(arguments, templateArguments, getInstantiationContext());
 
-		if(isDependentOld(typeDependent)
+		if(isDependentSafe(qualifying.get_ref())
 			|| objectExpressionIsDependent())
 		{
 			setDecoration(id, gDependentObjectInstance);
@@ -265,7 +265,7 @@ struct SemaIdExpression : public SemaQualified
 				setDecoration(id, declaration);
 			}
 
-			SEMANTIC_ASSERT(!isDependentOld(qualifying.get_ref()));
+			SEMANTIC_ASSERT(!isDependentSafe(qualifying.get_ref()));
 
 			const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
 			SEMANTIC_ASSERT(qualifyingClass == this->qualifyingClass);

@@ -74,7 +74,7 @@ struct SemaTemplateId : public SemaBase, SemaTemplateIdResult
 		// followed by a <, the < is always taken as the delimiter of a template-argument-list and never as the less-than
 		// operator.
 		if(!isTemplate // if the name is not preceded by 'template'
-			&& !isDependentOld(qualifying_p)) // and the name is not qualified by a dependent type
+			&& !isDependentSafe(qualifying_p)) // and the name is not qualified by a dependent type
 		{
 			if(qualifyingClass == 0
 				&& getQualifyingScope() != 0

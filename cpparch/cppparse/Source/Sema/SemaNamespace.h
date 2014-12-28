@@ -41,7 +41,7 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 		bool isTemplate = false; // dependent names cannot be templates
 
 		if(!isTypename
-			&& !isDependentOld(qualifying_p))
+			&& !isDependentSafe(qualifying_p))
 		{
 			existingDeclaration = walker.declaration;
 			if(existingDeclaration == &gUndeclared
@@ -74,8 +74,8 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 		else if(qualifying_p != TypePtr(0))
 		{
 			addDependent(declaration->type.dependent, qualifying_p->dependent);
-			declaration->type.isDependent = isDependentOld(qualifying_p);
-			declaration->isTypeDependent = isDependentOld(qualifying_p);
+			declaration->type.isDependent = isDependentSafe(qualifying_p);
+			declaration->isTypeDependent = isDependentSafe(qualifying_p);
 		}
 
 		return true;

@@ -191,8 +191,8 @@ struct SemaIsInstantiated : public SemaBase
 	SEMA_POLICY(cpp::id_expression, SemaPolicyPush<struct SemaIdExpression>)
 	void action(cpp::id_expression* symbol, SemaIdExpression& walker)
 	{
-		SEMANTIC_ASSERT(isDependentOld(walker.typeDependent) == isDependentOld(walker.qualifying.get_ref()));
-		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == isDependentOld(walker.qualifying.get_ref()));
+		SEMANTIC_ASSERT(isDependentOld(walker.typeDependent) == isDependentSafe(walker.qualifying.get_ref()));
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == isDependentSafe(walker.qualifying.get_ref()));
 		SEMANTIC_ASSERT(!isDependentOld(walker.typeDependent));
 		SEMANTIC_ASSERT(!isDependentOld(walker.valueDependent));
 
@@ -352,6 +352,7 @@ struct SemaPostfixExpression : public SemaBase
 		addDependent(typeDependent, walker.typeDependent);
 		valueDependent = Dependent();
 
+#if 0
 		if(!isDependentOld(typeDependent)
 			&& expression.isNonStaticMemberName // if the id-expression names a nonstatic member
 			&& memberClass == 0) // and this is not a class-member-access expression
@@ -363,6 +364,7 @@ struct SemaPostfixExpression : public SemaBase
 			addDependent(typeDependent, enclosingDependent);
 			// when a nonstatic member name is used in a function call, overload resolution is dependent on the type of the implicit object parameter
 		}
+#endif
 
 
 		if(isDependentOld(typeDependent)) // if either the argument list or the id-expression are dependent
