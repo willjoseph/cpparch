@@ -36,20 +36,24 @@ inline UniqueTypeWrapper substitute(Declaration* declaration, const SimpleType* 
 
 		substitute(result.templateArguments, templateArguments, context);
 
-		TemplateArguments::const_iterator i = templateParams.defaults.begin();
-		std::advance(i, result.templateArguments.size());
-		for(; i != templateParams.defaults.end(); ++i)
+		if(!isDependent(result.templateArguments))
 		{
-			if((*i).type.declaration == 0)
+			TemplateArguments::const_iterator i = templateParams.defaults.begin();
+			std::advance(i, result.templateArguments.size());
+			for(; i != templateParams.defaults.end(); ++i)
 			{
-				throw TooFewTemplateArgumentsError(context.source);
+				if((*i).type.declaration == 0)
+				{
+					throw TooFewTemplateArgumentsError(context.source);
+				}
+				// evaluate template-parameter defaults in the context of the owning template
+				// handles when template-param-default depends on a template param (which may also be left as a default)
+				UniqueTypeWrapper argument = makeUniqueTemplateArgument(*i, setEnclosingTypeSafe(context, &result), false, true);
+				SYMBOLS_ASSERT(!isDependent(argument));
+				result.templateArguments.push_back(argument);
 			}
-			UniqueTypeWrapper argument = makeUniqueTemplateArgument(*i, setEnclosingTypeSafe(context, &result), isDependent(result), true); // evaluate template-parameter defaults in the context of the owning template
-			UniqueTypeWrapper substituted = substitute(argument, setEnclosingTypeSafe(context, &result)); // substitute template-parameter defaults in the context of the owning template
-			result.templateArguments.push_back(substituted); // handles when template-param-default depends on a template param that was also defaulted
+			SYMBOLS_ASSERT(count == result.templateArguments.size());
 		}
-
-		SYMBOLS_ASSERT(count == result.templateArguments.size());
 	}
 
 	static size_t uniqueId = 0;

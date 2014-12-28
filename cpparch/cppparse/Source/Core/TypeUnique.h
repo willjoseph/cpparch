@@ -222,7 +222,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	if(isTypedef(*declaration))
 	{
 		bool allowDependent = declaration->type.isDependent
-			&& (memberEnclosing == 0 || memberEnclosing->isLocal || isDependent(*memberEnclosing)); // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+			&& (memberEnclosing == 0 || memberEnclosing->isLocal || isDependent(*memberEnclosing)); // if a member of a non-dependent non-local type, declaration cannot be dependent
 		UniqueTypeWrapper result = getUniqueType(declaration->type, setEnclosingType(context, memberEnclosing), allowDependent);
 		return result;
 	}
