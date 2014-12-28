@@ -1,4 +1,20 @@
 
+namespace N523 // test substitution of template specialization with dependent default argument
+{
+	template<typename T, typename U = typename T::Type>
+	struct A
+	{
+	};
+
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	typedef A<B<int> > Type;
+}
+
 namespace N522 // test parse of non-type parameter with non-dependent type, with dependent default-argument expression
 {
 	template<typename T, int i = T::value>
@@ -69,22 +85,6 @@ namespace TEST3
 	};
 
 	typedef A<B> Type;
-}
-
-namespace TEST2
-{
-	template<typename T, typename U = typename T::Type>
-	struct A
-	{
-	};
-
-	template<typename T>
-	struct B
-	{
-		typedef T Type;
-	};
-
-	typedef A<B<int> > Type;
 }
 
 namespace TEST

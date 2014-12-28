@@ -223,7 +223,7 @@ struct SemaIdExpression : public SemaQualified
 		UniqueTypeWrapper qualifyingType = makeUniqueQualifying(qualifying, getInstantiationContext(), isDependentSafe(qualifying.get_ref()));
 
 		TemplateArgumentsInstance templateArguments;
-		makeUniqueTemplateArguments2(arguments, templateArguments, getInstantiationContext());
+		makeUniqueTemplateArguments(arguments, templateArguments, getInstantiationContext());
 
 		if(isDependentSafe(qualifying.get_ref())
 			|| objectExpressionIsDependent())

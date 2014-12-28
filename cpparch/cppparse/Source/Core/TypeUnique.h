@@ -63,16 +63,6 @@ inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argu
 }
 
 
-inline void makeUniqueTemplateArguments(TemplateArguments& templateArguments, TemplateArgumentsInstance& result, const InstantiationContext& context, bool allowDependent = false)
-{
-	result.reserve(std::distance(templateArguments.begin(), templateArguments.end()));
-	for(TemplateArguments::const_iterator i = templateArguments.begin(); i != templateArguments.end(); ++i)
-	{
-		UniqueTypeWrapper type = makeUniqueTemplateArgument(*i, context, allowDependent);
-		result.push_back(type);
-	}
-}
-
 inline void makeUniqueTemplateParameters(const TemplateParameters& templateParams, TemplateArgumentsInstance& arguments, const InstantiationContext& context, bool allowDependent)
 {
 	arguments.reserve(std::distance(templateParams.begin(), templateParams.end()));
@@ -120,7 +110,7 @@ inline bool isDependentTemplateArgument(const TemplateArgument& argument)
 }
 
 
-inline void makeUniqueTemplateArguments2(const TemplateArguments& arguments, TemplateArgumentsInstance& templateArguments, const InstantiationContext& context)
+inline void makeUniqueTemplateArguments(const TemplateArguments& arguments, TemplateArgumentsInstance& templateArguments, const InstantiationContext& context)
 {
 	templateArguments.reserve(std::distance(arguments.begin(), arguments.end()));
 	for(TemplateArguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
@@ -178,7 +168,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		bool isNested = declaration == &gDependentNested || declaration == &gDependentNestedTemplate;
 		SYMBOLS_ASSERT(type.id != IdentifierPtr(0));
 		TemplateArgumentsInstance templateArguments;
-		makeUniqueTemplateArguments2(type.templateArguments, templateArguments, context);
+		makeUniqueTemplateArguments(type.templateArguments, templateArguments, context);
 		return pushType(gUniqueTypeNull, DependentTypename(type.id->value, qualifying, templateArguments, isNested, declaration->isTemplate));
 	}
 	size_t index = declaration->templateParameter;
@@ -202,7 +192,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		}
 
 		TemplateArgumentsInstance templateArguments; // for template-template-parameter
-		makeUniqueTemplateArguments2(type.templateArguments, templateArguments, context);
+		makeUniqueTemplateArguments(type.templateArguments, templateArguments, context);
 		std::size_t templateParameterCount = declaration->isTemplate ? std::distance(declaration->templateParams.begin(), declaration->templateParams.end()) : 0;
 		return UniqueTypeWrapper(pushUniqueType(gUniqueTypes, UNIQUETYPE_NULL, DependentType(declaration, templateArguments, templateParameterCount)));
 	}

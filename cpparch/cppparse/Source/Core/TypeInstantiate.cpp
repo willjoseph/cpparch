@@ -71,7 +71,7 @@ inline Declaration* findTemplateSpecialization(Declaration* declaration, Templat
 		// TODO: check that all non-defaulted arguments are specified!
 		TemplateArgumentsInstance specializationArguments;
 		// a partial-specialization may have dependent template-arguments: template<class T> class C<T*>
-		makeUniqueTemplateArguments(declaration->templateArguments, specializationArguments, context, true);
+		makeUniqueTemplateArguments(declaration->templateArguments, specializationArguments, context);
 
 		SYMBOLS_ASSERT(specializationArguments.size() <= arguments.size()); // a template-specialization must have no more arguments than the template parameters
 
