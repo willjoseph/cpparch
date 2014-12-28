@@ -185,7 +185,6 @@ struct SemaDeclarator : public SemaBase
 	IdentifierPtr id;
 	UniqueTypeWrapper qualifying;
 	ScopePtr paramScope;
-	Dependent valueDependent;
 	TypeSequence typeSequence;
 	CvQualifiers qualifiers;
 	Qualifying memberPointer;
@@ -234,7 +233,6 @@ struct SemaDeclarator : public SemaBase
 		paramScope = walker.paramScope;
 		templateParams = walker.templateParams;
 		addDependent(dependent, walker.dependent);
-		addDependent(valueDependent, walker.valueDependent);
 		addDependent(enclosingDependent, walker.enclosingDependent);
 		SYMBOLS_ASSERT(typeSequence.empty());
 		typeSequence = walker.typeSequence;
@@ -310,7 +308,6 @@ struct SemaDeclarator : public SemaBase
 	{
 		// [temp.dep.type] A type is dependent if it is - an array type [...] whose size is specified by a constant expression that is value-dependent
 		addDependent(dependent, walker.valueDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		typeSequence.push_front(DeclaratorArrayType(walker.rank));
 	}
 	SEMA_POLICY(cpp::declarator_suffix_array, SemaPolicyPushCached<struct SemaDeclaratorArray>)
@@ -346,7 +343,6 @@ struct SemaDeclarator : public SemaBase
 		paramScope = walker.paramScope;
 		templateParams = walker.templateParams;
 		addDependent(dependent, walker.dependent);
-		addDependent(valueDependent, walker.valueDependent);
 		addDependent(enclosingDependent, walker.enclosingDependent);
 		SYMBOLS_ASSERT(typeSequence.empty());
 		typeSequence = walker.typeSequence;

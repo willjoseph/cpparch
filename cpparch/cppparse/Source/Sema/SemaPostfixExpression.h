@@ -352,22 +352,12 @@ struct SemaPostfixExpression : public SemaBase
 		addDependent(typeDependent, walker.typeDependent);
 		valueDependent = Dependent();
 
-#if 0
-		if(!isDependentOld(typeDependent)
-			&& expression.isNonStaticMemberName // if the id-expression names a nonstatic member
-			&& memberClass == 0) // and this is not a class-member-access expression
-		{
-			SEMANTIC_ASSERT(enclosingType != 0); // TODO: check that the id-expression is found in the context of a non-static member (i.e. 'this' is valid)
-			// [class.mfct.nonstatic] An id-expression (that is not part of a class-member-access expression, and is found in the context of a nonstatic member)
-			// that names a nonstatic member is transformed to a class-member-access expression prefixed by (*this)
+		expression = makeExpression(FunctionCallExpression(expression, walker.arguments),
+			expression.isDependent | walker.isDependent,
+			isDependentOld(typeDependent),
+			false);
 
-			addDependent(typeDependent, enclosingDependent);
-			// when a nonstatic member name is used in a function call, overload resolution is dependent on the type of the implicit object parameter
-		}
-#endif
-
-
-		if(isDependentOld(typeDependent)) // if either the argument list or the id-expression are dependent
+		if(expression.isTypeDependent) // if either the argument list or the id-expression are dependent
 			// TODO: check valueDependent too?
 		{
 			if(id != 0)
@@ -376,10 +366,6 @@ struct SemaPostfixExpression : public SemaBase
 			}
 		}
 
-		expression = makeExpression(FunctionCallExpression(expression, walker.arguments),
-			expression.isDependent | walker.isDependent,
-			isDependentOld(typeDependent),
-			false);
 		setExpressionType(symbol, expression.type);
 		// TODO: set of pointers-to-function
 		id = 0; // don't perform overload resolution for a(x)(x);

@@ -2989,7 +2989,6 @@ struct SemaTypenameSpecifierResult
 struct SemaNewTypeResult
 {
 	TypeId type;
-	Dependent valueDependent;
 	SemaNewTypeResult(const AstAllocator<int>& allocator)
 		: type(0, allocator)
 	{

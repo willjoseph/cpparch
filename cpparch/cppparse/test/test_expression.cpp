@@ -1,4 +1,23 @@
 
+namespace N522 // test parse of non-type parameter with non-dependent type, with dependent default-argument expression
+{
+	template<typename T, int i = T::value>
+	struct B
+	{
+		typedef T Type;
+	};
+}
+
+namespace N521 // test parse of non-type parameter with dependent type, with non-dependent default-argument expression
+{
+	int a[sizeof(int)];
+	template<typename T, int i[sizeof(T)] = a>
+	struct B
+	{
+		typedef T Type;
+	};
+}
+
 namespace TEST4
 {
 	template<typename T>

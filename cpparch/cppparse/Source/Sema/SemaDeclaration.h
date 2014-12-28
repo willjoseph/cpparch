@@ -107,6 +107,7 @@ struct SemaDeclarationSuffix : public SemaBase
 			Dependent tmpDependent = type.dependent;
 			addDependent(type.dependent, typeDependent);
 			makeUniqueTypeSafe(type);
+			SEMANTIC_ASSERT(isDependentOld(type.dependent) == type.isDependent);
 			if(enclosed == 0
 				&& enclosingTemplateScope != 0)
 			{
@@ -141,13 +142,6 @@ struct SemaDeclarationSuffix : public SemaBase
 		enclosed = walker.paramScope;
 		type.typeSequence = walker.typeSequence;
 		addDependent(typeDependent, walker.dependent);
-		/* temp.dep.constexpr
-		An identifier is value-dependent if it is:
-			- a name declared with a dependent type,
-			- the name of a non-type template parameter,
-			- a constant with effective literal type and is initialized with an expression that is value-dependent.
-		*/
-		addDependent(valueDependent, walker.valueDependent);
 
 		if(walker.qualifying != gUniqueTypeNull) // if this is a member definition qualified by the name of the enclosing class
 		{

@@ -69,7 +69,6 @@ struct SemaNewType : public SemaBase, SemaNewTypeResult
 	SEMA_POLICY(cpp::new_declarator, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::new_declarator* symbol, const SemaDeclarator& walker)
 	{
-		addDependent(valueDependent, walker.valueDependent);
 		type.typeSequence = walker.typeSequence;
 		addDependent(type.dependent, walker.dependent);
 		// new T
