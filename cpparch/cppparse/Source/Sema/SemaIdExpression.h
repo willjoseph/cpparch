@@ -313,8 +313,8 @@ struct SemaIdExpression : public SemaQualified
 				addDependentName(valueDependent, declaration); // adds 'declaration' if it names a non-type template-parameter; adds a dependent initializer
 			}
 
-			bool isTypeDependent = isDependentOld(typeDependent);
-			bool isValueDependent = isDependentOld(valueDependent);
+			bool isTypeDependent = isDependentSafe(typeDependent);
+			bool isValueDependent = isDependentSafe(valueDependent);
 			bool isDependent = isTypeDependent | isValueDependent;
 
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified

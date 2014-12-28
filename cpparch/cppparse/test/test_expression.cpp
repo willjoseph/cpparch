@@ -42,6 +42,17 @@ namespace TEST4
 			typedef Type T2;
 		}
 	};
+
+	template<typename T>
+	void f()
+	{
+		struct C
+		{
+			typedef T Type;
+		};
+		typedef typename C::Type Type;
+		typedef Type T2;
+	}
 }
 
 namespace TEST3

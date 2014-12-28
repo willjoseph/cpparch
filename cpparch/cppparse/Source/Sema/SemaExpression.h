@@ -80,7 +80,7 @@ struct SemaSizeofTypeExpression : public SemaBase
 
 		UniqueTypeId type = getUniqueType(walker.type);
 
-		expression = makeExpression(SizeofTypeExpression(type), walker.type.isDependent, false, isDependentOld(valueDependent));
+		expression = makeExpression(SizeofTypeExpression(type), walker.type.isDependent, false, isDependentSafe(valueDependent));
 		setExpressionType(symbol, expression.type);
 	}
 };
@@ -158,8 +158,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		ExpressionWrapper leftExpression = expression;
 		expression = makeExpression(BinaryExpression(getOverloadedOperatorId(symbol), iceOp, typeOfBinaryExpression<typeOp>, expression, walker.expression),
 			expression.isDependent | walker.expression.isDependent,
-			isDependentOld(typeDependent),
-			isDependentOld(valueDependent)
+			isDependentSafe(typeDependent),
+			isDependentSafe(valueDependent)
 		);
 		ExpressionTypeHelper<T>::set(symbol, expression.type);
 	}
@@ -197,8 +197,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		addDependent(valueDependent, walker.valueDependent);
 		expression = makeExpression(TernaryExpression(conditional, expression, walker.left, walker.right),
 			expression.isDependent | walker.left.isDependent | walker.right.isDependent,
-			isDependentOld(typeDependent),
-			isDependentOld(valueDependent)
+			isDependentSafe(typeDependent),
+			isDependentSafe(valueDependent)
 		);
 	}
 	SEMA_POLICY(cpp::logical_or_expression_default, SemaPolicyPushSrc<struct SemaExpression>)
@@ -280,8 +280,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		{
 			expression = makeExpression(ExpressionList(walker.arguments),
 				walker.isDependent,
-				isDependentOld(typeDependent),
-				isDependentOld(valueDependent)
+				isDependentSafe(typeDependent),
+				isDependentSafe(valueDependent)
 				);
 		}
 		setExpressionType(symbol, expression.type);
@@ -319,8 +319,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		UnaryIceOp iceOp = getUnaryIceOp(symbol);
 		expression = makeExpression(UnaryExpression(getOverloadedOperatorId(symbol->op), iceOp, expression),
 			expression.isDependent,
-			isDependentOld(typeDependent),
-			isDependentOld(valueDependent)
+			isDependentSafe(typeDependent),
+			isDependentSafe(valueDependent)
 		);
 
 		setExpressionType(symbol, expression.type);
@@ -349,7 +349,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		type.push_front(PointerType());
 		addDependent(typeDependent, walker.type);
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
-		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentSafe(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::new_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
@@ -359,7 +359,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
 		type.push_front(PointerType());
 		addDependent(typeDependent, walker.type);
-		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentOld(typeDependent));
+		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentSafe(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::cast_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
@@ -380,8 +380,8 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		addDependent(valueDependent, walker.valueDependent);
 		expression = makeExpression(CastExpression(type, walker.arguments),
 			walker.isDependent | walker.type.isDependent,
-			isDependentOld(typeDependent),
-			isDependentOld(valueDependent));
+			isDependentSafe(typeDependent),
+			isDependentSafe(valueDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	/* 14.6.2.2-4
@@ -413,7 +413,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		// [temp.dep.expr] Expressions of the following form [sizeof unary-expression] are never type-dependent (because the type of the expression cannot be dependent)
 		// [temp.dep.constexpr] Expressions of the following form [sizeof unary-expression] are value-dependent if the unary-expression is type-dependent
 		addDependent(valueDependent, walker.typeDependent);
-		expression = makeExpression(SizeofExpression(walker.expression), walker.expression.isDependent, false, isDependentOld(valueDependent));
+		expression = makeExpression(SizeofExpression(walker.expression), walker.expression.isDependent, false, isDependentSafe(valueDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::unary_expression_sizeoftype, SemaPolicyPushSrc<struct SemaSizeofTypeExpression>)

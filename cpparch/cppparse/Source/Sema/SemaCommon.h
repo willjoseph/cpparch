@@ -1177,27 +1177,17 @@ struct SemaState
 	{
 		return ::isDependentImpl(dependent, enclosingScope, enclosingTemplateScope);
 	}
-	bool isDependentOld(const Dependent& dependent) const
+	bool isDependentSafe(const Dependent& dependent) const
 	{
 		bool result = (dependent.declaration.p != 0);
 		SEMANTIC_ASSERT(result == isDependentImpl(dependent.declaration));
 		return result;
 	}
-	bool isDependentOld(const Type& type) const
-	{
-		return isDependentOld(type.dependent);
-	}
-	bool isDependentOld(const Types& bases) const
-	{
-		Dependent dependent;
-		setDependent(dependent, bases);
-		return isDependentOld(dependent);
-	}
 	bool isDependentOld(const TypePtr& qualifying) const
 	{
 		Dependent dependent;
 		setDependent(dependent, qualifying.get());
-		return isDependentOld(dependent);
+		return isDependentSafe(dependent);
 	}
 	bool isDependentSafe(const TypePtr& qualifying) const
 	{
@@ -1208,17 +1198,11 @@ struct SemaState
 		SEMANTIC_ASSERT(isDependentOld(qualifying) == qualifying.get()->isDependent);
 		return qualifying.get()->isDependent;
 	}
-	bool isDependentOld(const TemplateArguments& arguments) const
-	{
-		Dependent dependent;
-		setDependent(dependent, arguments);
-		return isDependentOld(dependent);
-	}
 	// the dependent-scope is the outermost template-definition
 	void setDependentImpl(Dependent& dependent, Declaration* candidate) const
 	{
 		SEMANTIC_ASSERT(candidate == 0 || candidate->templateParameter != INDEX_INVALID);
-		SEMANTIC_ASSERT(dependent.declaration == DeclarationPtr(0) || isDependentOld(dependent));
+		SEMANTIC_ASSERT(dependent.declaration == DeclarationPtr(0) || isDependentImpl(dependent.declaration));
 		if(candidate == 0)
 		{
 			return;
@@ -2516,7 +2500,7 @@ struct SemaBase : public SemaState
 			return expression;
 		}
 		addDependent(typeDependent, enclosingDependent); // TODO: NOT dependent if not a member of the current instantiation and current instantiation has no dependent base class 
-		bool isTypeDependent = isDependentOld(typeDependent);
+		bool isTypeDependent = isDependentSafe(typeDependent);
 		ExpressionType objectExpressionType = typeOfEnclosingClass(getInstantiationContext());
 		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType), isTypeDependent, isTypeDependent, false);
 		return makeExpression(

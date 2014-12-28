@@ -39,12 +39,12 @@ struct SemaTemplateArgumentList : public SemaBase
 			// [temp.arg] In a template argument, an ambiguity between a typeid and an expression is resolved to a typeid
 			return false; // fail parse, will retry for a type-id
 		}
-		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
+		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 		addDependent(argument.valueDependent, walker.valueDependent);
 		argument.type = &gNonType;
 		argument.expression = walker.expression;
 		argument.source = getLocation();
-		SEMANTIC_ASSERT(isDependentOld(argument.valueDependent) || argument.expression.isConstant);
+		SEMANTIC_ASSERT(isDependentSafe(argument.valueDependent) || argument.expression.isConstant);
 		addDeferredExpression(argument.expression);
 		return true;
 	}

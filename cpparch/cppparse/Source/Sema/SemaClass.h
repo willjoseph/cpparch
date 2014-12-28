@@ -199,25 +199,26 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		
 		beginClassDefinition(declaration);
 
-		Type type(declaration, context);
-		type.id = &declaration->getName();
-		setDependent(type);
-		if(declaration->isTemplate)
 		{
-			setDependentEnclosingTemplate(type.dependent, declaration);
+			Type type(declaration, context);
+			type.id = &declaration->getName();
+			setDependent(type);
+			if(declaration->isTemplate)
+			{
+				setDependentEnclosingTemplate(type.dependent, declaration);
+			}
+			type.isImplicitTemplateId = declaration->isTemplate;
+			type.isInjectedClassName = true;
+			declaration->type.unique = makeUniqueType(type, getInstantiationContext()).value;
+			declaration->type.isDependent = declaration->type.unique->isDependent;
+
+			addDependent(enclosingDependent, type);
 		}
-		type.isDependent = isDependentOld(type);
-		type.isImplicitTemplateId = declaration->isTemplate;
-		type.isInjectedClassName = true;
 		bool isExplicitSpecialization = isSpecialization && declaration->templateParams.empty();
-		bool allowDependent = type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
-		declaration->type.isDependent = type.isDependent;
-		declaration->type.unique = makeUniqueType(type, getInstantiationContext()).value;
+		bool allowDependent = declaration->type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
 		enclosingType = &getSimpleType(declaration->type.unique);
 		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
 		instantiateClass(*enclosingType, InstantiationContext(getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
-
-		addDependent(enclosingDependent, type);
 
 		clearTemplateParams();
 
@@ -338,8 +339,8 @@ struct SemaMemberDeclaratorBitfield : public SemaBase
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
-		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
-		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
+		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
 	}
 };
 

@@ -113,7 +113,7 @@ struct SemaPrimaryExpression : public SemaBase
 		// [temp.dep.expr]
 		// 'this' is type-dependent if the class type of the enclosing member function is dependent
 		addDependent(typeDependent, enclosingDependent);
-		bool isTypeDependent = isDependentOld(typeDependent);
+		bool isTypeDependent = isDependentSafe(typeDependent);
 		expression = makeExpression(ObjectExpression(type), isTypeDependent, isTypeDependent, false);
 		setExpressionType(symbol, expression.type);
 	}

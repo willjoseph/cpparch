@@ -111,7 +111,7 @@ struct SemaTemplateParameterList : public SemaBase
 			addDependent(param.argument.valueDependent, walker.declaration->valueDependent);
 			param.argument.type = &gNonType;
 			param.argument.expression = walker.declaration->initializer;
-			SEMANTIC_ASSERT(isDependentOld(param.argument.valueDependent) == param.argument.expression.isValueDependent);
+			SEMANTIC_ASSERT(isDependentSafe(param.argument.valueDependent) == param.argument.expression.isValueDependent);
 		}
 		++count;
 	}
