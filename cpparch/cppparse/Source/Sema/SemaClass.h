@@ -212,7 +212,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		bool isExplicitSpecialization = isSpecialization && declaration->templateParams.empty();
 		bool allowDependent = type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
 		declaration->type.isDependent = type.isDependent;
-		declaration->type.unique = makeUniqueType(type, getInstantiationContext(), allowDependent).value;
+		declaration->type.unique = makeUniqueType(type, getInstantiationContext()).value;
 		enclosingType = &getSimpleType(declaration->type.unique);
 		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
 		instantiateClass(*enclosingType, InstantiationContext(getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes

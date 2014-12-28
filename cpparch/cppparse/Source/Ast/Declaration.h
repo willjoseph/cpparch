@@ -462,6 +462,7 @@ public:
 	bool isCStyle; // true if this is a class-declaration preceded by 'typedef'
 	bool isUnion; // true if this is the declaration of a union
 	bool isDestructor; // true if this is the declaration of a destructor
+	bool isMemberOfClassTemplate; // true if this declaration is a member of a class template, and can therefore be explicitly specialized
 
 	Declaration(
 		const AstAllocator<int>& allocator,
@@ -500,7 +501,8 @@ public:
 		isEnumerator(false),
 		isCStyle(false),
 		isUnion(false),
-		isDestructor(false)
+		isDestructor(false),
+		isMemberOfClassTemplate(false)
 	{
 	}
 	Declaration() :
@@ -539,6 +541,7 @@ public:
 		std::swap(isCStyle, other.isCStyle);
 		std::swap(isUnion, other.isUnion);
 		std::swap(isDestructor, other.isDestructor);
+		std::swap(isMemberOfClassTemplate, other.isMemberOfClassTemplate);
 	}
 };
 

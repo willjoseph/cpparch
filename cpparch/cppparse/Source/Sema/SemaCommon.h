@@ -766,10 +766,9 @@ struct SemaState
 			Identifier typeInfoId = makeIdentifier(context.parserContext.makeIdentifier("type_info"));
 			declaration = ::findDeclaration(*declaration->enclosed, typeInfoId);
 			SEMANTIC_ASSERT(declaration != 0);
+			SEMANTIC_ASSERT(isType(*declaration));
 			QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(0, declaration));
-			SEMANTIC_ASSERT(isClass(*qualified.declaration));
-			Type type(qualified.declaration, context);
-			context.typeInfoType = ExpressionType(makeUniqueType(type, InstantiationContext(), false), true); // lvalue
+			context.typeInfoType = ExpressionType(UniqueTypeWrapper(qualified.declaration->type.unique), true); // lvalue
 			context.typeInfoType.value.setQualifiers(CvQualifiers(true, false));
 		}
 		return context.typeInfoType;
@@ -936,6 +935,11 @@ struct SemaState
 		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
 		declaration.enclosingType = enclosingType;
 		declaration.isFunction = type.unique != 0 && getUniqueType(type).isFunction();
+		if(Scope* parentClassScope = getEnclosingClass(parent))
+		{
+			Declaration* parentClass = getClassDeclaration(parentClassScope);
+			declaration.isMemberOfClassTemplate = parentClass->isTemplate || parentClass->isMemberOfClassTemplate;
+		}
 		SEMANTIC_ASSERT(!isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
 		declaration.location = getLocation();
 		declaration.uniqueId = ++uniqueId;
@@ -1206,6 +1210,10 @@ struct SemaState
 	{
 		SEMANTIC_ASSERT(candidate == 0 || candidate->templateParameter != INDEX_INVALID);
 		SEMANTIC_ASSERT(dependent.declaration == DeclarationPtr(0) || isDependentOld(dependent));
+		if(candidate == 0)
+		{
+			return;
+		}
 		if(!isDependentImpl(candidate))
 		{
 			return;
@@ -1430,7 +1438,134 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 	}
 }
 
-#if 1 // TODO
+inline bool isTemplateParameter(const Declaration& declaration)
+{
+	return declaration.templateParameter != INDEX_INVALID;
+}
+
+inline bool isTemplateParameter(const Type& type)
+{
+	return isTemplateParameter(*type.declaration);
+}
+
+#if 0 // TODO
+
+// [temp.dep.type]
+// A type is dependent if it is
+//  - a template parameter,
+//  - a member of an unknown specialization,
+//  - a nested class or enumeration that is a member of the current instantiation,
+//  - a cv-qualified type where the cv-unqualified type is dependent,
+//  - a compound type constructed from any dependent type,
+//  - an array type constructed from any dependent type or whose size is specified by a constant expression
+//    that is value-dependent,
+//  - a simple-template-id in which either the template name is a template parameter or any of the template
+//    arguments is a dependent type or an expression that is type-dependent or value-dependent, or
+//  - denoted by decltype(expression), where expression is type-dependent.
+
+
+inline bool isDependentTemplateArguments(const TemplateArguments& arguments)
+{
+	for(TemplateArguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		if(isDependentTemplateArgument(*i))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+inline bool isDependentArrayRank(const ArrayRank& arguments)
+{
+	for(ArrayRank::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		const ExpressionWrapper& expression = *i;
+		if(expression.isValueDependent
+			|| expression.isTypeDependent) // if type-dependent, also value-dependent!
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+inline bool isDependentParameters(const Parameters& parameters)
+{
+	for(Parameters::const_iterator i = parameters.begin(); i != parameters.end(); ++i)
+	{
+		if((*i).declaration->type.isDependent)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+struct TypeSequenceIsDependent : TypeSequenceVisitor
+{
+	bool result;
+	TypeSequenceIsDependent()
+		: result(false)
+	{
+	}
+	void visit(const DeclaratorPointerType& element)
+	{
+	}
+	void visit(const DeclaratorReferenceType& element)
+	{
+	}
+	void visit(const DeclaratorArrayType& element)
+	{
+		result = result || isDependentArrayRank(element.rank);
+	}
+	void visit(const DeclaratorMemberPointerType& element)
+	{
+		result = result || element.type.isDependent;
+	}
+	void visit(const DeclaratorFunctionType& element)
+	{
+		result = result || isDependentParameters(element.parameters);
+	}
+};
+
+inline bool isDependentTypeSequence(const TypeSequence& typeSequence)
+{
+	TypeSequenceIsDependent visitor;
+	typeSequence.accept(visitor);
+	return visitor.result;
+}
+
+inline bool isDependentNested(const Declaration& declaration)
+{
+	if(!isClass(declaration)
+		&& !isEnum(declaration))
+	{
+		return false;
+	}
+	return declaration.isMemberOfClassTemplate;
+}
+
+inline bool isDependentType(const Type& type)
+{
+	if(type.expression) // decltype(expression)
+	{
+		return type.expression.isTypeDependent;
+	}
+	return isTemplateParameter(type)
+		|| isDependentQualifying(type.qualifying)
+		|| isDependentNested(*type.declaration)
+		|| isDependentTemplateArguments(type.templateArguments);
+}
+
+inline bool isDependentTypeId(const TypeId& type)
+{
+	return isDependentType(type)
+		|| isDependentTypeSequence(type.typeSequence);
+}
+#endif
+
+#if 1
 
 inline bool isDependentArguments(const Arguments& arguments)
 {
@@ -2351,17 +2486,19 @@ struct SemaBase : public SemaState
 	void makeUniqueTypeImpl(T& type)
 	{
 		SYMBOLS_ASSERT(type.unique == 0); // type must not be uniqued twice
-		type.isDependent = isDependentOld(type)
-			|| objectExpressionIsDependent(); // this occurs when uniquing the dependent type name in a nested name-specifier in a class-member-access expression
-		type.unique = makeUniqueType(type, getInstantiationContext(), type.isDependent).value;
+		type.unique = makeUniqueType(type, getInstantiationContext()).value;
+		//SYMBOLS_ASSERT(type.unique->isDependent == type.isDependent);
+		type.isDependent = type.unique->isDependent;
 	}
 	void makeUniqueTypeSafe(Type& type)
 	{
 		makeUniqueTypeImpl(type);
+		//SEMANTIC_ASSERT(isDependentType(type) == type.isDependent);
 	}
 	void makeUniqueTypeSafe(TypeId& type)
 	{
 		makeUniqueTypeImpl(type);
+		//SEMANTIC_ASSERT(isDependentType(type) == type.isDependent);
 	}
 
 	ExpressionWrapper makeTransformedIdExpression(const ExpressionWrapper& expression, Dependent& typeDependent, Dependent& valueDependent)

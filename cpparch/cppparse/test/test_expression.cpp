@@ -1,5 +1,110 @@
 
-namespace N518
+namespace TEST4
+{
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	template<typename T>
+	void f()
+	{
+		typedef typename B<T>::Type Type;
+		typedef Type T2;
+	}
+
+	template<typename T>
+	struct A
+	{
+		void f()
+		{
+			typedef typename B<T>::Type Type;
+			typedef Type T2;
+		}
+	};
+}
+
+namespace TEST3
+{
+	template<template<typename> class Tmpl>
+	struct A
+	{
+	};
+
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	typedef A<B> Type;
+}
+
+namespace TEST2
+{
+	template<typename T, typename U = typename T::Type>
+	struct A
+	{
+	};
+
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	typedef A<B<int> > Type;
+}
+
+namespace TEST
+{
+	template<typename T>
+	struct A
+	{
+		struct C { };
+
+		typedef C NestedClassMemberOfCurrentInstantiation;
+	};
+
+	typedef A<int>::C Type;
+
+	struct B : A<int>
+	{
+		typedef C Type;
+	};
+}
+
+namespace N520
+{
+	template<typename T, int i>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct C { };
+		enum E { };
+
+		typedef T TemplateParameter;
+		typedef typename T::Type MemberOfUnknownSpecialization;
+		typedef C NestedClassMemberOfCurrentInstantiation;
+		typedef E NestedEnumMemberOfCurrentInstantiation;
+		typedef T CompoundType(T);
+		typedef T DependentArrayType[1];
+		typedef int DependentArraySize[sizeof(T)];
+		typedef B<T, 1> DependentTemplateTypeArgument;
+		typedef B<int, sizeof(T)> DependentTemplateNonTypeArgument;
+
+		typedef B<int, 1>::Type NonDependent;
+	};
+}
+
+
+namespace N518 // test parse of dependent subscript operator
 {
 	template<typename T>
 	T* f(T t);
@@ -8,6 +113,81 @@ namespace N518
 	{
 		f(0)[f(t)];
 	}
+}
+
+#if 0 // TODO: when instantiating B<int>, resolve Tmpl to A<int>::Tmpl for later checking in isTemplateName
+namespace N465 // test dependent using-declaration naming a class template
+{
+	template<typename T>
+	struct A
+	{
+	protected:
+		template<typename U>
+		struct Tmpl
+		{
+		};
+	};
+
+
+	template<typename T>
+	struct B : A<T>
+	{
+		using A<T>::Tmpl;
+		typedef typename B::template Tmpl<int> IntType;
+	};
+
+	B<int>::IntType x;
+
+	typedef B<int>::Tmpl<int> Type; // Tmpl is a template-name
+
+	template<template<typename> class Tmpl = B<int>::Tmpl>
+	struct C
+	{
+		typedef int Type;
+	};
+
+	typedef C<B<int>::Tmpl> Type2;
+	typedef C<> Type3;
+}
+#endif
+
+namespace N519 // test double using-declaration naming a class template
+{
+	namespace N
+	{
+		template<typename T>
+		struct Tmpl
+		{
+		};
+	}
+
+	namespace M
+	{
+		using N::Tmpl;
+	}
+
+	using M::Tmpl;
+
+	struct S : Tmpl<int>
+	{
+	};
+}
+
+namespace N457 // test using-declaration naming a class template
+{
+	namespace N
+	{
+		template<typename T>
+		struct Tmpl
+		{
+		};
+	}
+
+	using N::Tmpl;
+
+	struct S : Tmpl<int>
+	{
+	};
 }
 
 namespace N136 // test parse of unqualified name found in non-dependent base class
@@ -1114,29 +1294,6 @@ namespace N457 // test non-type using-declaration in function-body
 	}
 }
 
-namespace N465 // test dependent using-declaration naming a class template
-{
-	template<typename T>
-	struct A
-	{
-	protected:
-		template<typename U>
-		struct Type
-		{
-		};
-	};
-
-
-	template<typename T>
-	struct B : A<T>
-	{
-		using A<T>::Type;
-		typedef typename B::template Type<int> IntType;
-	};
-
-	B<int>::IntType x;
-}
-
 namespace N462 // test dependent using-declaration naming a dependent using-declaration naming a class template
 {
 	template<typename T>
@@ -1233,22 +1390,6 @@ namespace N456 // test dependent using-declaration naming a class
 	B<int>::Type x;
 }
 
-namespace N457 // test using-declaration naming a class template
-{
-	namespace N
-	{
-		template<typename T>
-		struct Tmpl
-		{
-		};
-	}
-
-	using N::Tmpl;
-
-	struct S : Tmpl<int>
-	{
-	};
-}
 
 
 #if 0 // TODO: explicit specialization of static data member

@@ -14,7 +14,7 @@ inline UniqueTypeWrapper makeUniqueQualifying(const Qualifying& qualifying, cons
 		: getUniqueType(qualifying.back(), context, allowDependent);
 }
 
-inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context, bool allowDependent, UniqueTypeWrapper& unique)
+inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context, UniqueTypeWrapper& unique)
 {
 	if(!qualifying.empty())
 	{
@@ -22,23 +22,24 @@ inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const
 		{
 			return 0; // name is qualified by a namespace, therefore cannot be enclosed by a class
 		}
+		bool allowDependent = qualifying.back().isDependent;
 		unique = getUniqueType(qualifying.back(), context, allowDependent);
-		if(allowDependent && qualifying.back().isDependent)
+		if(allowDependent)
 		{
 			return 0;
 		}
 		const SimpleType& type = getSimpleType(unique.value);
 		// [temp.inst] A class template is implicitly instantiated ... if the completeness of the class-type affects the semantics of the program.
-		instantiateClass(type, context, allowDependent);
+		instantiateClass(type, context);
 		return &type;
 	}
 	return context.enclosingType;
 }
 
-inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context, bool allowDependent)
+inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context)
 {
 	UniqueTypeWrapper tmp;
-	return makeUniqueEnclosing(qualifying, context, allowDependent, tmp);
+	return makeUniqueEnclosing(qualifying, context, tmp);
 }
 
 
@@ -111,17 +112,37 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 	SYMBOLS_ASSERT(arguments.size() == arguments.capacity());
 }
 
-inline void makeUniqueTemplateArguments(const TemplateArguments& arguments, TemplateArgumentsInstance& templateArguments, const InstantiationContext& context, bool allowDependent)
+inline bool isDependentTemplateArgument(const TemplateArgument& argument)
+{
+	return argument.type.declaration == &gNonType
+		? argument.expression.isTypeDependent || argument.expression.isValueDependent
+		: argument.type.isDependent;
+}
+
+
+inline void makeUniqueTemplateArguments2(const TemplateArguments& arguments, TemplateArgumentsInstance& templateArguments, const InstantiationContext& context)
 {
 	templateArguments.reserve(std::distance(arguments.begin(), arguments.end()));
 	for(TemplateArguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
 	{
 		const TemplateArgument& argument = *i;
 		SYMBOLS_ASSERT(argument.type.declaration != 0); // TODO: non-fatal error: not enough template arguments!
+		bool allowDependent = isDependentTemplateArgument(argument);
 		UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, context, allowDependent);
 		templateArguments.push_back(result);
 	}
 }
+
+inline bool isDependentQualifying(const Qualifying& qualifying)
+{
+	if(qualifying.empty()
+		|| isNamespace(*qualifying.back().declaration))
+	{
+		return false;
+	}
+	return qualifying.back().isDependent;
+}
+
 
 // unqualified object name: int, Object,
 // qualified object name: Qualifying::Object
@@ -130,7 +151,7 @@ inline void makeUniqueTemplateArguments(const TemplateArguments& arguments, Temp
 // /p type
 // /p enclosingType The enclosing template, required when uniquing a template-argument: e.g. Enclosing<int>::Type
 //			Note: if 'type' is a class-template template default argument, 'enclosingType' will be the class-template, which does not require instantiation!
-inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationContext& context, bool allowDependent)
+inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationContext& context)
 {
 	if(type.expression) // decltype(expression)
 	{
@@ -142,7 +163,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	}
 	// the type in which template-arguments are looked up: returns qualifying type if specified, else returns enclosingType
 	UniqueTypeWrapper qualifying;
-	const SimpleType* enclosing = makeUniqueEnclosing(type.qualifying, context, allowDependent, qualifying);
+	const SimpleType* enclosing = makeUniqueEnclosing(type.qualifying, context, qualifying);
 	Declaration* declaration = type.declaration;
 	extern Declaration gDependentType;
 	extern Declaration gDependentTemplate;
@@ -154,17 +175,15 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		|| declaration == &gDependentNestedTemplate) // T::Type<>::
 	{
 		// this is a type-name (or template-id) preceded by a dependent nested-name-specifier
-		SYMBOLS_ASSERT(allowDependent);
 		bool isNested = declaration == &gDependentNested || declaration == &gDependentNestedTemplate;
 		SYMBOLS_ASSERT(type.id != IdentifierPtr(0));
 		TemplateArgumentsInstance templateArguments;
-		makeUniqueTemplateArguments(type.templateArguments, templateArguments, context, allowDependent);
+		makeUniqueTemplateArguments2(type.templateArguments, templateArguments, context);
 		return pushType(gUniqueTypeNull, DependentTypename(type.id->value, qualifying, templateArguments, isNested, declaration->isTemplate));
 	}
 	size_t index = declaration->templateParameter;
 	if(index != INDEX_INVALID)
 	{
-		SYMBOLS_ASSERT(allowDependent);
 		SYMBOLS_ASSERT(type.qualifying.empty());
 		// Find the template-specialisation it belongs to:
 		const SimpleType* parameterEnclosing = findEnclosingType(enclosing, declaration->scope);
@@ -183,30 +202,17 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		}
 
 		TemplateArgumentsInstance templateArguments; // for template-template-parameter
-		makeUniqueTemplateArguments(type.templateArguments, templateArguments, context, allowDependent);
+		makeUniqueTemplateArguments2(type.templateArguments, templateArguments, context);
 		std::size_t templateParameterCount = declaration->isTemplate ? std::distance(declaration->templateParams.begin(), declaration->templateParams.end()) : 0;
 		return UniqueTypeWrapper(pushUniqueType(gUniqueTypes, UNIQUETYPE_NULL, DependentType(declaration, templateArguments, templateParameterCount)));
 	}
 
-	while(isUsing(*declaration))
+	// TODO: resolve using-declaration during name lookup instead?
+	while(isUsing(*declaration)) // occurs when this declaration names a template that is introduced via a using-declaration
 	{
-		if(isDependent(declaration->usingBase)) // if this is a dependent using declaration with 'typename'
-		{
-			if(allowDependent)
-			{
-				SYMBOLS_ASSERT(declaration->usingMember == &gDependentTypeInstance);
-				return pushType(gUniqueTypeNull, DependentTypename(declaration->getName().value, declaration->usingBase, TemplateArgumentsInstance(), false, false));
-			}
-
-			QualifiedDeclaration substituted = substituteClassMember(declaration->usingBase, declaration->getName().value, setEnclosingTypeSafe(context, enclosing));
-			declaration = substituted.declaration;
-		}
-		else
-		{
-			SYMBOLS_ASSERT(declaration->usingMember != &gDependentTypeInstance);
-			declaration = *declaration->usingMember;
-			SYMBOLS_ASSERT(declaration->templateParameter == INDEX_INVALID);
-		}
+		SYMBOLS_ASSERT(declaration->usingMember != &gDependentTypeInstance);
+		declaration = *declaration->usingMember;
+		SYMBOLS_ASSERT(declaration->templateParameter == INDEX_INVALID);
 	}
 
 	const SimpleType* memberEnclosing = isMember(*declaration) // if the declaration is a class member
@@ -215,6 +221,8 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 
 	if(isTypedef(*declaration))
 	{
+		bool allowDependent = declaration->type.isDependent
+			&& (memberEnclosing == 0 || isDependent(*memberEnclosing));
 		UniqueTypeWrapper result = getUniqueType(declaration->type, setEnclosingType(context, memberEnclosing), allowDependent);
 		return result;
 	}
@@ -236,9 +244,9 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 
 		// [temp.local]
 		// Like normal (non-template) classes, class templates have an injected-class-name. The injected-class-
-		// name can be used as a template-name or a type-name.When it is used with a template-argument-list,
+		// name can be used as a template-name or a type-name. When it is used with a template-argument-list,
 		// as a template-argument for a template template-parameter, or as the final identifier in the elaborated-type-specifier
-		// of a friend class template declaration, it refers to the class template itself.Otherwise, it is equivalent
+		// of a friend class template declaration, it refers to the class template itself. Otherwise, it is equivalent
 		// to the template-name followed by the template-parameters of the class template enclosed in <>.
 		// 
 		// Within the scope of a class template specialization or partial specialization, when the injected-class-name is
@@ -252,10 +260,8 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		if(type.isImplicitTemplateId // if no template argument list was specified
 			&& !isEnclosingSpecialization) // and the type is not the name of an enclosing class-template explicit/partial-specialization
 		{
-			// when the type refers to a template-name outside an enclosing class, it is a template-template-parameter:
-			// we substitute the primary template's (possibly dependent) template parameters.
-			bool dependent = allowDependent || !type.isInjectedClassName;
-			makeUniqueTemplateParameters(tmp.declaration->templateParams, tmp.templateArguments, context, dependent);
+			// substitute the primary template's template parameters.
+			makeUniqueTemplateParameters(tmp.declaration->templateParams, tmp.templateArguments, context, true);
 		}
 		else
 		{
@@ -263,21 +269,31 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 			const TemplateArguments& arguments = isEnclosingSpecialization
 				? type.declaration->templateArguments
 				: type.templateArguments;
-			TemplateArguments::const_iterator a = arguments.begin();
-			for(TemplateArguments::const_iterator i = defaults.begin(); i != defaults.end(); ++i)
+
+			bool dependent = false;
+			TemplateArguments::const_iterator d = defaults.begin();
+			for(TemplateArguments::const_iterator a = arguments.begin(); a != arguments.end(); ++a, ++d)
 			{
-				bool isTemplateParamDefault = a == arguments.end();
-				if(allowDependent && isTemplateParamDefault) // for dependent types, don't substitute default for unspecified arguments
-				{
-					break;
-				}
-				const TemplateArgument& argument = isTemplateParamDefault ? (*i) : (*a++);
-				SYMBOLS_ASSERT(argument.type.declaration != 0); // TODO: non-fatal error: not enough template arguments!
-				const SimpleType* enclosing = isTemplateParamDefault ? &tmp : context.enclosingType; // resolve dependent template-parameter-defaults in context of template class
-				UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, InstantiationContext(argument.source, enclosing, 0, context.enclosingScope), allowDependent, true);
+				const TemplateArgument& argument = *a;
+				bool allowDependent = isDependentTemplateArgument(argument);
+				dependent |= allowDependent;
+				UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, context, allowDependent);
 				tmp.templateArguments.push_back(result);
 			}
-			SYMBOLS_ASSERT(allowDependent || !tmp.templateArguments.empty()); // dependent types may have no arguments
+
+			if(!dependent)
+			{
+				for(; d != defaults.end(); ++d)
+				{
+					const TemplateArgument& argument = *d;
+					SYMBOLS_ASSERT(argument.type.declaration != 0); // TODO: non-fatal error: not enough template arguments!
+					// resolve dependent template-parameter-defaults in context of template class
+					UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, setEnclosingType(context, &tmp), false, true);
+					tmp.templateArguments.push_back(result);
+				}
+
+				SYMBOLS_ASSERT(!tmp.templateArguments.empty()); // non-dependent templates must have at least one argument
+			}
 		}
 	}
 	SYMBOLS_ASSERT(tmp.bases.empty());
@@ -302,9 +318,8 @@ struct TypeSequenceMakeUnique : TypeSequenceVisitor
 {
 	UniqueType& type;
 	const InstantiationContext context;
-	bool allowDependent;
-	TypeSequenceMakeUnique(UniqueType& type, const InstantiationContext& context, bool allowDependent)
-		: type(type), context(context), allowDependent(allowDependent)
+	TypeSequenceMakeUnique(UniqueType& type, const InstantiationContext& context)
+		: type(type), context(context)
 	{
 	}
 	void visit(const DeclaratorPointerType& element)
@@ -334,8 +349,8 @@ struct TypeSequenceMakeUnique : TypeSequenceVisitor
 	}
 	void visit(const DeclaratorMemberPointerType& element)
 	{
+		bool allowDependent = element.type.isDependent;
 		UniqueTypeWrapper tmp = getUniqueType(element.type, context, allowDependent);
-		SYMBOLS_ASSERT(allowDependent || !tmp.isDependent());
 		pushUniqueType(type, MemberPointerType(tmp));
 		type.setQualifiers(element.qualifiers);
 	}
@@ -346,6 +361,7 @@ struct TypeSequenceMakeUnique : TypeSequenceVisitor
 		result.parameterTypes.reserve(element.parameters.size());
 		for(Parameters::const_iterator i = element.parameters.begin(); i != element.parameters.end(); ++i)
 		{
+			bool allowDependent = (*i).declaration->type.isDependent;
 			result.parameterTypes.push_back(getUniqueType((*i).declaration->type, context, allowDependent));
 		}
 		pushUniqueType(type, result);
@@ -353,11 +369,11 @@ struct TypeSequenceMakeUnique : TypeSequenceVisitor
 	}
 };
 
-inline UniqueTypeWrapper makeUniqueType(const TypeId& type, const InstantiationContext& context, bool allowDependent)
+inline UniqueTypeWrapper makeUniqueType(const TypeId& type, const InstantiationContext& context)
 {
-	UniqueTypeWrapper result = makeUniqueType(*static_cast<const Type*>(&type), context, allowDependent);
+	UniqueTypeWrapper result = makeUniqueType(*static_cast<const Type*>(&type), context);
 	result.value.addQualifiers(type.qualifiers);
-	TypeSequenceMakeUnique visitor(result.value, context, allowDependent);
+	TypeSequenceMakeUnique visitor(result.value, context);
 	type.typeSequence.accept(visitor);
 	return result;
 }
