@@ -338,6 +338,7 @@ struct SemaMemberDeclaratorBitfield : public SemaBase
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
 	}
 };

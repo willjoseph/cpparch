@@ -191,6 +191,8 @@ struct SemaIsInstantiated : public SemaBase
 	SEMA_POLICY(cpp::id_expression, SemaPolicyPush<struct SemaIdExpression>)
 	void action(cpp::id_expression* symbol, SemaIdExpression& walker)
 	{
+		SEMANTIC_ASSERT(isDependentOld(walker.typeDependent) == isDependentOld(walker.qualifying.get_ref()));
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == isDependentOld(walker.qualifying.get_ref()));
 		SEMANTIC_ASSERT(!isDependentOld(walker.typeDependent));
 		SEMANTIC_ASSERT(!isDependentOld(walker.valueDependent));
 

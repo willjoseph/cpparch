@@ -39,6 +39,7 @@ struct SemaInitializer : public SemaBase
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		SEMANTIC_ASSERT(expression.p == 0);
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 		expression = walker.expression;
 		addDependent(valueDependent, walker.valueDependent);
 		addDeferredExpression(expression);
@@ -275,6 +276,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		if(!args.isParameter // if this is not a parameter declaration (parameters cannot be constants)
 			&& SemaState::enclosingDeferred == 0) // and parse was not defered
 		{
+			SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 			declaration->initializer = walker.expression;
 			addDependent(declaration->valueDependent, walker.valueDependent);
 		}
@@ -285,6 +287,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		if(!args.isParameter) // parameters cannot be constants
 		{
+			SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 			declaration->initializer = walker.expression;
 			addDependent(declaration->valueDependent, walker.valueDependent);
 			addDeferredExpression(walker.expression);
@@ -296,6 +299,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		SEMANTIC_ASSERT(declaration != 0);
 		SEMANTIC_ASSERT(declaration->initializer.p == 0); // declaration can't have two initializers
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
 		if(walker.count != 0
@@ -313,6 +317,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	void action(cpp::expression_list_wrapper* symbol, const SemaExpressionResult& walker) // initializer_parenthesis
 	{
 		SEMANTIC_ASSERT(declaration != 0);
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
 	}
@@ -321,6 +326,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		SEMANTIC_ASSERT(declaration != 0);
 		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(isDependentOld(walker.valueDependent) == walker.expression.isValueDependent);
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);
 		addDeferredExpression(declaration->initializer);

@@ -260,36 +260,12 @@ struct SemaIdExpression : public SemaQualified
 				return false;
 			}
 
-			// [temp.dep.expr]
-			// An id-expression is type-dependent if it contains
-			// - an identifier associated by name lookup with one or more declarations declared with a dependent type,
-			// - a template-id that is dependent,
-			// - a conversion-function-id that specifies a dependent type, or
-			// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
-			// or if it names a static data member of the current instantiation that has type "array of unknown bound of
-			// T" for some T.
-			addDependentType(typeDependent, declaration);
-			setDependent(typeDependent, arguments); // the id-expression may have an explicit template argument list
-			addDependentOverloads(typeDependent, declaration);
-
-			// [temp.dep.constexpr]
-			// An identifier is value-dependent if it is:
-			//  - a name declared with a dependent type,
-			// 	- the name of a non-type template parameter,
-			// 	- a constant with literal type and is initialized with an expression that is value-dependent.
-			addDependentType(valueDependent, declaration);
-			addDependentName(valueDependent, declaration); // adds 'declaration' if it names a non-type template-parameter; adds a dependent initializer
-
 			if(id != &gAnonymousId) // e.g. ~decltype(x)
 			{
 				setDecoration(id, declaration);
 			}
 
 			SEMANTIC_ASSERT(!isDependentOld(qualifying.get_ref()));
-
-			bool isTypeDependent = isDependentOld(typeDependent);
-			bool isValueDependent = isDependentOld(valueDependent);
-			bool isDependent = isTypeDependent | isValueDependent;
 
 			const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
 			SEMANTIC_ASSERT(qualifyingClass == this->qualifyingClass);
@@ -303,6 +279,43 @@ struct SemaIdExpression : public SemaQualified
 				idEnclosing = qualifyingClass; // resolve the enclosing class later, when the expression is substituted
 			}
 #endif
+			bool allowDependentType = idEnclosing == 0
+				|| isDependentQualifying(idEnclosing)
+				|| idEnclosing->isLocal;
+
+			// [temp.dep.expr]
+			// An id-expression is type-dependent if it contains
+			// - an identifier associated by name lookup with one or more declarations declared with a dependent type,
+			// - a template-id that is dependent,
+			// - a conversion-function-id that specifies a dependent type, or
+			// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
+			// or if it names a static data member of the current instantiation that has type "array of unknown bound of
+			// T" for some T.
+			setDependent(typeDependent, arguments); // the id-expression may have an explicit template argument list
+			if(allowDependentType) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+			{
+				addDependentType(typeDependent, declaration);
+				addDependentOverloads(typeDependent, declaration);
+			}
+
+			// [temp.dep.constexpr]
+			// An identifier is value-dependent if it is:
+			//  - a name declared with a dependent type,
+			// 	- the name of a non-type template parameter,
+			// 	- a constant with literal type and is initialized with an expression that is value-dependent.
+			if(declaration->templateParameter != INDEX_INVALID)
+			{
+				setDependentImpl(valueDependent, declaration);
+			}
+			if(allowDependentType) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+			{
+				addDependentType(valueDependent, declaration);
+				addDependentName(valueDependent, declaration); // adds 'declaration' if it names a non-type template-parameter; adds a dependent initializer
+			}
+
+			bool isTypeDependent = isDependentOld(typeDependent);
+			bool isValueDependent = isDependentOld(valueDependent);
+			bool isDependent = isTypeDependent | isValueDependent;
 
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
@@ -310,7 +323,7 @@ struct SemaIdExpression : public SemaQualified
 				? makeExpression(IdExpression(declaration, idEnclosing, templateArguments, isQualified), isDependent, isTypeDependent, isValueDependent)
 				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependent, isTypeDependent, isValueDependent);
 
-			if(!isTypeDependent)
+			if(!expression.isTypeDependent)
 			{
 				QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifyingClass, declaration), getInstantiationContext());
 				expression.isNonStaticMemberName = isMember(*qualified.declaration) && !isStatic(*qualified.declaration) && !isEnumerator(*qualified.declaration);
