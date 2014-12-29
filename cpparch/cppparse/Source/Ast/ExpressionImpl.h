@@ -96,9 +96,9 @@ inline ExpressionWrapper makeConstantExpression(const IntegralConstantExpression
 {
 	ExpressionWrapper result(makeUniqueExpression(node));
 	result.isUnique = true;
-	result.isConstant = true;
 	result.type = node.type;
-	result.value = node.value;
+	result.value.value = node.value;
+	result.value.isConstant = true;
 	return result;
 }
 

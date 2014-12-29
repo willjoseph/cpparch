@@ -173,42 +173,53 @@ inline bool isNullPointerConstantValue(ExpressionValue value)
 		&& value.value.value == 0;
 }
 
-struct ExpressionWrapper : ExpressionPtr
+struct SubstitutedExpression
 {
 	ExpressionType type; // valid if this expression is not type-dependent
-	IntegralConstant value; // valid if this is expression is integral-constant and not value-dependent
-	bool isUnique;
-	bool isConstant;
+	ExpressionValue value;
 	bool isDependent; // true if any subexpression is type-dependent or value-dependent.
 	bool isTypeDependent;
 	bool isValueDependent;
-	bool isTemplateArgumentAmbiguity; // [temp.arg] In a template argument, an ambiguity between a typeid and an expression is resolved to a typeid
 	bool isNonStaticMemberName;
 	bool isQualifiedNonStaticMemberName;
+	SubstitutedExpression()
+		: value(EXPRESSIONRESULT_INVALID)
+		, isDependent(false)
+		, isTypeDependent(false)
+		, isValueDependent(false)
+		, isNonStaticMemberName(false)
+		, isQualifiedNonStaticMemberName(false)
+	{
+	}
+	SubstitutedExpression(ExpressionType type, ExpressionValue value, bool isDependent, bool isTypeDependent, bool isValueDependent)
+		: type(type)
+		, value(value)
+		, isDependent(isDependent)
+		, isTypeDependent(isTypeDependent)
+		, isValueDependent(isValueDependent)
+		, isNonStaticMemberName(false)
+		, isQualifiedNonStaticMemberName(false)
+	{
+	}
+};
+
+
+struct ExpressionWrapper : ExpressionPtr, SubstitutedExpression
+{
+	bool isUnique;
+	bool isTemplateArgumentAmbiguity; // [temp.arg] In a template argument, an ambiguity between a typeid and an expression is resolved to a typeid
 	bool isParenthesised; // true if the expression is surrounded by one or more sets of parentheses
 	ExpressionWrapper()
 		: ExpressionPtr(0)
 		, isUnique(false)
-		, isConstant(false)
-		, isDependent(false)
-		, isTypeDependent(false)
-		, isValueDependent(false)
 		, isTemplateArgumentAmbiguity(false)
-		, isNonStaticMemberName(false)
-		, isQualifiedNonStaticMemberName(false)
 		, isParenthesised(false)
 	{
 	}
-	explicit ExpressionWrapper(ExpressionNode* node, bool isTypeDependent = false, bool isValueDependent = false)
-		: ExpressionPtr(node)
+	explicit ExpressionWrapper(ExpressionNode* node, const SubstitutedExpression& substituted = SubstitutedExpression())
+		: ExpressionPtr(node), SubstitutedExpression(substituted)
 		, isUnique(false)
-		, isConstant(false)
-		, isDependent(false)
-		, isTypeDependent(isTypeDependent)
-		, isValueDependent(isValueDependent)
 		, isTemplateArgumentAmbiguity(false)
-		, isNonStaticMemberName(false)
-		, isQualifiedNonStaticMemberName(false)
 		, isParenthesised(false)
 	{
 	}

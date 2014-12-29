@@ -44,7 +44,7 @@ struct SemaTemplateArgumentList : public SemaBase
 		argument.type = &gNonType;
 		argument.expression = walker.expression;
 		argument.source = getLocation();
-		SEMANTIC_ASSERT(isDependentSafe(argument.valueDependent) || argument.expression.isConstant);
+		SEMANTIC_ASSERT(isDependentSafe(argument.valueDependent) || argument.expression.value.isConstant);
 		addDeferredExpression(argument.expression);
 		return true;
 	}

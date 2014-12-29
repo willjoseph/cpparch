@@ -63,7 +63,7 @@ inline UniqueTypeWrapper makeUniqueTemplateArgument(const TemplateArgument& argu
 }
 
 
-inline void makeUniqueTemplateParameters(const TemplateParameters& templateParams, TemplateArgumentsInstance& arguments, const InstantiationContext& context, bool allowDependent)
+inline void makeUniqueTemplateParameters(const TemplateParameters& templateParams, TemplateArgumentsInstance& arguments, const InstantiationContext& context)
 {
 	arguments.reserve(std::distance(templateParams.begin(), templateParams.end()));
 	for(Types::const_iterator i = templateParams.begin(); i != templateParams.end(); ++i)
@@ -73,29 +73,21 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 		extern Declaration gParam;
 		if(argument.declaration->type.declaration == &gParam)
 		{
-			result = getUniqueType(argument, context, allowDependent);
+			result = getUniqueType(argument);
 			SYMBOLS_ASSERT(result.value != UNIQUETYPE_NULL);
 		}
 		else
 		{
 			UniqueTypeWrapper type = getUniqueType(argument.declaration->type);
 
-			ExpressionWrapper expression = ExpressionWrapper(makeUniqueExpression(NonTypeTemplateParameter(argument.declaration, type)), isDependent(type), true);
+			bool isTypeDependent = isDependent(type);
+			SubstitutedExpression substituted(
+				isTypeDependent ? gNullExpressionType : ExpressionType(substitute(type, context), false), // non-lvalue
+				EXPRESSIONRESULT_INVALID,
+				isTypeDependent, isTypeDependent, true);
+			ExpressionWrapper expression = ExpressionWrapper(makeUniqueExpression(NonTypeTemplateParameter(argument.declaration, type)), substituted);
 			expression.isUnique = true;
-			if(!expression.isTypeDependent)
-			{
-				expression.type = ExpressionType(substitute(type, context), false); // non-lvalue
-			}
-			if(allowDependent)
-			{
-				result = pushType(gUniqueTypeNull, DependentNonType(expression));
-			}
-			else
-			{
-				ExpressionValue value = evaluateExpression(expression, context);
-				SYMBOLS_ASSERT(value.isConstant);
-				result = pushType(gUniqueTypeNull, NonType(value.value));
-			}
+			result = pushType(gUniqueTypeNull, DependentNonType(expression));
 		}
 		arguments.push_back(result);
 	}
@@ -251,7 +243,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 			&& !isEnclosingSpecialization) // and the type is not the name of an enclosing class-template explicit/partial-specialization
 		{
 			// substitute the primary template's template parameters.
-			makeUniqueTemplateParameters(tmp.declaration->templateParams, tmp.templateArguments, context, true);
+			makeUniqueTemplateParameters(tmp.declaration->templateParams, tmp.templateArguments, context);
 		}
 		else
 		{

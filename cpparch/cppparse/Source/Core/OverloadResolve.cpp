@@ -33,7 +33,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 	}
 
 	result.parameters.swap(result.parameterTypes);
-	makeUniqueTemplateParameters(declaration.templateParams, result.templateParameters, InstantiationContext(), true);
+	makeUniqueTemplateParameters(declaration.templateParams, result.templateParameters, InstantiationContext());
 
 	if(!function.isEllipsis // if the function accepts a specific number of arguments
 		&& argumentTypes.size() > result.parameters.size()) // and we are given more arguments than parameters

@@ -351,7 +351,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			SYMBOLS_ASSERT(declaration != 0);
 			Declaration* specialization = findTemplateSpecialization(
 				findOverloaded(*declaration), instance.deducedArguments, instance.templateArguments,
-				InstantiationContext(context.source, instance.enclosing, 0, context.enclosingScope), false);
+				InstantiationContext(context.allocator, context.source, instance.enclosing, 0, context.enclosingScope), false);
 			if(specialization != 0)
 			{
 				instance.declaration = specialization;
@@ -372,7 +372,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 			{
 				const DeferredSubstitution& substitution = *i;
-				InstantiationContext childContext(substitution.location, &instance, 0, context.enclosingScope);
+				InstantiationContext childContext(context.allocator, substitution.location, &instance, 0, context.enclosingScope);
 				substitution(childContext);
 			}
 
@@ -395,7 +395,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				const Type& base = *i;
 				// TODO: check compliance: the point of instantiation of a base is the point of declaration of the enclosing (template) class
 				// .. along with the point of instantiation of types required when naming the base type. e.g. struct C : A<T>::B {}; struct C : B<A<T>::value> {};
-				InstantiationContext baseContext = InstantiationContext(original.instantiation, &instance, 0, context.enclosingScope);
+				InstantiationContext baseContext = InstantiationContext(context.allocator, original.instantiation, &instance, 0, context.enclosingScope);
 				UniqueTypeId type = getUniqueType(base, baseContext, allowDependent);
 				SYMBOLS_ASSERT(base.unique != 0);
 				SYMBOLS_ASSERT(base.isDependent || type.value == base.unique);
@@ -420,7 +420,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					}
 					// the member declaration should be found by name lookup during its instantation
 					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
-					InstantiationContext childContext(childLocation, &instance, 0, context.enclosingScope);
+					InstantiationContext childContext(context.allocator, childLocation, &instance, 0, context.enclosingScope);
 					UniqueTypeWrapper type = getUniqueType(declaration.type, childContext);
 					if(declaration.type.isDependent)
 					{

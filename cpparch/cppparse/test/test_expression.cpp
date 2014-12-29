@@ -1,4 +1,239 @@
 
+#if 0 // TODO
+namespace N530 // test substitution of partially dependent type in member function template (member-pointer)
+{
+	template<typename T>
+	struct B
+	{
+		int member;
+	};
+	typedef B<int> T;
+
+	template<int T::*member>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(C<&T::member>, C<&U::member>); // when instantiating A, must partially substitute type of f
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+#endif
+
+namespace N529 // test substitution of partially dependent type in member function template (non-type)
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 1;
+	};
+	typedef B<int> T;
+
+	template<int n>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(C<T::value>, C<U::value>); // when instantiating A, must partially substitute type of f
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N528 // test substitution of partially dependent type in member function template (array)
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 1;
+	};
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(int[T::value], int[U::value]); // when instantiating A, must partially substitute type of f
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N527 // test substitution of partially dependent type in member function template (typename)
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(typename T::Type, typename U::Type); // when instantiating A, must partially substitute type of f
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N526 // test substitution of partially dependent expression in member function template
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 0;
+	};
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		template<U>
+		void f(int[T::value + U::value]); // when instantiating A, must partially substitute expression
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+
+namespace N525 // TODO: duplicate test case?
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 0;
+	};
+	typedef B<int> T;
+
+	template<typename T>
+	struct A
+	{
+		static const int value = T::value;
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N524
+{
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	template<typename T>
+	void f()
+	{
+		typedef typename B<T>::Type Type;
+		typedef Type T2;
+		static const int i = B<T2>::unknown;
+	}
+
+	template<typename T>
+	struct A
+	{
+		void f()
+		{
+			typedef typename B<T>::Type Type;
+			typedef Type T2;
+			static const int i = B<T2>::unknown;
+		}
+	};
+
+#if 0 // TODO: non-standard?
+	// DR 1484: http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html
+	template<typename T>
+	void g()
+	{
+		struct C
+		{
+		};
+		static const int i = B<C>::unknown;
+	}
+#endif
+
+	template<typename T>
+	void h()
+	{
+		struct C
+		{
+			typedef T Type;
+		};
+		static const int i = B<typename C::Type>::unknown;
+	}
+}
+
+namespace N520
+{
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	template<int n>
+	struct I
+	{
+		typedef int Type[n];
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct C { };
+		enum E { };
+
+		static const int TemplateParameter = B<T>::unknown; // also MemberOfUnknownSpecialization, DependentTemplateTypeArgument
+		static const int MemberOfUnknownSpecialization = B<typename T::Type>::unknown;
+		static const int NestedClassMemberOfCurrentInstantiation = B<C>::unknown;
+		static const int NestedEnumMemberOfCurrentInstantiation = B<E>::unknown;
+		static const int CompoundType = B<T(T)>::unknown;
+		static const int DependentArrayType = B<T[1]>::unknown;
+		static const int DependentArraySize = B<int[sizeof(T)]>::unknown;
+		static const int DependentTemplateNonTypeArgument = I<sizeof(T)>::unknown;
+
+		typedef B<int>::Type NonDependentType;
+		typedef I<1>::Type NonDependentNonType;
+	};
+}
+
+
 namespace N523 // test substitution of template specialization with dependent default argument
 {
 	template<typename T, typename U = typename T::Type>
@@ -34,42 +269,6 @@ namespace N521 // test parse of non-type parameter with dependent type, with non
 	};
 }
 
-namespace TEST4
-{
-	template<typename T>
-	struct B
-	{
-		typedef T Type;
-	};
-
-	template<typename T>
-	void f()
-	{
-		typedef typename B<T>::Type Type;
-		typedef Type T2;
-	}
-
-	template<typename T>
-	struct A
-	{
-		void f()
-		{
-			typedef typename B<T>::Type Type;
-			typedef Type T2;
-		}
-	};
-
-	template<typename T>
-	void f()
-	{
-		struct C
-		{
-			typedef T Type;
-		};
-		typedef typename C::Type Type;
-		typedef Type T2;
-	}
-}
 
 namespace TEST3
 {
@@ -104,35 +303,6 @@ namespace TEST
 		typedef C Type;
 	};
 }
-
-namespace N520
-{
-	template<typename T, int i>
-	struct B
-	{
-		typedef T Type;
-	};
-
-	template<typename T>
-	struct A
-	{
-		struct C { };
-		enum E { };
-
-		typedef T TemplateParameter;
-		typedef typename T::Type MemberOfUnknownSpecialization;
-		typedef C NestedClassMemberOfCurrentInstantiation;
-		typedef E NestedEnumMemberOfCurrentInstantiation;
-		typedef T CompoundType(T);
-		typedef T DependentArrayType[1];
-		typedef int DependentArraySize[sizeof(T)];
-		typedef B<T, 1> DependentTemplateTypeArgument;
-		typedef B<int, sizeof(T)> DependentTemplateNonTypeArgument;
-
-		typedef B<int, 1>::Type NonDependent;
-	};
-}
-
 
 namespace N518 // test parse of dependent subscript operator
 {
@@ -370,22 +540,6 @@ namespace N512 // test determination of dependentness of 'm'
 		void f(int a=m)
 		{
 		}
-	};
-}
-
-
-namespace N510
-{
-	const int n = 1;
-	const int m = 1;
-
-	static const int i = n + m; // can determine type and value
-
-	template<int N>
-	struct A
-	{
-		template<int M>
-		void f(int[N + M]); // when instantiating A, must substitute expression
 	};
 }
 

@@ -218,7 +218,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		bool allowDependent = declaration->type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
 		enclosingType = &getSimpleType(declaration->type.unique);
 		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
-		instantiateClass(*enclosingType, InstantiationContext(getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
+		instantiateClass(*enclosingType, InstantiationContext(context, getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
 
 		clearTemplateParams();
 
@@ -340,7 +340,7 @@ struct SemaMemberDeclaratorBitfield : public SemaBase
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
 		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 	}
 };
 

@@ -365,7 +365,7 @@ inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, c
 	SYMBOLS_ASSERT(expression.p != 0);
 	if(!expression.isValueDependent)
 	{
-		return ExpressionValue(expression.value, expression.isConstant);
+		return expression.value;
 	}
 	return evaluateExpressionImpl(expression.p, context);
 }
@@ -1702,7 +1702,7 @@ inline IdExpression substituteIdExpression(const DependentIdExpression& node, co
 	SYMBOLS_ASSERT(context.enclosingType != 0);
 
 	UniqueTypeWrapper substituted = node.qualifying == gUniqueTypeNull // if this id-expression is part of class-member-access
-		? makeUniqueSimpleType(*context.enclosingType) // else in a dependent class-member-access 'd.m', enclosingType contains the class type of the object expression
+		? makeUniqueSimpleType(*context.enclosingType) // in a dependent class-member-access 'd.m', enclosingType contains the class type of the object expression
 		: substitute(node.qualifying, context);
 	const SimpleType* qualifyingType = substituted.isSimple() ? &getSimpleType(substituted.value) : 0;
 
@@ -1738,20 +1738,7 @@ inline ExpressionValue evaluateIdExpression(const DependentIdExpression& node, c
 
 inline const NonType& substituteNonTypeTemplateParameter(const NonTypeTemplateParameter& node, const InstantiationContext& context)
 {
-	size_t index = node.declaration->templateParameter;
-	SYMBOLS_ASSERT(index != INDEX_INVALID);
-	const SimpleType* enclosingType = findEnclosingTemplate(context.enclosingType, node.declaration->scope);
-	SYMBOLS_ASSERT(enclosingType != 0);
-	SYMBOLS_ASSERT(!enclosingType->declaration->isSpecialization || enclosingType->instantiated); // a specialization must be instantiated (or in the process of instantiating)
-	const TemplateArgumentsInstance& templateArguments = enclosingType->declaration->isSpecialization
-		? enclosingType->deducedArguments : enclosingType->templateArguments;
-	SYMBOLS_ASSERT(index < templateArguments.size());
-	UniqueTypeWrapper argument = templateArguments[index];
-	if(argument.isDependentNonType())
-	{
-		static NonType invalid = NonType(IntegralConstant(-1)); // TODO: remove this: temporary workaround to allow substitution of expression in function declaration containing dependent non-type template parameters
-		return invalid;
-	}
+	UniqueTypeWrapper argument = substituteTemplateParameter(*node.declaration, context);
 	SYMBOLS_ASSERT(argument.isNonType());
 	return getNonTypeValue(argument.value);
 }
@@ -1983,168 +1970,661 @@ inline ExpressionValue evaluateExpression(const PostfixOperatorExpression& node,
 
 //=============================================================================
 
-struct SubstitutedExpression
-{
-	ExpressionType type;
-	ExpressionValue value;
-	SubstitutedExpression()
-		: value(EXPRESSIONRESULT_INVALID)
-	{
-	}
-	SubstitutedExpression(ExpressionType type, ExpressionValue value)
-		: type(type), value(value)
-	{
-	}
-};
 
-inline SubstitutedExpression substituteExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
-
-inline SubstitutedExpression substituteExpressionList(const Arguments& arguments, const InstantiationContext& context)
+inline bool isDependentArguments(const Arguments& arguments)
 {
 	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
 	{
-		SubstitutedExpression substituted = substituteExpression(*i, context);
+		if((*i).isDependent)
+		{
+			return true;
+		}
 	}
-	return SubstitutedExpression();
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const ExpressionList& node, const InstantiationContext& context)
+
+inline bool isTypeDependentArguments(const Arguments& arguments)
 {
-	substituteExpressionList(node.expressions, context);
-	return SubstitutedExpression();
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		if((*i).isTypeDependent)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
+inline bool isValueDependentArguments(const Arguments& arguments)
 {
-	return SubstitutedExpression();
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		if((*i).isValueDependent)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const CastExpression& node, const InstantiationContext& context)
+inline bool isDependentOverloaded(Declaration* declaration)
 {
-	substitute(node.type, context);
-	substituteExpressionList(node.arguments, context);
-	return SubstitutedExpression();
+	for(Declaration* p = declaration; p != 0; p = p->overloaded)
+	{
+		if(p->isTypeDependent)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+inline bool isDependentExpression(const IntegralConstantExpression& expression)
 {
-	return SubstitutedExpression();
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const DependentIdExpression& node, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const IntegralConstantExpression& expression)
 {
-	return SubstitutedExpression();
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const IdExpression& node, const InstantiationContext& context)
+inline bool isValueDependentExpression(const IntegralConstantExpression& expression)
 {
-	instantiateExpression(node, context);
-	return SubstitutedExpression();
+	return false;
 }
 
-inline SubstitutedExpression substituteExpression(const SizeofExpression& node, const InstantiationContext& context)
+inline bool isDependentExpression(const CastExpression& expression)
 {
-	substituteExpression(node.operand, context);
-	return SubstitutedExpression();
+	return isDependent(expression.type)
+		|| isDependentArguments(expression.arguments);
 }
 
-inline SubstitutedExpression substituteExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const CastExpression& expression)
 {
-	substitute(node.type, context);
-	return SubstitutedExpression();
+	// [temp.dep.expr]
+	// Expressions of the following forms are type-dependent only if the type specified by
+	// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
+	//  ( type-id ) cast-expression
+	//  simple-type-specifier ( expression-list )
+	//  dynamic_cast < type-id > ( expression )
+	//  static_cast <type-id> (expression)
+	//  const_cast <type-id> (expression)
+	//  reinterpret_cast <type-id> (expression)
+	return isDependent(expression.type);
 }
 
-inline SubstitutedExpression substituteExpression(const UnaryExpression& node, const InstantiationContext& context)
+inline bool isValueDependentExpression(const CastExpression& expression)
 {
-	substituteExpression(node.first, context);
-	return SubstitutedExpression();
+	// [temp.dep.constexpr]
+	// Expressions of the following form are value-dependent if either the type-id or simple-type-specifier is dependent
+	// or the expression or cast-expression is value-dependent:
+	//  ( type-id ) cast-expression
+	//  simple-type-specifier ( expression-list )
+	//  static_cast <type-id> (expression)
+	//  const_cast <type-id> (expression)
+	//  reinterpret_cast <type-id> (expression)
+	return isDependent(expression.type)
+		|| isValueDependentArguments(expression.arguments);
 }
 
-inline SubstitutedExpression substituteExpression(const BinaryExpression& node, const InstantiationContext& context)
+inline bool isDependentExpression(const DependentIdExpression& expression)
 {
-	substituteExpression(node.first, context);
-	substituteExpression(node.second, context);
-	return SubstitutedExpression();
+	return true; // TODO
 }
 
-inline SubstitutedExpression substituteExpression(const TernaryExpression& node, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const DependentIdExpression& expression)
 {
-	substituteExpression(node.first, context);
-	substituteExpression(node.second, context);
-	substituteExpression(node.third, context);
-	return SubstitutedExpression();
+	return expression.qualifying != gOverloaded;
 }
 
-inline SubstitutedExpression substituteExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
+inline bool isValueDependentExpression(const DependentIdExpression& expression)
 {
-	substitute(node.type, context);
-	return SubstitutedExpression();
+	return expression.qualifying != gOverloaded;
 }
 
-inline SubstitutedExpression substituteExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
+inline bool isDependentExpression(const IdExpression& expression)
 {
-	substitute(node.first, context);
-	substitute(node.second, context);
-	return SubstitutedExpression();
+	return isDependentQualifying(expression.qualifying)
+		|| isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
+		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+		&& isDependentOverloaded(expression.declaration));
 }
 
-inline SubstitutedExpression substituteExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const IdExpression& expression)
 {
-	UniqueTypeWrapper type = substitute(node.type, context);
-	substituteExpressionList(node.arguments, context);
-	return SubstitutedExpression();
+	// [temp.dep.expr]
+	// An id-expression is type-dependent if it contains
+	// - an identifier associated by name lookup with one or more declarations declared with a dependent type,
+	// - a template-id that is dependent,
+	// - a conversion-function-id that specifies a dependent type, or
+	// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
+	// or if it names a static data member of the current instantiation that has type "array of unknown bound of
+	// T" for some T.
+	return isDependentQualifying(expression.qualifying)
+		|| isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
+		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+		&& isDependentOverloaded(expression.declaration));
 }
 
-inline SubstitutedExpression substituteExpression(const ObjectExpression& node, const InstantiationContext& context)
+inline bool isValueDependentExpression(const IdExpression& expression)
 {
-	UniqueTypeWrapper type = substitute(node.type, context);
-	return SubstitutedExpression();
+	// [temp.dep.constexpr]
+	// An identifier is value-dependent if it is:
+	//  - a name declared with a dependent type,
+	// 	- the name of a non-type template parameter,
+	// 	- a constant with literal type and is initialized with an expression that is value-dependent.
+	return isDependentQualifying(expression.qualifying)
+		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+		&& (expression.declaration->isTypeDependent
+		|| expression.declaration->initializer.isValueDependent));
 }
 
-inline SubstitutedExpression substituteExpression(const MemberOperatorExpression& node, const InstantiationContext& context)
+inline bool isDependentExpression(const ExpressionList& expression)
 {
-	SubstitutedExpression substituted = substituteExpression(node.left, context);
-	return SubstitutedExpression();
+	return isDependentArguments(expression.expressions);
 }
 
-inline SubstitutedExpression substituteExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const ExpressionList& expression)
 {
-	SubstitutedExpression substituted1 = substituteExpression(node.left, context);
-	SubstitutedExpression substituted2 = substituteExpression(node.right, context);
-	return SubstitutedExpression();
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return isTypeDependentArguments(expression.expressions);
 }
 
-inline SubstitutedExpression substituteExpression(const OffsetofExpression& node, const InstantiationContext& context)
+inline bool isValueDependentExpression(const ExpressionList& expression)
 {
-	UniqueTypeWrapper type = substitute(node.type, context);
-	SubstitutedExpression substituted = substituteExpression(node.member, context);
-	return SubstitutedExpression();
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return isValueDependentArguments(expression.expressions);
 }
 
-inline SubstitutedExpression substituteExpression(const FunctionCallExpression& node, const InstantiationContext& context)
+inline bool isDependentExpression(const NonTypeTemplateParameter& expression)
 {
-	SubstitutedExpression substituted = substituteExpression(node.left, context);
-	substituteExpressionList(node.arguments, context);
-	return SubstitutedExpression();
+	return true;
 }
 
-inline SubstitutedExpression substituteExpression(const SubscriptExpression& node, const InstantiationContext& context)
+inline bool isTypeDependentExpression(const NonTypeTemplateParameter& expression)
 {
-	SubstitutedExpression substituted1 = substituteExpression(node.left, context);
-	SubstitutedExpression substituted2 = substituteExpression(node.right, context);
-	return SubstitutedExpression();
+	// [temp.dep.expr]
+	// An id-expression is type-dependent if it contains
+	//  - an identifier associated by name lookup with one or more declarations declared with a dependent type,
+	return isDependent(expression.type);
 }
 
-inline SubstitutedExpression substituteExpression(const PostfixOperatorExpression& node, const InstantiationContext& context)
+inline bool isValueDependentExpression(const NonTypeTemplateParameter& expression)
 {
-	SubstitutedExpression substituted = substituteExpression(node.operand, context);
-	return SubstitutedExpression();
+	// [temp.dep.constexpr]
+	// An identifier is value-dependent if it is:
+	// - the name of a non-type template parameter
+	return true;
+}
+
+inline bool isDependentExpression(const SizeofExpression& expression)
+{
+	return expression.operand.isDependent;
+}
+
+inline bool isTypeDependentExpression(const SizeofExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// Expressions of the following forms are never type-dependent (because the type of the expression cannot be
+	// dependent):
+	//   sizeof unary-expression
+	return false;
+}
+
+inline bool isValueDependentExpression(const SizeofExpression& expression)
+{
+	// [temp.dep.expr]
+	// Expressions of the following form are value-dependent if the unary-expression or expression is type-dependent
+	//   sizeof unary-expression
+	return expression.operand.isTypeDependent;
+}
+
+inline bool isDependentExpression(const SizeofTypeExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isTypeDependentExpression(const SizeofTypeExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// Expressions of the following forms are never type-dependent (because the type of the expression cannot be
+	// dependent):
+	//   sizeof ( type-id )
+	return false;
+}
+
+inline bool isValueDependentExpression(const SizeofTypeExpression& expression)
+{
+	// [temp.dep.expr]
+	// Expressions of the following form are value-dependent if [..] the type-id is dependent
+	//   sizeof ( type-id )
+	return isDependent(expression.type);
+}
+
+inline bool isDependentExpression(const UnaryExpression& expression)
+{
+	return expression.first.isDependent;
+}
+
+inline bool isTypeDependentExpression(const UnaryExpression& expression)
+{
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return expression.first.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const UnaryExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return expression.first.isValueDependent;
+}
+
+inline bool isDependentExpression(const BinaryExpression& expression)
+{
+	return expression.first.isDependent
+		|| expression.second.isDependent;
+}
+
+inline bool isTypeDependentExpression(const BinaryExpression& expression)
+{
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return expression.first.isTypeDependent
+		|| expression.second.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const BinaryExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return expression.first.isValueDependent
+		|| expression.second.isValueDependent;
+}
+
+inline bool isDependentExpression(const TernaryExpression& expression)
+{
+	return expression.first.isDependent
+		|| expression.second.isDependent
+		|| expression.third.isDependent;
+}
+
+inline bool isTypeDependentExpression(const TernaryExpression& expression)
+{
+	// [temp.dep.expr]
+	// an expression is type-dependent if any subexpression is type-dependent.
+	return expression.first.isTypeDependent
+		|| expression.second.isTypeDependent
+		|| expression.third.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const TernaryExpression& expression)
+{
+	// [temp.dep.constexpr]
+	// a constant expression is value-dependent if any subexpression is value-dependent.
+	return expression.first.isValueDependent
+		|| expression.second.isValueDependent
+		|| expression.third.isValueDependent;
+}
+
+inline bool isDependentExpression(const TypeTraitsUnaryExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isTypeDependentExpression(const TypeTraitsUnaryExpression& expression)
+{
+	return false;
+}
+
+inline bool isValueDependentExpression(const TypeTraitsUnaryExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isDependentExpression(const TypeTraitsBinaryExpression& expression)
+{
+	return isDependent(expression.first)
+		|| isDependent(expression.second);
+}
+
+inline bool isTypeDependentExpression(const TypeTraitsBinaryExpression& expression)
+{
+	return false;
+}
+
+inline bool isValueDependentExpression(const TypeTraitsBinaryExpression& expression)
+{
+	return isDependent(expression.first)
+		|| isDependent(expression.second);
+}
+
+inline bool isDependentExpression(const ExplicitTypeExpression& expression)
+{
+	return isDependent(expression.type)
+		|| isDependentArguments(expression.arguments);
+}
+
+inline bool isTypeDependentExpression(const ExplicitTypeExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isValueDependentExpression(const ExplicitTypeExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isDependentExpression(const MemberOperatorExpression& expression)
+{
+	return expression.left.isDependent;
+}
+
+inline bool isTypeDependentExpression(const MemberOperatorExpression& expression)
+{
+	return expression.left.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const MemberOperatorExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isDependentExpression(const ObjectExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isTypeDependentExpression(const ObjectExpression& expression)
+{
+	return isDependent(expression.type);
+}
+
+inline bool isValueDependentExpression(const ObjectExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isDependentExpression(const ClassMemberAccessExpression& expression)
+{
+	return expression.left.isDependent
+		|| expression.right.isDependent;
+}
+
+inline bool isTypeDependentExpression(const ClassMemberAccessExpression& expression)
+{
+	return expression.left.isTypeDependent
+		|| expression.right.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const ClassMemberAccessExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isDependentExpression(const OffsetofExpression& expression)
+{
+	return isDependent(expression.type)
+		|| expression.member.isDependent;
+}
+
+inline bool isTypeDependentExpression(const OffsetofExpression& expression)
+{
+	// [support.types] The expression offsetof(type, member-designator) is never type-dependent and it is value-dependent if and only if type is dependent.
+	return false;
+}
+
+inline bool isValueDependentExpression(const OffsetofExpression& expression)
+{
+	// [support.types] The expression offsetof(type, member-designator) is never type-dependent and it is value-dependent if and only if type is dependent.
+	return isDependent(expression.type);
+}
+
+inline bool isDependentExpression(const FunctionCallExpression& expression)
+{
+	return expression.left.isDependent
+		|| isDependentArguments(expression.arguments);
+}
+
+inline bool isTypeDependentExpression(const FunctionCallExpression& expression)
+{
+	return expression.left.isTypeDependent
+		|| isTypeDependentArguments(expression.arguments);
+}
+
+inline bool isValueDependentExpression(const FunctionCallExpression& expression)
+{
+	return false; // not a constant expression
+}
+
+inline bool isDependentExpression(const SubscriptExpression& expression)
+{
+	return expression.left.isDependent
+		|| expression.right.isDependent;
+}
+inline bool isTypeDependentExpression(const SubscriptExpression& expression)
+{
+	return expression.left.isTypeDependent
+		|| expression.right.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const SubscriptExpression& expression)
+{
+	return expression.left.isValueDependent
+		|| expression.right.isValueDependent;
+}
+
+inline bool isDependentExpression(const PostfixOperatorExpression& expression)
+{
+	return expression.operand.isDependent;
+}
+
+inline bool isTypeDependentExpression(const PostfixOperatorExpression& expression)
+{
+	return expression.operand.isTypeDependent;
+}
+
+inline bool isValueDependentExpression(const PostfixOperatorExpression& expression)
+{
+	return expression.operand.isValueDependent;
+}
+
+template<typename T>
+SubstitutedExpression makeSubstitutedExpression(const T& node, const InstantiationContext& context)
+{
+	bool isDependent = isDependentExpression(node);
+	bool isTypeDependent = isTypeDependentExpression(node);
+	bool isValueDependent = isValueDependentExpression(node);
+
+	ExpressionType type;
+	ExpressionValue value = EXPRESSIONRESULT_INVALID;
+	if(!isTypeDependent) // if the expression is not type-dependent
+	{
+		type = typeOfExpression(node, context);
+
+		// [basic.lval] Class prvalues can have cv-qualified types; non-class prvalues always have cv-unqualified types
+		if(!type.isLvalue // if this is a prvalue
+			&& !isClass(type)) // and is not a class
+		{
+			SYMBOLS_ASSERT(type.value.getQualifiers() == CvQualifiers());
+		}
+
+		if(!isValueDependent) // if the expression is not value-dependent
+		{
+			value = evaluateExpression(node, context);
+		}
+	}
+
+	if(!isDependent)
+	{
+		instantiateExpression(node, context);
+	}
+
+	return SubstitutedExpression(type, value, isDependent, isTypeDependent, isValueDependent);
+}
+
+template<typename T>
+ExpressionWrapper makeExpression2(const T& node, const InstantiationContext& context)
+{
+	return ExpressionWrapper(allocatorNew(context.allocator, ExpressionNodeGeneric<T>(node, 0)), makeSubstitutedExpression(node, context));
+}
+
+
+inline ExpressionWrapper substituteExpression(const ExpressionWrapper& expression, const InstantiationContext& context);
+
+inline Arguments substituteExpressionList(const Arguments& arguments, const InstantiationContext& context)
+{
+	Arguments result;
+	result.reserve(arguments.size());
+	for(Arguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
+	{
+		result.push_back(substituteExpression(*i, context));
+	}
+	return result;
+}
+
+inline ExpressionWrapper substituteExpression(const ExpressionList& node, const InstantiationContext& context)
+{
+	return makeExpression2(ExpressionList(substituteExpressionList(node.expressions, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(false); // cannot be dependent
+	return ExpressionWrapper();
+}
+
+inline ExpressionWrapper substituteExpression(const CastExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(CastExpression(substitute(node.type, context), substituteExpressionList(node.arguments, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const NonTypeTemplateParameter& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper argument = substituteTemplateParameter(*node.declaration, context);
+	if(argument.isDependentNonType())
+	{
+		return makeExpression2(node, context); // TODO: avoid copy?
+	}
+	SYMBOLS_ASSERT(argument.isNonType());
+	ExpressionValue value = makeConstantValue(getNonTypeValue(argument.value));
+	return makeExpression2(IntegralConstantExpression(typeOfExpression(node, context), value.value), context);
+}
+
+inline ExpressionWrapper substituteExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	IdExpression substituted = substituteIdExpression(node, context);
+	return makeExpression2(substituted, context);
+}
+
+inline ExpressionWrapper substituteExpression(const IdExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeArray templateArguments;
+	substitute(templateArguments, node.templateArguments, context);
+	return makeExpression2(IdExpression(node.declaration, node.qualifying, templateArguments, node.isQualified), context);
+}
+
+inline ExpressionWrapper substituteExpression(const SizeofExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(SizeofExpression(substituteExpression(node.operand, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const SizeofTypeExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(SizeofTypeExpression(substitute(node.type, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const UnaryExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(UnaryExpression(node.operatorName, node.operation,
+		substituteExpression(node.first, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const BinaryExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(BinaryExpression(node.operatorName, node.operation, node.type,
+		substituteExpression(node.first, context),
+		substituteExpression(node.second, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const TernaryExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(TernaryExpression(node.operation,
+		substituteExpression(node.first, context),
+		substituteExpression(node.second, context),
+		substituteExpression(node.third, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const TypeTraitsUnaryExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(TypeTraitsUnaryExpression(node.traitName, node.operation, substitute(node.type, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const TypeTraitsBinaryExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(TypeTraitsBinaryExpression(node.traitName, node.operation, substitute(node.first, context), substitute(node.second, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(ExplicitTypeExpression(substitute(node.type, context), substituteExpressionList(node.arguments, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const ObjectExpression& node, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(node.type.isLvalue); // TODO: redundant to store this?
+	return makeExpression2(ObjectExpression(ExpressionType(substitute(node.type, context), true)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const MemberOperatorExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(MemberOperatorExpression(
+		substituteExpression(node.left, context),
+		node.isArrow), context);
+}
+
+inline ExpressionWrapper substituteExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(ClassMemberAccessExpression(
+		substituteExpression(node.left, context),
+		substituteExpression(node.right, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const OffsetofExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(OffsetofExpression(
+		substitute(node.type, context),
+		substituteExpression(node.member, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const FunctionCallExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(FunctionCallExpression(
+		substituteExpression(node.left, context),
+		substituteExpressionList(node.arguments, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const SubscriptExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(SubscriptExpression(
+		substituteExpression(node.left, context),
+		substituteExpression(node.right, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const PostfixOperatorExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(PostfixOperatorExpression(node.operatorName,
+		substituteExpression(node.operand, context)), context);
 }
 
 
 struct ExpressionSubstituteVisitor : ExpressionNodeVisitor
 {
-	SubstitutedExpression result;
+	ExpressionWrapper result;
 	const InstantiationContext context;
 	explicit ExpressionSubstituteVisitor(const InstantiationContext& context)
 		: context(context)
@@ -2236,18 +2716,16 @@ struct ExpressionSubstituteVisitor : ExpressionNodeVisitor
 	}
 };
 
-inline SubstitutedExpression substituteExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+inline ExpressionWrapper substituteExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
 {
 	if(expression.isDependent)
 	{
 		ExpressionSubstituteVisitor visitor(context);
 		expression.p->accept(visitor);
+		return visitor.result;
 	}
-	// TODO: return visitor.result;
 
-	return SubstitutedExpression(
-		typeOfExpressionWrapper(expression, context),
-		evaluateExpression(expression, context));
+	return expression;
 }
 
 struct DeferredExpression : ExpressionWrapper
@@ -2261,17 +2739,17 @@ struct DeferredExpression : ExpressionWrapper
 
 inline void substituteDeferredExpression(DeferredExpression& expression, const InstantiationContext& context)
 {
-#if 1 // TODO: check that the expression is convertible to bool
-	ExpressionType type = typeOfExpressionWrapper(expression, context);
-	SYMBOLS_ASSERT(!isDependent(type));
-#endif
 	if(expression.message != NAME_NULL)
 	{
+#if 1 // TODO: check that the expression is convertible to bool
+		ExpressionType type = typeOfExpressionWrapper(expression, context);
+		SYMBOLS_ASSERT(!isDependent(type));
+#endif
 		evaluateStaticAssert(expression, expression.message.c_str(), context);
 	}
 	else
 	{
-		SubstitutedExpression substituted = substituteExpression(expression, context);
+		ExpressionWrapper substituted = substituteExpression(expression, context);
 	}
 }
 

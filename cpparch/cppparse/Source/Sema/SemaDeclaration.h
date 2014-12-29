@@ -224,7 +224,7 @@ struct SemaDeclarationSuffix : public SemaBase
 			&& !declaration->templateParams.empty()) // and is not an explicit specialization
 		{
 			SimpleType specialization = SimpleType(declaration, enclosingType);
-			makeUniqueTemplateParameters(declaration->templateParams, specialization.templateArguments, getInstantiationContext(), true);
+			makeUniqueTemplateParameters(declaration->templateParams, specialization.templateArguments, getInstantiationContext());
 			enclosingFunction = &getSimpleType(makeUniqueSimpleType(specialization).value);
 		}
 
@@ -319,7 +319,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker) // member_declarator_bitfield
 	{
 		SEMANTIC_ASSERT(declaration != 0);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 		declaration->initializer = walker.expression;
 		addDependent(declaration->valueDependent, walker.valueDependent);

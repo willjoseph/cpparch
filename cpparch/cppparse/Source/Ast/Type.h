@@ -189,6 +189,17 @@ inline bool isSpecialization(const Declaration& declaration)
 	return declaration.isSpecialization;
 }
 
+inline bool isTemplateParameter(const Declaration& declaration)
+{
+	return declaration.templateParameter != INDEX_INVALID;
+}
+
+inline bool isTemplateParameter(const Type& type)
+{
+	return isTemplateParameter(*type.declaration);
+}
+
+
 // ----------------------------------------------------------------------------
 // Returns the primary template for the given template declaration.
 inline Declaration* findPrimaryTemplate(Declaration* declaration)
@@ -817,23 +828,24 @@ inline const ParameterTypes& getParameterTypes(UniqueType type)
 // The context at the point of instantiation.
 struct InstantiationContext
 {
+	mutable AstAllocator<int> allocator;
 	Location source;
 	const SimpleType* enclosingType;
 	const SimpleType* enclosingFunction;
 	ScopePtr enclosingScope;
 	InstantiationContext()
-		: enclosingType(0), enclosingFunction(0), enclosingScope(0)
+		: allocator(AST_ALLOCATOR_NULL), enclosingType(0), enclosingFunction(0), enclosingScope(0)
 	{
 	}
-	InstantiationContext(Location source, const SimpleType* enclosingType, const SimpleType* enclosingFunction, ScopePtr enclosingScope)
-		: source(source), enclosingType(enclosingType), enclosingFunction(enclosingFunction), enclosingScope(enclosingScope)
+	InstantiationContext(AstAllocator<int>& allocator, Location source, const SimpleType* enclosingType, const SimpleType* enclosingFunction, ScopePtr enclosingScope)
+		: allocator(allocator), source(source), enclosingType(enclosingType), enclosingFunction(enclosingFunction), enclosingScope(enclosingScope)
 	{
 	}
 };
 
 inline InstantiationContext setEnclosingType(const InstantiationContext& context, const SimpleType* enclosingType)
 {
-	return InstantiationContext(context.source, enclosingType, context.enclosingFunction, context.enclosingScope);
+	return InstantiationContext(context.allocator, context.source, enclosingType, context.enclosingFunction, context.enclosingScope);
 }
 
 inline InstantiationContext setEnclosingTypeSafe(const InstantiationContext& context, const SimpleType* enclosingType)

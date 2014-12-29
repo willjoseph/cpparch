@@ -21,7 +21,7 @@ struct SemaLabeledStatement : public SemaBase
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
-		SEMANTIC_ASSERT(walker.expression.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 	}
 	SEMA_POLICY(cpp::statement, SemaPolicyPush<struct SemaStatement>)
 	void action(cpp::statement* symbol, const SemaStatement& walker)

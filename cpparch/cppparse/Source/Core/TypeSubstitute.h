@@ -317,4 +317,18 @@ inline QualifiedDeclaration resolveQualifiedDeclaration(QualifiedDeclaration qua
 	return resolveQualifiedDeclaration(getUsingMember(declaration));
 }
 
+inline UniqueTypeWrapper substituteTemplateParameter(const Declaration& declaration, const InstantiationContext& context)
+{
+	size_t index = declaration.templateParameter;
+	SYMBOLS_ASSERT(index != INDEX_INVALID);
+	const SimpleType* enclosingType = findEnclosingTemplate(context.enclosingType, declaration.scope);
+	SYMBOLS_ASSERT(enclosingType != 0);
+	SYMBOLS_ASSERT(!enclosingType->declaration->isSpecialization || enclosingType->instantiated); // a specialization must be instantiated (or in the process of instantiating)
+	const TemplateArgumentsInstance& templateArguments = enclosingType->declaration->isSpecialization
+		? enclosingType->deducedArguments : enclosingType->templateArguments;
+	SYMBOLS_ASSERT(index < templateArguments.size());
+	return templateArguments[index];
+}
+
+
 #endif

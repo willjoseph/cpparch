@@ -82,16 +82,8 @@ struct SubstituteVisitor : TypeElementVisitor
 	}
 	virtual void visit(const DependentType& element) // substitute T, TT, TT<...>
 	{
-		std::size_t index = element.type->templateParameter;
-		SYMBOLS_ASSERT(index != INDEX_INVALID);
-		const SimpleType* enclosingTemplate = findEnclosingTemplate(context.enclosingType, element.type->scope);
-		SYMBOLS_ASSERT(enclosingTemplate != 0);
-		SYMBOLS_ASSERT(!enclosingTemplate->declaration->isSpecialization || enclosingTemplate->instantiated); // a specialization must be instantiated (or in the process of instantiating)
-		const TemplateArgumentsInstance& templateArguments = enclosingTemplate->declaration->isSpecialization
-			? enclosingTemplate->deducedArguments : enclosingTemplate->templateArguments;
-		SYMBOLS_ASSERT(index < templateArguments.size());
 		SYMBOLS_ASSERT(type == gUniqueTypeNull);
-		type = templateArguments[index];
+		type = substituteTemplateParameter(*element.type, context);
 		if(element.templateParameterCount != 0) // TT or TT<...>
 		{
 			if(type.isDependentType()) // occurs when substituting a template-template-parameter with a template-template-parameter
@@ -124,9 +116,12 @@ struct SubstituteVisitor : TypeElementVisitor
 
 	virtual void visit(const DependentTypename& element) // substitute T::X, T::template X<...>, x.X, x.template X
 	{
-		if(isDependent(*context.enclosingType))
+		UniqueTypeWrapper qualifying = substitute(element.qualifying, context);
+		SYMBOLS_ASSERT(qualifying != gUniqueTypeNull);
+
+		if(isDependent(qualifying))
 		{
-			// TODO: occurs when substituting with a dependent template argument list, if a template function is called with an empty (or partial) explicit template argument list.
+			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
 			return;
 		}
@@ -138,9 +133,6 @@ struct SubstituteVisitor : TypeElementVisitor
 		const SimpleType* memberEnclosing = 0;
 
 		{
-			UniqueTypeWrapper qualifying = substitute(element.qualifying, context);
-			SYMBOLS_ASSERT(qualifying != gUniqueTypeNull);
-
 			{
 				const SimpleType* enclosing = qualifying.isSimple() ? &getSimpleType(qualifying.value) : 0;
 				if(enclosing == 0
