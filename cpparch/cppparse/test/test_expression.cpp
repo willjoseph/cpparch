@@ -1,4 +1,16 @@
 
+namespace N535 // test evaluation of dependent expression
+{
+	template<typename T>
+	struct A
+	{
+		static const int a = sizeof(T);
+		static const int value = a;
+	};
+
+	static_assert(A<int>::value == sizeof(int), "");
+}
+
 #if 0 // TODO
 namespace N534
 {

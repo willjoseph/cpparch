@@ -134,6 +134,10 @@ struct IntegralConstant
 	}
 };
 
+inline bool operator==(const IntegralConstant& left, const IntegralConstant& right)
+{
+	return left.value == right.value;
+}
 
 struct ExpressionType : UniqueTypeWrapper
 {
@@ -158,6 +162,11 @@ struct ExpressionValue
 	{
 	}
 };
+
+inline bool operator==(const ExpressionValue& left, const ExpressionValue& right)
+{
+	return left.value == right.value && left.isConstant == right.isConstant;
+}
 
 inline ExpressionValue makeConstantValue(IntegralConstant value)
 {

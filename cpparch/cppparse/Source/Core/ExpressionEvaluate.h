@@ -365,12 +365,13 @@ inline ExpressionValue evaluateExpression(const ExpressionWrapper& expression, c
 	SYMBOLS_ASSERT(expression.p != 0);
 	if(!expression.isValueDependent)
 	{
+		SYMBOLS_ASSERT(expression.value == evaluateExpressionImpl(expression.p, context));
 		return expression.value;
 	}
 	return evaluateExpressionImpl(expression.p, context);
 }
 
-inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context);
+inline ExpressionType typeOfExpressionImpl(ExpressionNode* node, const InstantiationContext& context);
 inline bool isOverloaded(const DeclarationInstance& declaration, const SimpleType* enclosing, const InstantiationContext& context);
 
 inline bool isOverloadedFunction(const DeclarationInstance& declaration, const SimpleType* enclosing, const InstantiationContext& context)
@@ -396,9 +397,10 @@ inline ExpressionType typeOfExpressionWrapper(const ExpressionWrapper& expressio
 	SYMBOLS_ASSERT(expression.p != 0);
 	if(!expression.isTypeDependent) // if this expression is not type-dependent
 	{
+		SYMBOLS_ASSERT(expression.type == typeOfExpressionImpl(expression.p, context));
 		return expression.type;
 	}
-	return typeOfExpression(expression.p, context);
+	return typeOfExpressionImpl(expression.p, context);
 }
 
 inline bool isSpecialMember(const Declaration& declaration)
@@ -1360,7 +1362,7 @@ inline ExpressionType typeOfClassMemberAccessExpression(const ExpressionWrapper&
 	ExpressionType type = typeOfExpressionWrapper(left, context);
 	SYMBOLS_ASSERT(!isDependent(type));
 	const SimpleType& classType = getSimpleType(type.value);
-	ExpressionType result = typeOfExpression(right, setEnclosingTypeSafe(context, &classType));
+	ExpressionType result = typeOfExpressionImpl(right, setEnclosingTypeSafe(context, &classType));
 	if(right.isNonStaticMemberName)
 	{
 		result = typeOfNonStaticClassMemberAccessExpression(type, result);
@@ -1388,7 +1390,7 @@ inline UniqueTypeWrapper typeOfDecltypeSpecifier(const ExpressionWrapper& expres
 			ExpressionType type = typeOfExpressionWrapper(cma.left, context);
 			SYMBOLS_ASSERT(!isDependent(type));
 			const SimpleType& classType = getSimpleType(type.value);
-			return typeOfExpression(cma.right, setEnclosingTypeSafe(context, &classType));
+			return typeOfExpressionImpl(cma.right, setEnclosingTypeSafe(context, &classType));
 		}
 		return typeOfExpressionWrapper(expression, context); // return the type of the id-expression;
 	}
@@ -1432,7 +1434,7 @@ inline ExpressionType getAdjustedExpressionType(ExpressionType type)
 
 inline ExpressionType typeOfExpression(const ExpressionList& node, const InstantiationContext& context)
 {
-	return typeOfExpression(node.expressions.back(), context);
+	return typeOfExpressionWrapper(node.expressions.back(), context);
 }
 
 inline ExpressionType typeOfExpression(const IntegralConstantExpression& node, const InstantiationContext& context)
@@ -1693,7 +1695,13 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 		? findEnclosingType(enclosing, declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
 		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
 
-	return evaluateExpressionImpl(declaration->initializer, setEnclosingType(context, memberEnclosing));
+	const ExpressionWrapper& substituted = declaration->initializer.isValueDependent
+		 ? getSubstitutedExpression(declaration->initializer, memberEnclosing)
+		 : declaration->initializer;
+	SYMBOLS_ASSERT(!substituted.isValueDependent);
+	ExpressionValue value = substituted.value;
+	SYMBOLS_ASSERT(value == evaluateExpressionImpl(declaration->initializer, setEnclosingType(context, memberEnclosing))); // DEBUG
+	return value;
 }
 
 inline DependentIdExpression substituteDependentIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -1782,7 +1790,7 @@ inline ExpressionValue evaluateExpression(const CastExpression& node, const Inst
 		SYMBOLS_ASSERT(node.arguments.size() <= 1); // TODO: non-fatal error: function-style cast expects a single argument
 		return node.arguments.empty() // if this is a default-constructor call T()
 			? EXPRESSIONRESULT_ZERO
-			: evaluateExpressionImpl(node.arguments.front(), context);
+			: evaluateExpression(node.arguments.front(), context);
 	}
 	return EXPRESSIONRESULT_INVALID;
 }
@@ -1855,7 +1863,7 @@ inline ExpressionValue evaluateExpression(const UnaryExpression& node, const Ins
 	{
 		return EXPRESSIONRESULT_INVALID; // increment and decrement not allowed in constant expression
 	}
-	ExpressionValue first = evaluateExpressionImpl(node.first, context);
+	ExpressionValue first = evaluateExpression(node.first, context);
 	if(!first.isConstant)
 	{
 		return EXPRESSIONRESULT_INVALID;
@@ -1869,12 +1877,12 @@ inline ExpressionValue evaluateExpression(const BinaryExpression& node, const In
 	{
 		return EXPRESSIONRESULT_INVALID; // TODO: non-fatal error: pointer-to-member/assignment/comma not allowed in constant expression
 	}
-	ExpressionValue first = evaluateExpressionImpl(node.first, context);
+	ExpressionValue first = evaluateExpression(node.first, context);
 	if(!first.isConstant)
 	{
 		return EXPRESSIONRESULT_INVALID;
 	}
-	ExpressionValue second = evaluateExpressionImpl(node.second, context);
+	ExpressionValue second = evaluateExpression(node.second, context);
 	if(!second.isConstant)
 	{
 		return EXPRESSIONRESULT_INVALID;
@@ -1896,17 +1904,17 @@ inline ExpressionValue evaluateExpression(const TernaryExpression& node, const I
 	{
 		return EXPRESSIONRESULT_INVALID;
 	}
-	ExpressionValue first = evaluateExpressionImpl(node.first, context);
+	ExpressionValue first = evaluateExpression(node.first, context);
 	if(!first.isConstant)
 	{
 		return EXPRESSIONRESULT_INVALID;
 	}
-	ExpressionValue second = evaluateExpressionImpl(node.second, context);
+	ExpressionValue second = evaluateExpression(node.second, context);
 	if(!second.isConstant)
 	{
 		return EXPRESSIONRESULT_INVALID;
 	}
-	ExpressionValue third = evaluateExpressionImpl(node.third, context);
+	ExpressionValue third = evaluateExpression(node.third, context);
 	if(!third.isConstant)
 	{
 		return EXPRESSIONRESULT_INVALID;
@@ -2103,7 +2111,8 @@ inline bool isDependentExpression(const IdExpression& expression)
 	return isDependentQualifying(expression.qualifying)
 		|| isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
 		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
-		&& isDependentOverloaded(expression.declaration));
+			&& (isDependentOverloaded(expression.declaration)
+				|| expression.declaration->initializer.isValueDependent));
 }
 
 inline bool isTypeDependentExpression(const IdExpression& expression)
@@ -2119,7 +2128,7 @@ inline bool isTypeDependentExpression(const IdExpression& expression)
 	return isDependentQualifying(expression.qualifying)
 		|| isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
 		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
-		&& isDependentOverloaded(expression.declaration));
+			&& isDependentOverloaded(expression.declaration));
 }
 
 inline bool isValueDependentExpression(const IdExpression& expression)
@@ -2131,8 +2140,8 @@ inline bool isValueDependentExpression(const IdExpression& expression)
 	// 	- a constant with literal type and is initialized with an expression that is value-dependent.
 	return isDependentQualifying(expression.qualifying)
 		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
-		&& (expression.declaration->isTypeDependent
-		|| expression.declaration->initializer.isValueDependent));
+			&& (expression.declaration->isTypeDependent
+				|| expression.declaration->initializer.isValueDependent));
 }
 
 inline bool isDependentExpression(const ExpressionList& expression)
@@ -2544,7 +2553,8 @@ inline ExpressionWrapper substituteExpression(const IdExpression& node, const In
 {
 	UniqueTypeArray templateArguments;
 	substitute(templateArguments, node.templateArguments, context);
-	return makeExpression2(IdExpression(node.declaration, node.qualifying, templateArguments, node.isQualified), context);
+	const SimpleType* idEnclosing = getIdExpressionClass(node.qualifying, *node.declaration, context.enclosingType);
+	return makeExpression2(IdExpression(node.declaration, idEnclosing, templateArguments, node.isQualified), context);
 }
 
 inline ExpressionWrapper substituteExpression(const SizeofExpression& node, const InstantiationContext& context)

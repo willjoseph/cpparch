@@ -846,7 +846,7 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 	}
 }; 
 
-inline ExpressionType typeOfExpression(ExpressionNode* node, const InstantiationContext& context)
+inline ExpressionType typeOfExpressionImpl(ExpressionNode* node, const InstantiationContext& context)
 {
 	TypeOfVisitor visitor(context);
 	node->accept(visitor);

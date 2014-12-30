@@ -330,16 +330,21 @@ inline UniqueTypeWrapper substituteTemplateParameter(const Declaration& declarat
 	return templateArguments[index];
 }
 
-inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const SimpleType* enclosingType)
 {
 	if(!expression.isDependent)
 	{
 		return expression;
 	}
 	SYMBOLS_ASSERT(expression.dependentIndex != INDEX_INVALID);
-	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
 	SYMBOLS_ASSERT(expression.dependentIndex < enclosingType->substitutedExpressions.size());
 	return enclosingType->substitutedExpressions[expression.dependentIndex];
+}
+
+inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+{
+	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
+	return getSubstitutedExpression(expression, enclosingType);
 }
 
 #endif

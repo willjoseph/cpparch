@@ -291,7 +291,7 @@ inline std::size_t evaluateArraySize(const ExpressionWrapper& expression, const 
 	{
 		return 0;
 	}
-	ExpressionValue result = evaluateExpressionImpl(expression, context);
+	ExpressionValue result = evaluateExpression(expression, context);
 	SYMBOLS_ASSERT(result.isConstant);
 	return result.value.value;
 }
