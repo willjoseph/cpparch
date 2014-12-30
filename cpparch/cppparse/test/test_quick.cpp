@@ -789,15 +789,18 @@ namespace N188
 
 namespace N187
 {
-	template<typename T, T t>
-	struct B
+	namespace N
 	{
-		typedef T Type;
-		static const T value = t;
-	};
+		template<typename T, T t>
+		struct B
+		{
+			typedef T Type;
+			static const T value = t;
+		};
+	}
 
 	template<typename T, T t>
-	struct S : N187::B<T, t>
+	struct S : N::B<T, t>
 	{
 	};
 

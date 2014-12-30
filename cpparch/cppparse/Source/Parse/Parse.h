@@ -633,10 +633,14 @@ class OtherT>
 
 #endif
 
+typedef LinearAllocator<false> UncheckedLinearAllocator;
+typedef LinearAllocatorWrapper<int, UncheckedLinearAllocator> InstantiationAllocator;
+
 struct ParserContext : Lexer
 {
 	Visualiser visualiser;
 	ParserAllocator allocator;
+	UncheckedLinearAllocator instantiationAllocator;
 	BacktrackStats stats;
 
 	ParserContext(LexContext& context, const char* path)

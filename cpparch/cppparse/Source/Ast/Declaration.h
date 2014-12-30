@@ -137,9 +137,6 @@ typedef SafePtr<Declaration> DeclarationPtr;
 struct Scope;
 typedef SafePtr<Scope> ScopePtr;
 
-const size_t INDEX_INVALID = size_t(-1);
-
-
 struct Dependent
 {
 	DeclarationPtr declaration; // refers to the innermost template scope that a name/type/expression depends on
@@ -376,9 +373,10 @@ struct DependentConstructs
 {
 	DeferredSubstitutions substitutions;
 	std::size_t typeCount;
+	std::size_t expressionCount;
 
 	DependentConstructs(const AstAllocator<int>& allocator)
-		: substitutions(allocator), typeCount(0)
+		: substitutions(allocator), typeCount(0), expressionCount(0)
 	{
 	}
 };

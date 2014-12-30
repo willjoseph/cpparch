@@ -284,7 +284,7 @@ struct SemaDeclarationSuffix : public SemaBase
 			SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 			declaration->initializer = walker.expression;
 			addDependent(declaration->valueDependent, walker.valueDependent);
-			addDeferredExpression(walker.expression);
+			addDeferredExpression(declaration->initializer);
 		}
 	}
 	// handle initializer in separate context to avoid ',' confusing recognition of declaration

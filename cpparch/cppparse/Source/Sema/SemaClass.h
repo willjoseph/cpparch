@@ -121,16 +121,9 @@ struct SemaMemberDeclaration : public SemaBase, SemaMemberDeclarationResult
 {
 	SEMA_BOILERPLATE;
 
-	DependentConstructs declarationDependent; // contains the dependent types and expressions within the declaration
-
 	SemaMemberDeclaration(const SemaState& state)
-		: SemaBase(state), declarationDependent(context)
+		: SemaBase(state)
 	{
-		SEMANTIC_ASSERT(enclosingInstantiation != 0);
-		if(enclosingDependentConstructs == &enclosingInstantiation->dependentConstructs) // if we are not already declaring a member, e.g. member-declaration -> template-declaration -> member-declaration
-		{
-			enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within the declaration
-		}
 	}
 	SEMA_POLICY(cpp::member_template_declaration, SemaPolicyPush<struct SemaTemplateDeclaration>)
 	void action(cpp::member_template_declaration* symbol, const SemaDeclarationResult& walker)
@@ -169,9 +162,10 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 	SEMA_BOILERPLATE;
 
 	DeferredSymbols deferred;
+	DependentConstructs declarationDependent;
 	bool isCStyle; // true if the class-specifier is preceded by 'typedef'
 	SemaClassSpecifier(const SemaState& state, bool isCStyle)
-		: SemaBase(state), SemaClassSpecifierResult(context), isCStyle(isCStyle)
+		: SemaBase(state), SemaClassSpecifierResult(context), declarationDependent(context), isCStyle(isCStyle)
 	{
 	}
 
@@ -218,7 +212,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		bool allowDependent = declaration->type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
 		enclosingType = &getSimpleType(declaration->type.unique);
 		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
-		instantiateClass(*enclosingType, InstantiationContext(context, getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
+		instantiateClass(*enclosingType, InstantiationContext(context.instantiationAllocator, getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
 
 		clearTemplateParams();
 
@@ -226,14 +220,19 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		{
 			SemaState::enclosingDeferred = &deferred;
 		}
+		enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within each member declaration
 	}
 	SEMA_POLICY(cpp::member_declaration, SemaPolicyPush<struct SemaMemberDeclaration>)
 	void action(cpp::member_declaration* symbol, const SemaMemberDeclaration& walker)
 	{
-		endMemberDeclaration(walker.declaration, walker.declarationDependent);
+		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
+		endMemberDeclaration(walker.declaration, declarationDependent);
+		SEMANTIC_ASSERT(declarationDependent.substitutions.empty());
+		enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within each member declaration
 	}
 	void action(cpp::terminal<boost::wave::T_RIGHTBRACE> symbol)
 	{
+		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		declaration->isComplete = true;
 
 		parseDeferred(deferred.first, context.parserContext);

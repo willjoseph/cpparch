@@ -657,6 +657,7 @@ inline bool isDependentImpl(Declaration* dependent, Scope* enclosing, Scope* enc
 
 struct SemaContext : public AstAllocator<int>
 {
+	InstantiationAllocator instantiationAllocator; // handles allocations required during template instantiation
 	ParserContext& parserContext;
 	Scope global;
 	Declaration globalDecl;
@@ -664,8 +665,9 @@ struct SemaContext : public AstAllocator<int>
 	std::size_t declarationCount;
 	ExpressionType typeInfoType;
 
-	SemaContext(ParserContext& parserContext, const AstAllocator<int>& allocator) :
+	SemaContext(ParserContext& parserContext, const AstAllocator<int>& allocator, const InstantiationAllocator& instantiationAllocator) :
 		AstAllocator<int>(allocator),
+		instantiationAllocator(instantiationAllocator),
 		parserContext(parserContext),
 		global(allocator, gGlobalId, SCOPETYPE_NAMESPACE),
 		globalDecl(allocator, 0, gGlobalId, TYPE_NAMESPACE, &global, false),
@@ -750,7 +752,7 @@ struct SemaState
 	}
 	InstantiationContext getInstantiationContext() const
 	{
-		return InstantiationContext(context, getLocation(), enclosingType, enclosingFunction, enclosingScope);
+		return InstantiationContext(context.instantiationAllocator, getLocation(), enclosingType, enclosingFunction, enclosingScope);
 	}
 
 	ExpressionType getTypeInfoType()
@@ -1370,6 +1372,28 @@ inline BacktrackCallback makePopDeferredSubstitutionCallback(DependentConstructs
 	return result;
 }
 
+inline void popDeferredTypeSubstitution(Declaration* p, LexerAllocator& allocator)
+{
+	--p->dependentConstructs.typeCount;
+}
+
+inline BacktrackCallback makePopDeferredTypeSubstitutionCallback(Declaration* p)
+{
+	BacktrackCallback result = { BacktrackCallbackThunk<Declaration, &popDeferredTypeSubstitution >::thunk, p };
+	return result;
+}
+
+inline void popDeferredExpressionSubstitution(Declaration* p, LexerAllocator& allocator)
+{
+	--p->dependentConstructs.expressionCount;
+}
+
+inline BacktrackCallback makePopDeferredExpressionSubstitutionCallback(Declaration* p)
+{
+	BacktrackCallback result = { BacktrackCallbackThunk<Declaration, &popDeferredExpressionSubstitution >::thunk, p };
+	return result;
+}
+
 inline void substituteDeferredBase(Type& type, const InstantiationContext& context)
 {
 	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
@@ -1407,7 +1431,7 @@ inline void substituteDeferredMemberTemplateDeclaration(Declaration& declaration
 
 inline void substituteDeferredMemberType(Declaration& declaration, const InstantiationContext& context)
 {
-	const SimpleType* enclosingType = isClass(*context.enclosingType->declaration) ? context.enclosingType : context.enclosingType->enclosing;
+	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
 	SimpleType& instance = *const_cast<SimpleType*>(enclosingType);
 
 	// substitute dependent members
@@ -1548,7 +1572,12 @@ inline bool isDependentTypeId(const TypeId& type)
 }
 #endif
 
-
+inline void swapDeclarationDependent(Declaration& declaration, DependentConstructs& declarationDependent)
+{
+	SEMANTIC_ASSERT(declaration.declarationDependent.substitutions.empty());
+	declaration.declarationDependent.substitutions.swap(declarationDependent.substitutions);
+	SEMANTIC_ASSERT(declarationDependent.substitutions.empty());
+}
 
 struct SemaBase : public SemaState
 {
@@ -1622,20 +1651,23 @@ struct SemaBase : public SemaState
 			addDeferredSubstitution(
 				makeDeferredSubstitution<Declaration, substituteDeferredMemberType>(
 					declaration, getLocation()));
+			addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(enclosingInstantiation));
 		}
 	}
 
-	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
+	void addDeferredExpression(ExpressionWrapper& expression, const char* message = 0)
 	{
 		if(!expression.isDependent
 			|| enclosingInstantiation == 0)
 		{
 			return;
 		}
+		expression.dependentIndex = enclosingInstantiation->dependentConstructs.expressionCount++;
 		addDeferredSubstitution(
 			makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
 				*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
 				getLocation()));
+		addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(enclosingInstantiation));
 	}
 
 	template<typename T>
@@ -1738,20 +1770,27 @@ struct SemaBase : public SemaState
 		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 	}
 
-	void endMemberDeclaration(Declaration* declaration, const DependentConstructs& declarationDependent)
+	void endMemberDeclaration(Declaration* declaration, DependentConstructs& declarationDependent)
 	{
+		if(declaration == 0 // static-assert declaration
+			&& !declarationDependent.substitutions.empty())
+		{
+			SEMANTIC_ASSERT(declarationDependent.expressionCount == 0); // TODO: move count to enclosing-instantiation
+			enclosingDependentConstructs->substitutions.splice(enclosingDependentConstructs->substitutions.end(), declarationDependent.substitutions);
+			return;
+		}
+
 		if(declaration == 0 // static-assert declaration
 			|| declaration == &gCtor
 			|| isClassKey(*declaration) // elaborated-type-specifier
 			|| isClass(*declaration)
 			|| isEnum(*declaration)) // nested class or enum
 		{
-			SEMANTIC_ASSERT(declaration == 0 || declarationDependent.substitutions.empty()); // TODO: static-assert
+			SEMANTIC_ASSERT(declaration == 0 || declarationDependent.substitutions.empty());
 			return;
 		}
 
-		SEMANTIC_ASSERT(declaration->declarationDependent.substitutions.empty());
-		declaration->declarationDependent = declarationDependent;
+		swapDeclarationDependent(*declaration, declarationDependent);
 		addDeferredMemberDeclaration(*declaration);
 
 		if(isUsing(*declaration)) // using-declaration

@@ -368,6 +368,9 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
 			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
 
+			std::size_t dependentExpressionCount = instance.declaration->dependentConstructs.expressionCount;
+			instance.substitutedExpressions.reserve(dependentExpressionCount); // allocate up front to avoid reallocation
+
 			const DeferredSubstitutions& substitutions = instance.declaration->dependentConstructs.substitutions;
 			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 			{
@@ -377,6 +380,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			}
 
 			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
+			SYMBOLS_ASSERT(instance.substitutedExpressions.size() == dependentExpressionCount);
 
 			instance.allowLookup = false; // temporary workaround
 		}

@@ -110,6 +110,11 @@ AstAllocator<int> getAllocator(ParserContext& context)
 #endif
 }
 
+InstantiationAllocator getInstantiationAllocator(ParserContext& context)
+{
+	return context.instantiationAllocator;
+}
+
 
 ParseTree* parseFile(ParserContext& context)
 {
@@ -117,7 +122,7 @@ ParseTree* parseFile(ParserContext& context)
 	gUniqueTypes.clear();
 	gUniqueExpressions.clear();
 
-	SemaContext& globals = *new SemaContext(context, getAllocator(context));
+	SemaContext& globals = *new SemaContext(context, getAllocator(context), getInstantiationAllocator(context));
 	SemaNamespace& walker = *new SemaNamespace(globals);
 	ParserGeneric<SemaNamespace> parser(context, walker);
 

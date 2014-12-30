@@ -330,5 +330,16 @@ inline UniqueTypeWrapper substituteTemplateParameter(const Declaration& declarat
 	return templateArguments[index];
 }
 
+inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+{
+	if(!expression.isDependent)
+	{
+		return expression;
+	}
+	SYMBOLS_ASSERT(expression.dependentIndex != INDEX_INVALID);
+	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
+	SYMBOLS_ASSERT(expression.dependentIndex < enclosingType->substitutedExpressions.size());
+	return enclosingType->substitutedExpressions[expression.dependentIndex];
+}
 
 #endif

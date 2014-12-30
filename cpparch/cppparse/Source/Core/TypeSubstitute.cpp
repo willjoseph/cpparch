@@ -201,15 +201,19 @@ struct SubstituteVisitor : TypeElementVisitor
 	virtual void visit(const DependentNonType& element)
 	{
 		// TODO: unify DependentNonType and NonType?
-		if(isDependent(*context.enclosingType))
+		const ExpressionWrapper& substituted = element.expression.dependentIndex != INDEX_INVALID
+			? getSubstitutedExpression(element.expression, context)
+			: element.expression;
+		if(substituted.isDependent
+			&& isDependent(*context.enclosingType))
 		{
-			// TODO: occurs when substituting with a dependent template argument list, if a template function is called with an empty (or partial) explicit template argument list.
+			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
 			return;
 		}
 
 		// TODO: SFINAE for expressions: check that type of template argument matches template parameter
-		ExpressionValue result = evaluateExpressionImpl(element.expression, context);
+		ExpressionValue result = evaluateExpression(substituted, context);
 		SYMBOLS_ASSERT(result.isConstant); // TODO: non-fatal error: expected integral constant expression
 		type.push_front(NonType(result.value));
 	}
@@ -220,14 +224,18 @@ struct SubstituteVisitor : TypeElementVisitor
 	virtual void visit(const DependentArrayType& element)
 	{
 		// TODO: unify DependentNonType and DependentArrayType?
-		if(isDependent(*context.enclosingType))
+		const ExpressionWrapper& substituted = element.expression.dependentIndex != INDEX_INVALID
+			? getSubstitutedExpression(element.expression, context)
+			: element.expression;
+		if(substituted.isDependent
+			&& isDependent(*context.enclosingType))
 		{
-			// TODO: occurs when substituting with a dependent template argument list, if a template function is called with an empty (or partial) explicit template argument list.
+			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
 			return;
 		}
 
-		ExpressionValue value = evaluateExpressionImpl(element.expression, context);
+		ExpressionValue value = evaluateExpression(substituted, context);
 		SYMBOLS_ASSERT(value.isConstant); // TODO: non-fatal error: expected integral constant expression
 		type.push_front(ArrayType(value.value.value));
 	}

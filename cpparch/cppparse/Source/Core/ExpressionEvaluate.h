@@ -1696,15 +1696,25 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 	return evaluateExpressionImpl(declaration->initializer, setEnclosingType(context, memberEnclosing));
 }
 
-inline IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+inline DependentIdExpression substituteDependentIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	TemplateArgumentsInstance templateArguments;
+	substitute(templateArguments, node.templateArguments, context);
+	return DependentIdExpression(node.name, substitute(node.qualifying, context), templateArguments, node.isQualified);
+}
+
+inline IdExpression makeIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(node.qualifying != gOverloaded); // assert that this is not the name of an undeclared identifier (to be looked up via ADL)
 	SYMBOLS_ASSERT(context.enclosingType != 0);
 
-	UniqueTypeWrapper substituted = node.qualifying == gUniqueTypeNull // if this id-expression is part of class-member-access
+	SYMBOLS_ASSERT(!isDependent(node.templateArguments));
+	SYMBOLS_ASSERT(!isDependent(node.qualifying));
+	UniqueTypeWrapper qualifying = node.qualifying == gUniqueTypeNull // if this id-expression is part of class-member-access
 		? makeUniqueSimpleType(*context.enclosingType) // in a dependent class-member-access 'd.m', enclosingType contains the class type of the object expression
-		: substitute(node.qualifying, context);
-	const SimpleType* qualifyingType = substituted.isSimple() ? &getSimpleType(substituted.value) : 0;
+		: node.qualifying;
+
+	const SimpleType* qualifyingType = qualifying.isSimple() ? &getSimpleType(qualifying.value) : 0;
 
 	if(qualifyingType == 0
 		|| !isClass(*qualifyingType->declaration))
@@ -1722,8 +1732,12 @@ inline IdExpression substituteIdExpression(const DependentIdExpression& node, co
 		throw MemberNotFoundError(context.source, node.name, qualifyingType);
 	}
 
-	// TODO: substitute template arguments, in case of template-id when making pointer-to-function
-	return IdExpression(declaration, qualifyingType, TemplateArgumentsInstance(), node.isQualified);
+	return IdExpression(declaration, qualifyingType, node.templateArguments, node.isQualified);
+}
+
+inline IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
+{
+	return makeIdExpression(substituteDependentIdExpression(node, context), context);
 }
 
 inline ExpressionValue evaluateIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -2517,8 +2531,13 @@ inline ExpressionWrapper substituteExpression(const NonTypeTemplateParameter& no
 
 inline ExpressionWrapper substituteExpression(const DependentIdExpression& node, const InstantiationContext& context)
 {
-	IdExpression substituted = substituteIdExpression(node, context);
-	return makeExpression2(substituted, context);
+	DependentIdExpression substituted = substituteDependentIdExpression(node, context);
+	if(isDependent(substituted.qualifying)
+		|| isDependent(substituted.templateArguments))
+	{
+		return makeExpression2(substituted, context);
+	}
+	return makeExpression2(makeIdExpression(substituted, context), context);
 }
 
 inline ExpressionWrapper substituteExpression(const IdExpression& node, const InstantiationContext& context)
@@ -2739,6 +2758,17 @@ struct DeferredExpression : ExpressionWrapper
 
 inline void substituteDeferredExpression(DeferredExpression& expression, const InstantiationContext& context)
 {
+	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
+	SimpleType& instance = *const_cast<SimpleType*>(enclosingType);
+
+	SYMBOLS_ASSERT(expression.isDependent);
+	SYMBOLS_ASSERT(expression.dependentIndex != INDEX_INVALID);
+
+	SYMBOLS_ASSERT(expression.dependentIndex == instance.substitutedExpressions.size());
+	ExpressionWrapper substituted = substituteExpression(expression, context);
+	SYMBOLS_ASSERT(instance.substitutedExpressions.size() != instance.substitutedExpressions.capacity());
+	instance.substitutedExpressions.push_back(substituted);
+
 	if(expression.message != NAME_NULL)
 	{
 #if 1 // TODO: check that the expression is convertible to bool
@@ -2746,10 +2776,6 @@ inline void substituteDeferredExpression(DeferredExpression& expression, const I
 		SYMBOLS_ASSERT(!isDependent(type));
 #endif
 		evaluateStaticAssert(expression, expression.message.c_str(), context);
-	}
-	else
-	{
-		ExpressionWrapper substituted = substituteExpression(expression, context);
 	}
 }
 

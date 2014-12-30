@@ -468,16 +468,13 @@ struct SemaStaticAssertDeclaration : public SemaBase
 		if(expression.isValueDependent)
 		{
 			SEMANTIC_ASSERT(!string_equal(message, "\"?evaluated\"")); // assert if we were expecting a non-dependent expression
-
-			// add expression to list in enclosing template class/function for evaluation during template instantiation
-			addDeferredExpression(expression, message);
 		}
 		else
 		{
 			evaluateStaticAssert(expression, message, getInstantiationContext());
 		}
 
-		addDeferredExpression(expression);
+		addDeferredExpression(expression, expression.isValueDependent ? message : 0);
 	}
 };
 

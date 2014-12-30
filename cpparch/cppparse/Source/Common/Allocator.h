@@ -338,9 +338,10 @@ size_t LinearAllocator<checked>::debugAllocationId = 0xffffffff;
 
 typedef LinearAllocator<true> CheckedLinearAllocator;
 
-inline CheckedLinearAllocator& NullAllocator()
+template<typename T>
+inline T& NullAllocator()
 {
-	static CheckedLinearAllocator null;
+	static T null;
 	return null;
 }
 
@@ -364,7 +365,7 @@ public:
 	{
 		typedef LinearAllocatorWrapper<OtherT, Instance> other;
 	};
-	LinearAllocatorWrapper() : instance(NullAllocator())
+	LinearAllocatorWrapper() : instance(NullAllocator<Instance>())
 	{
 		throw AllocatorError();
 	}

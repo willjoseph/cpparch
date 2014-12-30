@@ -146,7 +146,7 @@ struct SemaDeclaratorArray : public SemaBase
 		// [temp.dep.constexpr] An identifier is value-dependent if it is:- a constant with integral or enumeration type and is initialized with an expression that is value-dependent.
 		addDependent(valueDependent, walker.valueDependent);
 		expression = walker.expression;
-		addDeferredExpression(walker.expression);
+		addDeferredExpression(expression);
 	}
 	void action(cpp::terminal<boost::wave::T_RIGHTBRACKET> symbol)
 	{

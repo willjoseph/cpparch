@@ -1,5 +1,47 @@
 
 #if 0 // TODO
+namespace N534
+{
+	int f(int[4]);
+
+	int a[4];
+	int i = f(a);
+}
+#endif
+
+
+namespace N529 // test substitution of partially dependent type in member function template (non-type)
+{
+	template<typename T>
+	struct B
+	{
+		static const int value = 1;
+	};
+	typedef B<int> T;
+
+	template<int n>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(C<T::value>, C<U::value>); // when instantiating A, must partially substitute type of f
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
+
+
+
+#if 0 // TODO
 namespace N530 // test substitution of partially dependent type in member function template (member-pointer)
 {
 	template<typename T>
@@ -29,33 +71,6 @@ namespace N530 // test substitution of partially dependent type in member functi
 }
 #endif
 
-namespace N529 // test substitution of partially dependent type in member function template (non-type)
-{
-	template<typename T>
-	struct B
-	{
-		static const int value = 1;
-	};
-	typedef B<int> T;
-
-	template<int n>
-	struct C
-	{
-	};
-
-	template<typename T>
-	struct A
-	{
-		template<typename U>
-		void f(C<T::value>, C<U::value>); // when instantiating A, must partially substitute type of f
-
-		typedef int Type;
-	};
-
-	static_assert(!__is_instantiated(T), "");
-	typedef A<T>::Type Type;
-	static_assert(__is_instantiated(T), "");
-}
 
 namespace N528 // test substitution of partially dependent type in member function template (array)
 {
@@ -115,7 +130,7 @@ namespace N526 // test substitution of partially dependent expression in member 
 	template<typename T>
 	struct A
 	{
-		template<U>
+		template<typename U>
 		void f(int[T::value + U::value]); // when instantiating A, must partially substitute expression
 
 		typedef int Type;
@@ -3108,6 +3123,76 @@ namespace N384 // defer evaluation of type of dependent expression to point of i
 	int i = a.mf();
 	int j = a.mfc();
 }
+
+
+namespace N531 // test substitution of pointer to member
+{
+	struct B
+	{
+		int member;
+	};
+
+	template<int B::*member>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef int Type;
+		STATIC_ASSERT_IS_SAME(C<&T::member>, C<&B::member>);
+	};
+
+	typedef A<B>::Type Type;
+}
+
+
+namespace N532 // test substitution of pointer to member function
+{
+	struct B
+	{
+		int member();
+	};
+
+	template<int (B::*member)()>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef int Type;
+		STATIC_ASSERT_IS_SAME(C<&T::member>, C<&B::member>);
+	};
+
+	typedef A<B>::Type Type;
+}
+
+namespace N533 // test substitution of pointer to member function (template)
+{
+	struct B
+	{
+		template<typename T>
+		int member(T);
+	};
+
+	template<int (B::*member)(B)>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef int Type;
+		STATIC_ASSERT_IS_SAME(C<&T::template member<T> >, C<&B::member<B> >);
+	};
+
+	typedef A<B>::Type Type;
+}
+
 
 #if 0 // TODO: defer evaluation of type of dependent pointer to member
 namespace N392

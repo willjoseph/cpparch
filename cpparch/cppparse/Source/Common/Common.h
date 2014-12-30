@@ -15,6 +15,8 @@
 #define CPPP_FORCEINLINE inline
 #endif
 
+const std::size_t INDEX_INVALID = std::size_t(-1);
+
 #define ARRAY_COUNT(array) (sizeof(array) / sizeof(*array))
 #define ARRAY_END(array) ((array) + ARRAY_COUNT(array))
 

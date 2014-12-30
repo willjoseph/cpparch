@@ -336,6 +336,7 @@ struct UniqueTypeArray : std::vector<UniqueTypeWrapper>
 #endif
 typedef UniqueTypeArray TemplateArgumentsInstance;
 typedef std::vector<UniqueTypeWrapper> InstantiatedTypes;
+typedef std::vector<ExpressionWrapper> InstantiatedExpressions;
 
 
 
@@ -424,7 +425,8 @@ struct SimpleType
 	const SimpleType* enclosing; // the enclosing template
 	UniqueBases bases;
 	TypeLayout layout;
-	InstantiatedTypes substitutedTypes; // the types instantiated when this class template is instantiated
+	InstantiatedTypes substitutedTypes; // the types substituted when this class template is instantiated
+	InstantiatedExpressions substitutedExpressions; // the expressions substituted when this class template is instantiated
 	bool instantiated;
 	bool instantiating;
 	bool allowLookup;
@@ -828,16 +830,16 @@ inline const ParameterTypes& getParameterTypes(UniqueType type)
 // The context at the point of instantiation.
 struct InstantiationContext
 {
-	mutable AstAllocator<int> allocator;
+	mutable InstantiationAllocator allocator;
 	Location source;
 	const SimpleType* enclosingType;
 	const SimpleType* enclosingFunction;
 	ScopePtr enclosingScope;
 	InstantiationContext()
-		: allocator(AST_ALLOCATOR_NULL), enclosingType(0), enclosingFunction(0), enclosingScope(0)
+		: allocator(NullAllocator<UncheckedLinearAllocator>()), enclosingType(0), enclosingFunction(0), enclosingScope(0)
 	{
 	}
-	InstantiationContext(AstAllocator<int>& allocator, Location source, const SimpleType* enclosingType, const SimpleType* enclosingFunction, ScopePtr enclosingScope)
+	InstantiationContext(const InstantiationAllocator& allocator, Location source, const SimpleType* enclosingType, const SimpleType* enclosingFunction, ScopePtr enclosingScope)
 		: allocator(allocator), source(source), enclosingType(enclosingType), enclosingFunction(enclosingFunction), enclosingScope(enclosingScope)
 	{
 	}
