@@ -66,6 +66,10 @@ struct EvaluateVisitor : ExpressionNodeVisitor
 	{
 		result = evaluateExpression(node, context);
 	}
+	void visit(const NewExpression& node)
+	{
+		result = evaluateExpression(node, context);
+	}
 	void visit(const ObjectExpression& node)
 	{
 		result = evaluateExpression(node, context);
@@ -813,6 +817,10 @@ struct TypeOfVisitor : ExpressionNodeVisitor
 		result = typeOfExpression(node, context);
 	}
 	void visit(const struct ExplicitTypeExpression& node)
+	{
+		result = typeOfExpression(node, context);
+	}
+	void visit(const struct NewExpression& node)
 	{
 		result = typeOfExpression(node, context);
 	}

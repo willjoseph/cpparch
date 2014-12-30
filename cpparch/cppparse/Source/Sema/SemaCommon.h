@@ -2525,6 +2525,7 @@ struct SemaTypenameSpecifierResult
 struct SemaNewTypeResult
 {
 	TypeId type;
+	ExpressionWrapper newArray;
 	SemaNewTypeResult(const AstAllocator<int>& allocator)
 		: type(0, allocator)
 	{

@@ -1556,7 +1556,7 @@ inline ExpressionType typeOfExpression(const TypeTraitsBinaryExpression& node, c
 	return ExpressionType(gBool, false); // non lvalue
 }
 
-inline ExpressionType typeOfExpression(const struct ExplicitTypeExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
 {
 	UniqueTypeWrapper type = substitute(node.type, context);
 	// [expr.cast]
@@ -1564,40 +1564,47 @@ inline ExpressionType typeOfExpression(const struct ExplicitTypeExpression& node
 	// type, otherwise the result is an rvalue.
 	ExpressionType result = ExpressionType(type, type.isReference());
 	SYMBOLS_ASSERT(!isDependent(result));
-	if(node.isCompleteTypeRequired)
-	{
-		requireCompleteObjectType(result, context);
-	}
 	return getAdjustedExpressionType(result);
 }
 
-inline ExpressionType typeOfExpression(const struct ObjectExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const NewExpression& node, const InstantiationContext& context)
+{
+	UniqueTypeWrapper type = substitute(node.type, context);
+	type.push_front(PointerType());
+	ExpressionType result = ExpressionType(type, false);
+	SYMBOLS_ASSERT(!isDependent(result));
+	// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
+	requireCompleteObjectType(result, context);
+	return getAdjustedExpressionType(result);
+}
+
+inline ExpressionType typeOfExpression(const ObjectExpression& node, const InstantiationContext& context)
 {
 	ExpressionType result = node.type;
 	SYMBOLS_ASSERT(!isDependent(result));
 	return result;
 }
 
-inline ExpressionType typeOfExpression(const struct MemberOperatorExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const MemberOperatorExpression& node, const InstantiationContext& context)
 {
 	ExpressionType result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
 	SYMBOLS_ASSERT(!isDependent(result));
 	return result;
 }
 
-inline ExpressionType typeOfExpression(const struct ClassMemberAccessExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
 {
 	ExpressionType result = typeOfClassMemberAccessExpression(node.left, node.right, context);
 	SYMBOLS_ASSERT(!isDependent(result));
 	return getAdjustedExpressionType(result);
 }
 
-inline ExpressionType typeOfExpression(const struct OffsetofExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const OffsetofExpression& node, const InstantiationContext& context)
 {
 	return ExpressionType(gUnsignedInt, false);
 }
 
-inline ExpressionType typeOfExpression(const struct FunctionCallExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const FunctionCallExpression& node, const InstantiationContext& context)
 {
 	return getAdjustedExpressionType(typeOfFunctionCallExpression(
 		substituteArgument(node.left, context),
@@ -1605,7 +1612,7 @@ inline ExpressionType typeOfExpression(const struct FunctionCallExpression& node
 		context));
 }
 
-inline ExpressionType typeOfExpression(const struct SubscriptExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const SubscriptExpression& node, const InstantiationContext& context)
 {
 	return getAdjustedExpressionType(typeOfSubscriptExpression(
 		substituteArgument(node.left, context),
@@ -1613,7 +1620,7 @@ inline ExpressionType typeOfExpression(const struct SubscriptExpression& node, c
 		context));
 }
 
-inline ExpressionType typeOfExpression(const struct PostfixOperatorExpression& node, const InstantiationContext& context)
+inline ExpressionType typeOfExpression(const PostfixOperatorExpression& node, const InstantiationContext& context)
 {
 	return getAdjustedExpressionType(typeOfPostfixOperatorExpression(node.operatorName,
 		substituteArgument(node.operand, context),
@@ -1940,6 +1947,12 @@ inline ExpressionValue evaluateExpression(const TypeTraitsBinaryExpression& node
 }
 
 inline ExpressionValue evaluateExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
+{
+	// cannot be a constant expression
+	return EXPRESSIONRESULT_INVALID;
+}
+
+inline ExpressionValue evaluateExpression(const NewExpression& node, const InstantiationContext& context)
 {
 	// cannot be a constant expression
 	return EXPRESSIONRESULT_INVALID;
@@ -2329,7 +2342,7 @@ inline bool isValueDependentExpression(const TypeTraitsBinaryExpression& express
 inline bool isDependentExpression(const ExplicitTypeExpression& expression)
 {
 	return isDependent(expression.type)
-		|| isDependentArguments(expression.arguments);
+		|| expression.argument.isDependent;
 }
 
 inline bool isTypeDependentExpression(const ExplicitTypeExpression& expression)
@@ -2338,6 +2351,27 @@ inline bool isTypeDependentExpression(const ExplicitTypeExpression& expression)
 }
 
 inline bool isValueDependentExpression(const ExplicitTypeExpression& expression)
+{
+	return false;
+}
+
+inline bool isDependentExpression(const NewExpression& expression)
+{
+	return isDependent(expression.type)
+		|| expression.newArray.isDependent
+		|| isDependentArguments(expression.arguments);
+}
+
+inline bool isTypeDependentExpression(const NewExpression& expression)
+{
+	// [temp.dep.expr]
+	// Expressions of the following forms are type-dependent only if the type specified by
+	// the type-id, simple-type-specifier or new-type-id is dependent
+	return isDependent(expression.type)
+		|| expression.newArray.isDependent; // array size is part of the new-type-id.. go figure
+}
+
+inline bool isValueDependentExpression(const NewExpression& expression)
 {
 	return false; // not a constant expression
 }
@@ -2600,7 +2634,12 @@ inline ExpressionWrapper substituteExpression(const TypeTraitsBinaryExpression& 
 
 inline ExpressionWrapper substituteExpression(const ExplicitTypeExpression& node, const InstantiationContext& context)
 {
-	return makeExpression2(ExplicitTypeExpression(substitute(node.type, context), substituteExpressionList(node.arguments, context)), context);
+	return makeExpression2(ExplicitTypeExpression(substitute(node.type, context), substituteExpression(node.argument, context)), context);
+}
+
+inline ExpressionWrapper substituteExpression(const NewExpression& node, const InstantiationContext& context)
+{
+	return makeExpression2(NewExpression(substitute(node.type, context), node.newArray, substituteExpressionList(node.arguments, context)), context);
 }
 
 inline ExpressionWrapper substituteExpression(const ObjectExpression& node, const InstantiationContext& context)
@@ -2711,7 +2750,11 @@ struct ExpressionSubstituteVisitor : ExpressionNodeVisitor
 	{
 		result = substituteExpression(node, context);
 	}
-	void visit(const struct ExplicitTypeExpression& node)
+	void visit(const ExplicitTypeExpression& node)
+	{
+		result = substituteExpression(node, context);
+	}
+	void visit(const NewExpression& node)
 	{
 		result = substituteExpression(node, context);
 	}

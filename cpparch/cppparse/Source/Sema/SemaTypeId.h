@@ -70,6 +70,7 @@ struct SemaNewType : public SemaBase, SemaNewTypeResult
 	void action(cpp::new_declarator* symbol, const SemaDeclarator& walker)
 	{
 		type.typeSequence = walker.typeSequence;
+		newArray = walker.newArray;
 		addDependent(type.dependent, walker.dependent);
 		// new T
 		// new T*

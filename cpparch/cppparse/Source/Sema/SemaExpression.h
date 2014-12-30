@@ -36,12 +36,6 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 		walker.committed.test();
 		type = walker.type;
 	}
-	SEMA_POLICY(cpp::new_type, SemaPolicyPush<struct SemaNewType>)
-	void action(cpp::new_type* symbol, const SemaNewTypeResult& walker)
-	{
-		type = walker.type;
-		makeUniqueTypeSafe(type);
-	}
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
@@ -52,6 +46,32 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 	}
 	SEMA_POLICY(cpp::cast_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::cast_expression* symbol, const SemaExpressionResult& walker)
+	{
+		arguments.push_back(walker.expression);
+		addDependent(typeDependent, walker.typeDependent);
+		addDependent(valueDependent, walker.valueDependent);
+		isDependent |= walker.expression.isDependent;
+	}
+};
+
+struct SemaNewExpression : public SemaBase, SemaExplicitTypeExpressionResult
+{
+	SEMA_BOILERPLATE;
+	ExpressionWrapper newArray;
+
+	SemaNewExpression(const SemaState& state)
+		: SemaBase(state), SemaExplicitTypeExpressionResult(context)
+	{
+	}
+	SEMA_POLICY(cpp::new_type, SemaPolicyPush<struct SemaNewType>)
+	void action(cpp::new_type* symbol, const SemaNewTypeResult& walker)
+	{
+		type = walker.type;
+		newArray = walker.newArray;
+		makeUniqueTypeSafe(type);
+	}
+	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
+	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
 		addDependent(typeDependent, walker.typeDependent);
@@ -342,24 +362,20 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	reinterpret_cast < type-id > ( expression )
 	( type-id ) cast-expression
 	*/
-	SEMA_POLICY(cpp::new_expression_placement, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
-	void action(cpp::new_expression_placement* symbol, const SemaExplicitTypeExpressionResult& walker)
+	SEMA_POLICY(cpp::new_expression_placement, SemaPolicyPushSrc<struct SemaNewExpression>)
+	void action(cpp::new_expression_placement* symbol, const SemaNewExpression& walker)
 	{
 		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
-		type.push_front(PointerType());
 		addDependent(typeDependent, walker.type);
-		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
-		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentSafe(typeDependent));
+		expression = makeExpression(NewExpression(type, walker.newArray, walker.arguments), walker.type.isDependent, isDependentSafe(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
-	SEMA_POLICY(cpp::new_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
-	void action(cpp::new_expression_default* symbol, const SemaExplicitTypeExpressionResult& walker)
+	SEMA_POLICY(cpp::new_expression_default, SemaPolicyPushSrc<struct SemaNewExpression>)
+	void action(cpp::new_expression_default* symbol, const SemaNewExpression& walker)
 	{
 		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
-		// [expr.new] The new expression attempts to create an object of the type-id or new-type-id to which it is applied. The type shall be a complete type...
-		type.push_front(PointerType());
 		addDependent(typeDependent, walker.type);
-		expression = makeExpression(ExplicitTypeExpression(type, walker.arguments, true), walker.type.isDependent, isDependentSafe(typeDependent));
+		expression = makeExpression(NewExpression(type, walker.newArray, walker.arguments), walker.type.isDependent, isDependentSafe(typeDependent));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::cast_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
@@ -428,9 +444,9 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::delete_expression, SemaPolicyPushSrc<struct SemaExpression>)
 	void action(cpp::delete_expression* symbol, const SemaExpressionResult& walker)
 	{
-		// TODO: check compliance: type of delete-expression
+		// [expr.delete] The result has type void.
 		ExpressionType type = ExpressionType(gVoid, false); // non lvalue
-		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), walker.expression.isDependent);
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::throw_expression, SemaPolicyPushSrc<struct SemaExpression>)
@@ -438,7 +454,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// [except] A throw-expression is of type void.
 		ExpressionType type = ExpressionType(gVoid, false); // non lvalue
-		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), walker.expression.isDependent);
 	}
 };
 

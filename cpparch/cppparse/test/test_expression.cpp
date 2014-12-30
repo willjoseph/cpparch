@@ -1,4 +1,138 @@
 
+// http://stackoverflow.com/questions/27713666/can-a-throw-or-delete-expression-ever-be-dependent
+namespace N538 // test determination of dependentness for throw and delete expressions
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<int n>
+	struct A
+	{
+		typedef B<decltype(throw (int*)n)>::Type NonDependentThrow;
+		typedef B<decltype(delete (int*)n)>::Type NonDependentDelete;
+	};
+}
+
+namespace N537 // test determination of dependentness for new expression with dependent new-type-id
+{
+	template<typename T>
+	struct B
+	{
+	};
+
+	template<int n>
+	struct A
+	{
+		typedef typename B<decltype(*new int[1][n])>::Type Type;
+	};
+}
+
+namespace N536 // test determination of dependent expressions within template declaration
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<int n>
+	struct I
+	{
+		typedef int Type[n];
+	};
+
+	template<int n>
+	I<n> f();
+
+	template<int n>
+	struct A
+	{
+		typedef I<n> T;
+
+		static void mf(int[n]);
+		static void mf();
+
+		static const int TemplateNonTypeParameter = I<n>::unknown;
+		static const int DependentCast = decltype((T)0)::unknown;
+		static const int DependentSizeof = I<sizeof(T)>::unknown;
+		static const int DependentStaticCast = decltype(static_cast<T>(0))::unknown;
+		static const int DependentReinterpretCast = decltype(*reinterpret_cast<T*>(0))::unknown;
+		static const int DependentFunctionStyleCast = decltype(T())::unknown;
+		static const int DependentNew = decltype(*new T)::unknown;
+		static const int DependentArrayNew = decltype(*new int[n])::unknown;
+		static const int DependentArrayNew2 = decltype(*new int[1][n])::unknown;
+		static const int ValueDependent = I<sizeof(T)>::unknown;
+		static const int DependentTemplateId = decltype(f<n>())::unknown;
+		static const int DependentOverloaded = decltype(mf())::unknown;
+		static const int DependentOffsetof = I<__builtin_offsetof(T, m)>::unknown;
+
+		typedef I<0>::Type NonDependentLiteral;
+		typedef I<sizeof n>::Type NonDependentSizeof;
+		typedef I<sizeof sizeof(T)>::Type NonDependentNestedSizeof;
+		typedef B<decltype(throw (int*)n)>::Type NonDependentThrow;
+		typedef B<decltype(delete (int*)n)>::Type NonDependentDelete;
+	};
+}
+
+namespace N520 // test determination of dependent types within template declaration
+{
+	template<typename T>
+	struct B
+	{
+		typedef T Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct C { };
+		enum E { };
+
+		static const int TemplateParameter = B<T>::unknown; // also MemberOfUnknownSpecialization, DependentTemplateTypeArgument
+		static const int MemberOfUnknownSpecialization = B<typename T::Type>::unknown;
+		static const int NestedClassMemberOfCurrentInstantiation = B<C>::unknown;
+		static const int NestedEnumMemberOfCurrentInstantiation = B<E>::unknown;
+		static const int CompoundType = B<T(T)>::unknown;
+		static const int DependentArrayType = B<T[1]>::unknown;
+		static const int DependentArraySize = B<int[sizeof(T)]>::unknown;
+		static const int DependentDeclType = decltype(T())::unknown;
+
+		typedef B<int>::Type NonDependentType;
+	};
+}
+
+
+namespace N530 // test substitution of partially dependent type in member function template (member-pointer)
+{
+	template<typename T>
+	struct B
+	{
+		int member;
+	};
+	typedef B<int> T;
+
+	template<int T::*member>
+	struct C
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		template<typename U>
+		void f(C<&T::member>, C<&U::member>); // when instantiating A, must partially substitute type of f
+
+		typedef int Type;
+	};
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T>::Type Type;
+	static_assert(__is_instantiated(T), "");
+}
+
 namespace N535 // test evaluation of dependent expression
 {
 	template<typename T>
@@ -51,37 +185,6 @@ namespace N529 // test substitution of partially dependent type in member functi
 }
 
 
-
-
-#if 0 // TODO
-namespace N530 // test substitution of partially dependent type in member function template (member-pointer)
-{
-	template<typename T>
-	struct B
-	{
-		int member;
-	};
-	typedef B<int> T;
-
-	template<int T::*member>
-	struct C
-	{
-	};
-
-	template<typename T>
-	struct A
-	{
-		template<typename U>
-		void f(C<&T::member>, C<&U::member>); // when instantiating A, must partially substitute type of f
-
-		typedef int Type;
-	};
-
-	static_assert(!__is_instantiated(T), "");
-	typedef A<T>::Type Type;
-	static_assert(__is_instantiated(T), "");
-}
-#endif
 
 
 namespace N528 // test substitution of partially dependent type in member function template (array)
@@ -226,39 +329,7 @@ namespace N524
 	}
 }
 
-namespace N520
-{
-	template<typename T>
-	struct B
-	{
-		typedef T Type;
-	};
 
-	template<int n>
-	struct I
-	{
-		typedef int Type[n];
-	};
-
-	template<typename T>
-	struct A
-	{
-		struct C { };
-		enum E { };
-
-		static const int TemplateParameter = B<T>::unknown; // also MemberOfUnknownSpecialization, DependentTemplateTypeArgument
-		static const int MemberOfUnknownSpecialization = B<typename T::Type>::unknown;
-		static const int NestedClassMemberOfCurrentInstantiation = B<C>::unknown;
-		static const int NestedEnumMemberOfCurrentInstantiation = B<E>::unknown;
-		static const int CompoundType = B<T(T)>::unknown;
-		static const int DependentArrayType = B<T[1]>::unknown;
-		static const int DependentArraySize = B<int[sizeof(T)]>::unknown;
-		static const int DependentTemplateNonTypeArgument = I<sizeof(T)>::unknown;
-
-		typedef B<int>::Type NonDependentType;
-		typedef I<1>::Type NonDependentNonType;
-	};
-}
 
 
 namespace N523 // test substitution of template specialization with dependent default argument
@@ -296,40 +367,6 @@ namespace N521 // test parse of non-type parameter with dependent type, with non
 	};
 }
 
-
-namespace TEST3
-{
-	template<template<typename> class Tmpl>
-	struct A
-	{
-	};
-
-	template<typename T>
-	struct B
-	{
-		typedef T Type;
-	};
-
-	typedef A<B> Type;
-}
-
-namespace TEST
-{
-	template<typename T>
-	struct A
-	{
-		struct C { };
-
-		typedef C NestedClassMemberOfCurrentInstantiation;
-	};
-
-	typedef A<int>::C Type;
-
-	struct B : A<int>
-	{
-		typedef C Type;
-	};
-}
 
 namespace N518 // test parse of dependent subscript operator
 {

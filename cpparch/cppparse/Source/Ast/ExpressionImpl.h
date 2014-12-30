@@ -474,29 +474,19 @@ inline bool isUniqueExpression(const TypeTraitsBinaryExpression& e)
 struct ExplicitTypeExpression
 {
 	UniqueTypeWrapper type;
-	Arguments arguments;
-	bool isCompleteTypeRequired;
-	// new T(args)
-	// new (p) T(args)
-	ExplicitTypeExpression(UniqueTypeWrapper type, const Arguments& arguments, bool isCompleteTypeRequired = false)
-		: type(type), arguments(arguments), isCompleteTypeRequired(isCompleteTypeRequired)
-	{
-		SYMBOLS_ASSERT(type != gUniqueTypeNull);
-	}
+	ExpressionWrapper argument;
 	// delete expr
 	// throw expr
 	// typeid(expr)
 	ExplicitTypeExpression(UniqueTypeWrapper type, const ExpressionWrapper& argument)
-		: type(type), isCompleteTypeRequired(false)
+		: type(type), argument(argument)
 	{
 		SYMBOLS_ASSERT(type != gUniqueTypeNull);
-		arguments.reserve(1);
-		arguments.push_back(argument);
 	}
 	// typeid(T)
 	// this
 	ExplicitTypeExpression(UniqueTypeWrapper type)
-		: type(type), isCompleteTypeRequired(false)
+		: type(type)
 	{
 		SYMBOLS_ASSERT(type != gUniqueTypeNull);
 	}
@@ -504,7 +494,8 @@ struct ExplicitTypeExpression
 
 inline bool operator<(const ExplicitTypeExpression& left, const ExplicitTypeExpression& right)
 {
-	return left.type < right.type;
+	SYMBOLS_ASSERT(false);
+	return false;
 }
 
 inline bool isUniqueExpression(const ExplicitTypeExpression& e)
@@ -523,6 +514,41 @@ inline const ExplicitTypeExpression& getExplicitTypeExpression(ExpressionNode* n
 	return static_cast<const ExpressionNodeGeneric<ExplicitTypeExpression>*>(node)->value;
 }
 
+// ----------------------------------------------------------------------------
+// new T(args)
+// new (p) T(args)
+struct NewExpression
+{
+	UniqueTypeWrapper type;
+	ExpressionWrapper newArray;
+	Arguments arguments; // NOTE: includes placement-new location
+	NewExpression(UniqueTypeWrapper type, ExpressionWrapper newArray, const Arguments& arguments)
+		: type(type), newArray(newArray), arguments(arguments)
+	{
+		SYMBOLS_ASSERT(type != gUniqueTypeNull);
+	}
+};
+
+inline bool operator<(const NewExpression& left, const NewExpression& right)
+{
+	SYMBOLS_ASSERT(false);
+}
+
+inline bool isUniqueExpression(const NewExpression& e)
+{
+	return false;
+}
+
+inline bool isNewExpression(ExpressionNode* node)
+{
+	return isEqual(getTypeInfo(*node), getTypeInfo<ExpressionNodeGeneric<NewExpression> >());
+}
+
+inline const NewExpression& getNewExpression(ExpressionNode* node)
+{
+	SYMBOLS_ASSERT(isNewExpression(node));
+	return static_cast<const ExpressionNodeGeneric<NewExpression>*>(node)->value;
+}
 
 // ----------------------------------------------------------------------------
 struct MemberOperatorExpression

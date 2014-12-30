@@ -190,6 +190,7 @@ struct SemaDeclarator : public SemaBase
 	Qualifying memberPointer;
 	Dependent dependent; // track which template parameters the declarator's type depends on. e.g. 'T::* memberPointer', 'void f(T)'
 	TypeId conversionType; // the return-type, if this is a conversion-function declarator
+	ExpressionWrapper newArray; // the expression found in the array form of the new-declarator
 	bool isDestructor;
 	bool isExplicitSpecialization;
 	SemaDeclarator(const SemaState& state)
@@ -255,6 +256,7 @@ struct SemaDeclarator : public SemaBase
 	SEMA_POLICY(cpp::new_declarator_ptr, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::new_declarator_ptr* symbol, SemaDeclarator& walker)
 	{
+		newArray = walker.newArray;
 		return walkDeclaratorPtr(symbol, walker);
 	}
 	SEMA_POLICY(cpp::conversion_declarator, SemaPolicyPush<struct SemaDeclarator>)
@@ -333,6 +335,10 @@ struct SemaDeclarator : public SemaBase
 	SEMA_POLICY(cpp::expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::expression* symbol, const SemaExpressionResult& walker) // in direct_new_declarator
 	{
+		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
+		addDependent(dependent, walker.valueDependent);
+		newArray = walker.expression;
+		addDeferredExpression(newArray);
 	}
 	template<typename T>
 	void walkDeclarator(T* symbol, const SemaDeclarator& walker)
@@ -362,6 +368,7 @@ struct SemaDeclarator : public SemaBase
 	SEMA_POLICY(cpp::direct_new_declarator, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::direct_new_declarator* symbol, const SemaDeclarator& walker)
 	{
+		newArray = walker.newArray;
 		return walkDeclarator(symbol, walker);
 	}
 	SEMA_POLICY(cpp::declarator, SemaPolicyPush<struct SemaDeclarator>)
@@ -377,6 +384,7 @@ struct SemaDeclarator : public SemaBase
 	SEMA_POLICY(cpp::new_declarator, SemaPolicyPush<struct SemaDeclarator>)
 	void action(cpp::new_declarator* symbol, const SemaDeclarator& walker)
 	{
+		newArray = walker.newArray;
 		return walkDeclarator(symbol, walker);
 	}
 };
