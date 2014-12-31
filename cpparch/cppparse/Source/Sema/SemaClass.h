@@ -35,7 +35,6 @@ struct SemaBaseSpecifier : public SemaQualified
 		*/
 		type = walker.type;
 		type.qualifying.swap(qualifying);
-		setDependent(type.dependent, type.qualifying);
 		makeUniqueTypeSafe(type);
 	}
 	SEMA_POLICY(cpp::decltype_specifier, SemaPolicyPush<struct SemaDecltypeSpecifier>)
@@ -196,17 +195,10 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		{
 			Type type(declaration, context);
 			type.id = &declaration->getName();
-			setDependent(type);
-			if(declaration->isTemplate)
-			{
-				setDependentEnclosingTemplate(type.dependent, declaration);
-			}
 			type.isImplicitTemplateId = declaration->isTemplate;
 			type.isInjectedClassName = true;
 			declaration->type.unique = makeUniqueType(type, getInstantiationContext()).value;
 			declaration->type.isDependent = declaration->type.unique->isDependent;
-
-			addDependent(enclosingDependent, type);
 		}
 		bool isExplicitSpecialization = isSpecialization && declaration->templateParams.empty();
 		bool allowDependent = declaration->type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
@@ -338,8 +330,7 @@ struct SemaMemberDeclaratorBitfield : public SemaBase
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(walker.expression.isValueDependent || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 	}
 };
 

@@ -37,10 +37,6 @@ struct SemaNestedNameSpecifierSuffix : public SemaBase
 		type = declaration;
 		type.id = &symbol->value;
 		setDecoration(&symbol->value, declaration);
-		if(declaration != &gDependentNested)
-		{
-			setDependent(type); // a template-id is dependent if the 'identifier' is a template-parameter
-		}
 		return true;
 	}
 	SEMA_POLICY_ARGS(cpp::simple_template_id, SemaPolicyPushCachedCheckedBool<struct SemaTemplateId>, isTemplate)
@@ -59,11 +55,6 @@ struct SemaNestedNameSpecifierSuffix : public SemaBase
 		type = declaration;
 		type.id = walker.id;
 		type.templateArguments = walker.arguments;
-		if(declaration != &gDependentNestedTemplate)
-		{
-			setDependent(type); // a template-id is dependent if the 'identifier' is a template-parameter
-		}
-		setDependent(type.dependent, type.templateArguments); // a template-id is dependent if any of its arguments are dependent
 		return true;
 	}
 };
@@ -145,7 +136,6 @@ struct SemaNestedNameSpecifier : public SemaQualified
 		SEMANTIC_ASSERT(walker.type.declaration != 0);
 		Type type = walker.type;
 		type.qualifying.swap(qualifying);
-		setDependent(type.dependent, type.qualifying);
 		makeUniqueTypeSafe(type);
 		swapQualifying(type, isDeclarator);
 		//disableBacktrack();
@@ -156,7 +146,6 @@ struct SemaNestedNameSpecifier : public SemaQualified
 		SEMANTIC_ASSERT(walker.type.declaration != 0);
 		Type type = walker.type;
 		type.qualifying.swap(qualifying);
-		setDependent(type.dependent, type.qualifying);
 		makeUniqueTypeSafe(type);
 		swapQualifying(type, isDeclarator);
 		//disableBacktrack();

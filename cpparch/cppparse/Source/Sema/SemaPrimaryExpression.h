@@ -59,8 +59,6 @@ struct SemaPrimaryExpression : public SemaBase
 	ExpressionWrapper expression;
 	IdentifierPtr id; // only valid when the expression is a (parenthesised) id-expression
 	TemplateArguments arguments; // only valid when the expression is a (qualified) template-id
-	Dependent typeDependent;
-	Dependent valueDependent;
 	bool isUndeclared;
 	SemaPrimaryExpression(const SemaState& state)
 		: SemaBase(state), id(0), arguments(context)
@@ -88,8 +86,6 @@ struct SemaPrimaryExpression : public SemaBase
 		id = walker.id;
 		arguments = walker.arguments;
 		LookupResultRef declaration = walker.declaration;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		expression = walker.expression;
 		isUndeclared = walker.isUndeclared;
 
@@ -102,19 +98,13 @@ struct SemaPrimaryExpression : public SemaBase
 		expression = walker.expression;
 		expression.isParenthesised = true;
 		id = walker.id;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 	}
 	SEMA_POLICY(cpp::primary_expression_builtin, SemaPolicyIdentity)
 	void action(cpp::primary_expression_builtin* symbol)
 	{
 		SEMANTIC_ASSERT(enclosingType != 0);
 		ExpressionType type = ExpressionType(pushType(typeOfEnclosingClass(getInstantiationContext()), PointerType()), false); // non lvalue
-		// [temp.dep.expr]
-		// 'this' is type-dependent if the class type of the enclosing member function is dependent
-		addDependent(typeDependent, enclosingDependent);
-		bool isTypeDependent = isDependentSafe(typeDependent);
-		expression = makeExpression(ObjectExpression(type), isTypeDependent, isTypeDependent, false);
+		expression = makeExpression(ObjectExpression(type));
 		setExpressionType(symbol, expression.type);
 	}
 };

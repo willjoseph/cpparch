@@ -54,7 +54,6 @@ struct SemaDeclSpecifierSeq : public SemaBase
 	void action(cpp::class_specifier* symbol, const SemaClassSpecifier& walker)
 	{
 		seq.type = walker.declaration;
-		setDependent(seq.type); // a class-specifier is dependent if it declares a nested class of a template class
 		templateParams = walker.templateParams;
 		seq.isUnion = walker.isUnion;
 	}

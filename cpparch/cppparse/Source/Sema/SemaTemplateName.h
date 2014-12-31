@@ -39,12 +39,10 @@ struct SemaTemplateArgumentList : public SemaBase
 			// [temp.arg] In a template argument, an ambiguity between a typeid and an expression is resolved to a typeid
 			return false; // fail parse, will retry for a type-id
 		}
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
-		addDependent(argument.valueDependent, walker.valueDependent);
 		argument.type = &gNonType;
 		argument.expression = walker.expression;
 		argument.source = getLocation();
-		SEMANTIC_ASSERT(isDependentSafe(argument.valueDependent) || argument.expression.value.isConstant);
+		SEMANTIC_ASSERT(argument.expression.isValueDependent || argument.expression.value.isConstant);
 		addDeferredExpression(argument.expression);
 		return true;
 	}
@@ -150,7 +148,6 @@ struct SemaTypenameSpecifier : public SemaQualified, SemaTypenameSpecifierResult
 		}
 		type = walker.type;
 		type.qualifying.swap(qualifying);
-		setDependent(type.dependent, type.qualifying);
 		return true;
 	}
 };

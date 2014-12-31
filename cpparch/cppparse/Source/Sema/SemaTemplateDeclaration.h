@@ -32,7 +32,6 @@ struct SemaTypeParameter : public SemaBase
 			setDecoration(id, instance);
 		}
 		param = instance;
-		setDependent(param);
 		makeUniqueTypeSafe(param);
 		param.argument.swap(argument);
 	}
@@ -108,10 +107,8 @@ struct SemaTemplateParameterList : public SemaBase
 		param = walker.declaration;
 		if(walker.defaultArgument != 0)
 		{
-			addDependent(param.argument.valueDependent, walker.declaration->valueDependent);
 			param.argument.type = &gNonType;
 			param.argument.expression = walker.declaration->initializer;
-			SEMANTIC_ASSERT(isDependentSafe(param.argument.valueDependent) == param.argument.expression.isValueDependent);
 		}
 		++count;
 	}

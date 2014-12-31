@@ -98,22 +98,6 @@ struct SemaTypeName : public SemaBase
 			}
 		}
 		setDecoration(&symbol->value, declaration);
-		setDependent(type);
-#if 1 // temp hack, imitate previous isDependent behaviour
-		if(type.declaration->isTemplate
-			&& type.declaration->templateParameter == INDEX_INVALID) // ignore template-template-parameter
-		{
-			if(type.declaration->isSpecialization)
-			{
-				setDependent(type.dependent, type.declaration->templateArguments);
-			}
-			else
-			{
-				SEMANTIC_ASSERT(!type.declaration->templateParams.empty());
-				setDependent(type.dependent, *type.declaration->templateParams.front().declaration); // depend on first template param
-			}
-		}
-#endif
 		return true;
 	}
 
@@ -136,8 +120,6 @@ struct SemaTypeName : public SemaBase
 		type.id = walker.id;
 		type.declaration = findOverloaded(declaration); // NOTE: stores the declaration from which all explicit/partial specializations are visible via 'Declaration::overloaded'
 		type.templateArguments = walker.arguments;
-		setDependent(type); // a template-id is dependent if the 'identifier' is a template-parameter
-		setDependent(type.dependent, type.templateArguments); // a template-id is dependent if any of its arguments are dependent
 		return true;
 	}
 };

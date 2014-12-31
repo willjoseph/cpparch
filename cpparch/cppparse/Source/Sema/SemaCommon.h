@@ -626,34 +626,6 @@ inline Scope* findEnclosingTemplateScope(Scope* scope)
 	return findEnclosingTemplateScope(scope->parent);
 }
 
-inline Declaration* findEnclosingClassTemplate(Declaration* dependent)
-{
-	if(dependent != 0
-		&& (isClass(*dependent)
-		|| isEnum(*dependent)) // type of enum within class template is dependent
-		&& isMember(*dependent))
-	{
-		Scope* scope = getEnclosingClass(dependent->scope);
-		if(scope == 0)
-		{
-			// enclosing class was anonymous and at namespace scope.
-			return 0;
-		}
-		Declaration* declaration = getClassDeclaration(scope);
-		return declaration->isTemplate
-			? declaration
-			: findEnclosingClassTemplate(declaration);
-	}
-	return 0;
-}
-
-inline bool isDependentImpl(Declaration* dependent, Scope* enclosing, Scope* enclosingTemplateScope)
-{
-	return dependent != 0
-		&& (findScope(enclosing, dependent->scope) != 0
-		|| findScope(enclosingTemplateScope, dependent->scope) != 0); // if we are within the candidate template-parameter's template-definition
-}
-
 
 struct SemaContext : public AstAllocator<int>
 {
@@ -709,7 +681,6 @@ struct SemaState
 	ScopePtr enclosingScope;
 	const SimpleType* enclosingType;
 	const SimpleType* enclosingFunction;
-	Dependent enclosingDependent;
 	TypePtr qualifying_p;
 	DeclarationPtr qualifyingScope;
 	const SimpleType* qualifyingClass;
@@ -737,7 +708,6 @@ struct SemaState
 		, enclosingDeferred(0)
 		, enclosingInstantiation(0)
 		, enclosingDependentConstructs(0)
-		, enclosingDependent(0)
 		, templateDepth(0)
 		, isExplicitInstantiation(false)
 	{
@@ -906,8 +876,7 @@ struct SemaState
 		const TemplateParameters& params = TEMPLATEPARAMETERS_NULL,
 		bool isSpecialization = false,
 		const TemplateArguments& arguments = TEMPLATEARGUMENTS_NULL,
-		size_t templateParameter = INDEX_INVALID,
-		const Dependent& valueDependent = Dependent())
+		size_t templateParameter = INDEX_INVALID)
 	{
 		SEMANTIC_ASSERT(parent != 0);
 		SEMANTIC_ASSERT(templateParameter == INDEX_INVALID || ::isTemplate(*parent));
@@ -934,7 +903,7 @@ struct SemaState
 				|| type.declaration == &gClass
 				|| type.declaration == &gEnum));
 
-		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter, valueDependent);
+		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter);
 		declaration.enclosingType = enclosingType;
 		declaration.isFunction = type.unique != 0 && getUniqueType(type).isFunction();
 		if(Scope* parentClassScope = getEnclosingClass(parent))
@@ -1174,167 +1143,13 @@ struct SemaState
 		}
 	}
 
-
-	bool isDependentImpl(Declaration* dependent) const
-	{
-		return ::isDependentImpl(dependent, enclosingScope, enclosingTemplateScope);
-	}
-	bool isDependentSafe(const Dependent& dependent) const
-	{
-		bool result = (dependent.declaration.p != 0);
-		SEMANTIC_ASSERT(result == isDependentImpl(dependent.declaration));
-		return result;
-	}
-	bool isDependentOld(const TypePtr& qualifying) const
-	{
-		Dependent dependent;
-		setDependent(dependent, qualifying.get());
-		return isDependentSafe(dependent);
-	}
 	bool isDependentSafe(const TypePtr& qualifying) const
 	{
 		if(qualifying == TypePtr(0))
 		{
 			return false;
 		}
-		SEMANTIC_ASSERT(isDependentOld(qualifying) == qualifying.get()->isDependent);
 		return qualifying.get()->isDependent;
-	}
-	// the dependent-scope is the outermost template-definition
-	void setDependentImpl(Dependent& dependent, Declaration* candidate) const
-	{
-		SEMANTIC_ASSERT(candidate == 0 || candidate->templateParameter != INDEX_INVALID);
-		SEMANTIC_ASSERT(dependent.declaration == DeclarationPtr(0) || isDependentImpl(dependent.declaration));
-		if(candidate == 0)
-		{
-			return;
-		}
-		if(!isDependentImpl(candidate))
-		{
-			return;
-		}
-		SEMANTIC_ASSERT(candidate->scope->type != SCOPETYPE_NAMESPACE);
-		if(dependent.declaration.p != 0
-			&& findScope(candidate->scope, dependent.declaration->scope)) // if the candidate template-parameter's template-definition is within the current dependent-scope
-		{
-			return; // already dependent on outer template
-		}
-		dependent = Dependent(candidate); // the candidate template-parameter is within the current dependent-scope
-	}
-	void setDependentImpl(Dependent& dependent, const Dependent& other) const
-	{
-		setDependentImpl(dependent, other.declaration);
-	}
-	void setDependentEnclosingTemplate(Dependent& dependent, Declaration* enclosingTemplate) const
-	{
-		if(enclosingTemplate != 0)
-		{
-			SEMANTIC_ASSERT(enclosingTemplate->isTemplate);
-			// 'declaration' is a class that is dependent because it is a (possibly specialized) member of an enclosing template class
-			SEMANTIC_ASSERT(enclosingTemplate->isSpecialization || !enclosingTemplate->templateParams.empty());
-			if(!enclosingTemplate->templateParams.empty()) // if the enclosing template class is not an explicit specialization
-			{
-				// depend on the template parameter(s) of the enclosing template class
-				setDependentImpl(dependent, enclosingTemplate->templateParams.back().declaration);
-			}
-		}
-	}
-	void setDependent(Dependent& dependent, Declaration& declaration) const
-	{
-		if(declaration.templateParameter != INDEX_INVALID)
-		{
-			setDependentImpl(dependent, &declaration);
-		}
-		else if(declaration.specifiers.isTypedef)
-		{
-			setDependentImpl(dependent, declaration.type.dependent);
-		}
-		else if(isClass(declaration)
-			&& isComplete(declaration))
-		{
-			setDependent(dependent, declaration.enclosed->bases);
-		}
-
-		setDependentEnclosingTemplate(dependent, findEnclosingClassTemplate(&declaration));
-
-		setDependentImpl(dependent, declaration.valueDependent);
-	}
-	void setDependent(Dependent& dependent, const Type* qualifying) const
-	{
-		if(qualifying == 0)
-		{
-			return;
-		}
-		setDependentImpl(dependent, qualifying->dependent);
-		setDependent(dependent, qualifying->qualifying.get());
-	}
-	void setDependent(Dependent& dependent, const Qualifying& qualifying) const
-	{
-		setDependent(dependent, qualifying.get());
-	}
-	void setDependent(Dependent& dependent, const Types& bases) const
-	{
-		for(Types::const_iterator i = bases.begin(); i != bases.end(); ++i)
-		{
-			setDependentImpl(dependent, (*i).dependent);
-		}
-	}
-	void setDependent(Dependent& dependent, const TemplateArguments& arguments) const
-	{
-		for(TemplateArguments::const_iterator i = arguments.begin(); i != arguments.end(); ++i)
-		{
-			setDependentImpl(dependent, (*i).type.dependent);
-			setDependentImpl(dependent, (*i).valueDependent);
-		}
-	}
-	void setDependent(Dependent& dependent, const Parameters& parameters) const
-	{
-		for(Parameters::const_iterator i = parameters.begin(); i != parameters.end(); ++i)
-		{
-			setDependentImpl(dependent, (*i).declaration->type.dependent);
-		}
-	}
-	void setDependent(Type& type, Declaration* declaration) const
-	{
-		setDependentImpl(type.dependent, declaration);
-	}
-	void setDependent(Type& type) const
-	{
-		setDependent(type.dependent, *type.declaration);
-	}
-
-	void addDependent(Dependent& dependent, const Dependent& other)
-	{
-		Declaration* old = dependent.declaration.p;
-		setDependentImpl(dependent, other);
-		SEMANTIC_ASSERT(old == 0 || dependent.declaration.p != 0);
-	}
-	void addDependentName(Dependent& dependent, Declaration* declaration)
-	{
-		Declaration* old = dependent.declaration.p;
-		setDependent(dependent, *declaration);
-		SEMANTIC_ASSERT(old == 0 || dependent.declaration.p != 0);
-	}
-	void addDependentType(Dependent& dependent, Declaration* declaration)
-	{
-#if 1
-		if(!declaration->isTypeDependent)
-		{
-			return;
-		}
-		else if(declaration->isTemplate)
-		{
-			setDependentEnclosingTemplate(dependent, getClassDeclaration(findEnclosingTemplateScope(declaration->scope)));
-		}
-		else
-#endif
-		{
-			addDependent(dependent, declaration->type.dependent);
-		}
-	}
-	void addDependent(Dependent& dependent, const Type& type)
-	{
-		addDependent(dependent, type.dependent);
 	}
 };
 
@@ -1671,11 +1486,8 @@ struct SemaBase : public SemaState
 	}
 
 	template<typename T>
-	ExpressionWrapper makeExpression(const T& node, bool isDependent = false, bool isTypeDependent = false, bool isValueDependent = false)
+	ExpressionWrapper makeExpression(const T& node)
 	{
-		SEMANTIC_ASSERT(isTypeDependent == isTypeDependentExpression(node));
-		SEMANTIC_ASSERT(isValueDependent == isValueDependentExpression(node));
-
 		// TODO: optimisation: if expression is not value-dependent, consider unique only if it is also an integral-constant-expression
 		bool isUnique = isUniqueExpression(node);
 		// TODO: the below is only necessary if dependent expressions are to contain indices into enclosing template
@@ -1821,7 +1633,7 @@ struct SemaBase : public SemaState
 		}
 	}
 
-	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, const Dependent& valueDependent, bool isDestructor, bool isExplicitSpecialization)
+	Declaration* declareObject(Scope* parent, Identifier* id, const TypeId& type, Scope* enclosed, DeclSpecifiers specifiers, size_t templateParameter, bool isDestructor, bool isExplicitSpecialization)
 	{
 		// [namespace.memdef]
 		// Every name first declared in a namespace is a member of that namespace. If a friend declaration in a non-local class
@@ -1836,7 +1648,7 @@ struct SemaBase : public SemaState
 		}
 
 		bool isTemplate = templateParams != 0;
-		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, specifiers.isTypedef, specifiers, isTemplate, getTemplateParams(), isExplicitSpecialization, TEMPLATEARGUMENTS_NULL, templateParameter, valueDependent); // 3.3.1.1
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, specifiers.isTypedef, specifiers, isTemplate, getTemplateParams(), isExplicitSpecialization, TEMPLATEARGUMENTS_NULL, templateParameter); // 3.3.1.1
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
 #endif
@@ -2013,13 +1825,6 @@ struct SemaBase : public SemaState
 		return gDependentTemplateInstance;
 	}
 
-	void addDependentOverloads(Dependent& dependent, Declaration* declaration)
-	{
-		for(Declaration* p = declaration; p != 0; p = p->overloaded)
-		{
-			addDependentType(dependent, p);
-		}
-	}
 	static ExpressionType binaryOperatorIntegralType(Name operatorName, ExpressionType left, ExpressionType right)
 	{
 		SEMANTIC_ASSERT(!isFloating(left));
@@ -2045,21 +1850,15 @@ struct SemaBase : public SemaState
 		//SEMANTIC_ASSERT(isDependentType(type) == type.isDependent);
 	}
 
-	ExpressionWrapper makeTransformedIdExpression(const ExpressionWrapper& expression, Dependent& typeDependent, Dependent& valueDependent)
+	ExpressionWrapper makeTransformedIdExpression(const ExpressionWrapper& expression)
 	{
 		if(!isTransformedIdExpression(expression, getInstantiationContext()))
 		{
 			return expression;
 		}
-		addDependent(typeDependent, enclosingDependent); // TODO: NOT dependent if not a member of the current instantiation and current instantiation has no dependent base class 
-		bool isTypeDependent = isDependentSafe(typeDependent);
 		ExpressionType objectExpressionType = typeOfEnclosingClass(getInstantiationContext());
-		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType), isTypeDependent, isTypeDependent, false);
-		return makeExpression(
-			ClassMemberAccessExpression(left, expression),
-			left.isDependent | expression.isDependent,
-			left.isTypeDependent | expression.isTypeDependent,
-			false);
+		ExpressionWrapper left = makeExpression(ObjectExpression(objectExpressionType));
+		return makeExpression(ClassMemberAccessExpression(left, expression));
 	}
 };
 
@@ -2466,8 +2265,6 @@ struct SemaExpressionResult
 {
 	IdentifierPtr id; // only valid when the expression is a (parenthesised) id-expression
 	ExpressionWrapper expression;
-	Dependent typeDependent;
-	Dependent valueDependent;
 
 	SemaExpressionResult()
 		: id(0)
@@ -2581,8 +2378,6 @@ struct SemaTemplateIdResult
 struct SemaArgumentListResult
 {
 	Arguments arguments;
-	Dependent typeDependent;
-	Dependent valueDependent;
 	bool isDependent; // true if any argument is dependent;
 	SemaArgumentListResult()
 		: isDependent(false)

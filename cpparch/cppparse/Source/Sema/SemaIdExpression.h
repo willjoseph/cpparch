@@ -177,8 +177,6 @@ struct SemaIdExpression : public SemaQualified
 	LookupResultRef declaration;
 	IdentifierPtr id;
 	TemplateArguments arguments; // only used if the identifier is a template-name
-	Dependent typeDependent;
-	Dependent valueDependent;
 	bool isIdentifier;
 	bool isUndeclared;
 	bool isTemplate;
@@ -205,9 +203,6 @@ struct SemaIdExpression : public SemaQualified
 	SEMA_POLICY(cpp::qualified_id, SemaPolicyIdentity)
 	void action(cpp::qualified_id* symbol)
 	{
-		// [temp.dep.expr] An id-expression is type-dependent if it contains:- a nested-name-specifier that contains a class-name that names a dependent type
-		setDependent(typeDependent, qualifying.get());
-		setDependent(valueDependent, qualifying.get()); // it's clearly value-dependent too, because name lookup must be deferred
 	}
 	SEMA_POLICY_ARGS(cpp::unqualified_id, SemaPolicyPushBool<struct SemaUnqualifiedId>, isTemplate)
 	void action(cpp::unqualified_id* symbol, const SemaUnqualifiedId& walker)
@@ -230,8 +225,7 @@ struct SemaIdExpression : public SemaQualified
 		{
 			setDecoration(id, gDependentObjectInstance);
 
-			expression = makeExpression(DependentIdExpression(id->value, qualifyingType, templateArguments, isQualified),
-				true, true, true);
+			expression = makeExpression(DependentIdExpression(id->value, qualifyingType, templateArguments, isQualified));
 		}
 		else if(isIdentifier // the expression is 'identifier'
 			&& declaration == &gUndeclared) // the identifier was not previously declared
@@ -279,49 +273,12 @@ struct SemaIdExpression : public SemaQualified
 				idEnclosing = qualifyingClass; // resolve the enclosing class later, when the expression is substituted
 			}
 #endif
-			bool allowDependentType = idEnclosing == 0
-				|| isDependentQualifying(idEnclosing)
-				|| idEnclosing->isLocal;
-
-			// [temp.dep.expr]
-			// An id-expression is type-dependent if it contains
-			// - an identifier associated by name lookup with one or more declarations declared with a dependent type,
-			// - a template-id that is dependent,
-			// - a conversion-function-id that specifies a dependent type, or
-			// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
-			// or if it names a static data member of the current instantiation that has type "array of unknown bound of
-			// T" for some T.
-			setDependent(typeDependent, arguments); // the id-expression may have an explicit template argument list
-			if(allowDependentType) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
-			{
-				addDependentType(typeDependent, declaration);
-				addDependentOverloads(typeDependent, declaration);
-			}
-
-			// [temp.dep.constexpr]
-			// An identifier is value-dependent if it is:
-			//  - a name declared with a dependent type,
-			// 	- the name of a non-type template parameter,
-			// 	- a constant with literal type and is initialized with an expression that is value-dependent.
-			if(declaration->templateParameter != INDEX_INVALID)
-			{
-				setDependentImpl(valueDependent, declaration);
-			}
-			if(allowDependentType) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
-			{
-				addDependentType(valueDependent, declaration);
-				addDependentName(valueDependent, declaration); // adds 'declaration' if it names a non-type template-parameter; adds a dependent initializer
-			}
-
-			bool isTypeDependent = isDependentSafe(typeDependent);
-			bool isValueDependent = isDependentSafe(valueDependent);
-			bool isDependent = isTypeDependent | isValueDependent;
 
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
 				// TODO: check compliance: id-expression cannot be compared for equivalence unless it names a non-type template-parameter
-				? makeExpression(IdExpression(declaration, idEnclosing, templateArguments, isQualified), isDependent, isTypeDependent, isValueDependent)
-				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)), isDependent, isTypeDependent, isValueDependent);
+				? makeExpression(IdExpression(declaration, idEnclosing, templateArguments, isQualified))
+				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)));
 
 			if(!expression.isTypeDependent)
 			{

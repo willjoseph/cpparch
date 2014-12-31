@@ -25,7 +25,6 @@ struct SemaInitializer : public SemaBase
 	SEMA_BOILERPLATE;
 
 	ExpressionWrapper expression;
-	Dependent valueDependent;
 	std::size_t count; // number of items in the initializer-list
 	SemaInitializer(const SemaState& state) : SemaBase(state), count(0)
 	{
@@ -39,9 +38,7 @@ struct SemaInitializer : public SemaBase
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		SEMANTIC_ASSERT(expression.p == 0);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 		expression = walker.expression;
-		addDependent(valueDependent, walker.valueDependent);
 		addDeferredExpression(expression);
 	}
 };
@@ -61,8 +58,6 @@ struct SemaDeclarationSuffix : public SemaBase
 	IdentifierPtr id;
 	ScopePtr parent;
 	ScopePtr enclosed;
-	Dependent typeDependent;
-	Dependent valueDependent;
 	cpp::default_argument* defaultArgument; // parsing of this symbol will be deferred if this is a member-declaration
 	bool isConversionFunction;
 	bool isDestructor;
@@ -104,17 +99,14 @@ struct SemaDeclarationSuffix : public SemaBase
 			{
 				type.typeSequence.push_back(DeclaratorFunctionType(Parameters(), conversionFunctionQualifiers));
 			}
-			Dependent tmpDependent = type.dependent;
-			addDependent(type.dependent, typeDependent);
 			makeUniqueTypeSafe(type);
-			SEMANTIC_ASSERT(isDependentSafe(type.dependent) == type.isDependent);
 			if(enclosed == 0
 				&& enclosingTemplateScope != 0)
 			{
 				enclosingTemplateScope->parent = parent;
 				enclosed = enclosingTemplateScope; // for a static-member-variable definition, store template-params with different names than those in the class definition
 			}
-			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, valueDependent, isDestructor, isExplicitSpecialization);
+			declaration = declareObject(parent, id, type, enclosed, seq.specifiers, args.templateParameter, isDestructor, isExplicitSpecialization);
 
 			enclosingScope = parent;
 
@@ -130,7 +122,6 @@ struct SemaDeclarationSuffix : public SemaBase
 			// clear state that was modified while committing 
 			type.unique = 0;
 			type.isDependent = false;
-			type.dependent = tmpDependent;
 		}
 	}
 
@@ -141,13 +132,11 @@ struct SemaDeclarationSuffix : public SemaBase
 		id = walker.id;
 		enclosed = walker.paramScope;
 		type.typeSequence = walker.typeSequence;
-		addDependent(typeDependent, walker.dependent);
 
 		if(walker.qualifying != gUniqueTypeNull) // if this is a member definition qualified by the name of the enclosing class
 		{
 			SEMANTIC_ASSERT(walker.qualifying.isSimple());
 			enclosingType = &getSimpleType(walker.qualifying.value);
-			enclosingDependent = walker.enclosingDependent; // not using addDependent, workaround for issue when 'enclosing' is not (yet) referring to qualifying class in declarator 'S<T>::f()'
 
 			enclosingInstantiation = enclosingType->declaration; // any dependent types/expressions in the member definition should be appended
 			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
@@ -171,15 +160,12 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		enclosed = walker.paramScope;
 		type.typeSequence = walker.typeSequence;
-		addDependent(typeDependent, walker.dependent);
 	}
 	SEMA_POLICY(cpp::member_declarator_bitfield, SemaPolicyPush<struct SemaMemberDeclaratorBitfield>)
 	void action(cpp::member_declarator_bitfield* symbol, const SemaMemberDeclaratorBitfield& walker)
 	{
 		if(walker.id != 0)
 		{
-			Dependent tmpDependent = type.dependent;
-			addDependent(type.dependent, typeDependent);
 			makeUniqueTypeSafe(type);
 
 			DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *walker.id, type, 0, false, seq.specifiers); // 3.3.1.1
@@ -192,7 +178,6 @@ struct SemaDeclarationSuffix : public SemaBase
 			// clear state that was modified while committing 
 			type.unique = 0;
 			type.isDependent = false;
-			type.dependent = tmpDependent;
 		}
 	}
 	void action(cpp::terminal<boost::wave::T_ASSIGN> symbol) // begins initializer_default
@@ -270,9 +255,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		if(!args.isParameter // if this is not a parameter declaration (parameters cannot be constants)
 			&& SemaState::enclosingDeferred == 0) // and parse was not defered
 		{
-			SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 			declaration->initializer = walker.expression;
-			addDependent(declaration->valueDependent, walker.valueDependent);
 		}
 	}
 	// handle assignment-expression(s) in initializer
@@ -281,9 +264,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		if(!args.isParameter) // parameters cannot be constants
 		{
-			SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 			declaration->initializer = walker.expression;
-			addDependent(declaration->valueDependent, walker.valueDependent);
 			addDeferredExpression(declaration->initializer);
 		}
 	}
@@ -293,9 +274,7 @@ struct SemaDeclarationSuffix : public SemaBase
 	{
 		SEMANTIC_ASSERT(declaration != 0);
 		SEMANTIC_ASSERT(declaration->initializer.p == 0); // declaration can't have two initializers
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 		declaration->initializer = walker.expression;
-		addDependent(declaration->valueDependent, walker.valueDependent);
 		if(walker.count != 0
 			&& getUniqueType(declaration->type).isArray())
 		{
@@ -311,18 +290,14 @@ struct SemaDeclarationSuffix : public SemaBase
 	void action(cpp::expression_list_wrapper* symbol, const SemaExpressionResult& walker) // initializer_parenthesis
 	{
 		SEMANTIC_ASSERT(declaration != 0);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
 		declaration->initializer = walker.expression;
-		addDependent(declaration->valueDependent, walker.valueDependent);
 	}
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker) // member_declarator_bitfield
 	{
 		SEMANTIC_ASSERT(declaration != 0);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
+		SEMANTIC_ASSERT(walker.expression.isValueDependent || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 		declaration->initializer = walker.expression;
-		addDependent(declaration->valueDependent, walker.valueDependent);
 		addDeferredExpression(declaration->initializer);
 		if(isFunction(*declaration))
 		{

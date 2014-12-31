@@ -67,13 +67,11 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 			type.id = walker.id;
 			type.declaration = existingDeclaration;
 			type.qualifying.swap(qualifying);
-			setDependent(type.dependent, type.qualifying);
 			makeUniqueTypeSafe(type);
 			declaration->isTypeDependent = declaration->type.isDependent;
 		}
 		else if(qualifying_p != TypePtr(0))
 		{
-			addDependent(declaration->type.dependent, qualifying_p->dependent);
 			declaration->type.isDependent = isDependentSafe(qualifying_p);
 			declaration->isTypeDependent = isDependentSafe(qualifying_p);
 		}

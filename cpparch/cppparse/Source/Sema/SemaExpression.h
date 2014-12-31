@@ -40,16 +40,12 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		isDependent |= walker.expression.isDependent;
 	}
 	SEMA_POLICY(cpp::cast_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::cast_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		isDependent |= walker.expression.isDependent;
 	}
 };
@@ -74,8 +70,6 @@ struct SemaNewExpression : public SemaBase, SemaExplicitTypeExpressionResult
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		isDependent |= walker.expression.isDependent;
 	}
 };
@@ -84,7 +78,6 @@ struct SemaSizeofTypeExpression : public SemaBase
 {
 	SEMA_BOILERPLATE;
 
-	Dependent valueDependent;
 	ExpressionWrapper expression;
 	SemaSizeofTypeExpression(const SemaState& state)
 		: SemaBase(state)
@@ -94,13 +87,8 @@ struct SemaSizeofTypeExpression : public SemaBase
 	void action(cpp::type_id* symbol, const SemaTypeIdResult& walker)
 	{
 		walker.committed.test();
-		// [temp.dep.expr] Expressions of the following form [sizeof(T)] are never type-dependent (because the type of the expression cannot be dependent)
-		// [temp.dep.constexpr] Expressions of the following form [sizeof(T)] are value-dependent if ... the type-id is dependent
-		addDependent(valueDependent, walker.type);
-
 		UniqueTypeId type = getUniqueType(walker.type);
-
-		expression = makeExpression(SizeofTypeExpression(type), walker.type.isDependent, false, isDependentSafe(valueDependent));
+		expression = makeExpression(SizeofTypeExpression(type));
 		setExpressionType(symbol, expression.type);
 	}
 };
@@ -109,8 +97,6 @@ struct SemaConditionalExpression : public SemaBase
 {
 	SEMA_BOILERPLATE;
 
-	Dependent typeDependent;
-	Dependent valueDependent;
 	ExpressionWrapper left;
 	ExpressionWrapper right;
 	SemaConditionalExpression(const SemaState& state)
@@ -121,15 +107,11 @@ struct SemaConditionalExpression : public SemaBase
 	void action(cpp::expression* symbol, const SemaExpressionResult& walker)
 	{
 		left = walker.expression;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 	}
 	SEMA_POLICY(cpp::assignment_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		right = walker.expression;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 	}
 };
 
@@ -147,8 +129,6 @@ struct SemaExpressionList : public SemaBase, SemaArgumentListResult
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		isDependent |= walker.expression.isDependent;
 		// [expr.comma] The type and value of the result are the type and value of the right operand
 		setExpressionType(symbol, walker.expression.type);
@@ -171,16 +151,10 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	void walkBinaryExpression(T*& symbol, const SemaExpressionResult& walker)
 	{
 		id = walker.id;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		// TODO: SEMANTIC_ASSERT(type.declaration != 0 && walker.type.declaration != 0);
 		BinaryIceOp iceOp = getBinaryIceOp(symbol);
 		ExpressionWrapper leftExpression = expression;
-		expression = makeExpression(BinaryExpression(getOverloadedOperatorId(symbol), iceOp, typeOfBinaryExpression<typeOp>, expression, walker.expression),
-			expression.isDependent | walker.expression.isDependent,
-			isDependentSafe(typeDependent),
-			isDependentSafe(valueDependent)
-		);
+		expression = makeExpression(BinaryExpression(getOverloadedOperatorId(symbol), iceOp, typeOfBinaryExpression<typeOp>, expression, walker.expression));
 		ExpressionTypeHelper<T>::set(symbol, expression.type);
 	}
 	template<typename T>
@@ -213,13 +187,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::conditional_expression_suffix, SemaPolicyPush<struct SemaConditionalExpression>)
 	void action(cpp::conditional_expression_suffix* symbol, const SemaConditionalExpression& walker)
 	{
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(TernaryExpression(conditional, expression, walker.left, walker.right),
-			expression.isDependent | walker.left.isDependent | walker.right.isDependent,
-			isDependentSafe(typeDependent),
-			isDependentSafe(valueDependent)
-		);
+		expression = makeExpression(TernaryExpression(conditional, expression, walker.left, walker.right));
 	}
 	SEMA_POLICY(cpp::logical_or_expression_default, SemaPolicyPushSrc<struct SemaExpression>)
 	void action(cpp::logical_or_expression_default* symbol, const SemaExpressionResult& walker)
@@ -282,27 +250,19 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		expression = walker.expression;
 		id = walker.id;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::expression_list, SemaPolicyPushSrc<struct SemaExpressionList>)
 	void action(cpp::expression_list* symbol, const SemaExpressionList& walker) // a comma-separated list of assignment_expression
 	{
 		id = 0;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
 		if(walker.arguments.size() == 1)
 		{
 			expression = walker.arguments.front();
 		}
 		else
 		{
-			expression = makeExpression(ExpressionList(walker.arguments),
-				walker.isDependent,
-				isDependentSafe(typeDependent),
-				isDependentSafe(valueDependent)
-				);
+			expression = makeExpression(ExpressionList(walker.arguments));
 		}
 		setExpressionType(symbol, expression.type);
 	}
@@ -320,13 +280,10 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		}
 		id = walker.id;
 		expression = walker.expression;
-		addDependent(typeDependent, walker.typeDependent);
-		addDependent(valueDependent, walker.valueDependent);
-		//setDependent(dependent, walker.dependent); // TODO:
 		bool isPointerToMember = isAddressOf && expression.isQualifiedNonStaticMemberName;
 		if(!isPointerToMember) // if the expression does not form a pointer to member
 		{
-			expression = makeTransformedIdExpression(expression, typeDependent, valueDependent);
+			expression = makeTransformedIdExpression(expression);
 		}
 		setExpressionType(symbol, expression.type);
 		return true;
@@ -337,11 +294,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 		id = 0; // not a parenthesised id-expression, expression is not 'call to named function' [over.call.func]
 
 		UnaryIceOp iceOp = getUnaryIceOp(symbol);
-		expression = makeExpression(UnaryExpression(getOverloadedOperatorId(symbol->op), iceOp, expression),
-			expression.isDependent,
-			isDependentSafe(typeDependent),
-			isDependentSafe(valueDependent)
-		);
+		expression = makeExpression(UnaryExpression(getOverloadedOperatorId(symbol->op), iceOp, expression));
 
 		setExpressionType(symbol, expression.type);
 	}
@@ -366,16 +319,14 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	void action(cpp::new_expression_placement* symbol, const SemaNewExpression& walker)
 	{
 		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
-		addDependent(typeDependent, walker.type);
-		expression = makeExpression(NewExpression(type, walker.newArray, walker.arguments), walker.type.isDependent, isDependentSafe(typeDependent));
+		expression = makeExpression(NewExpression(type, walker.newArray, walker.arguments));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::new_expression_default, SemaPolicyPushSrc<struct SemaNewExpression>)
 	void action(cpp::new_expression_default* symbol, const SemaNewExpression& walker)
 	{
 		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
-		addDependent(typeDependent, walker.type);
-		expression = makeExpression(NewExpression(type, walker.newArray, walker.arguments), walker.type.isDependent, isDependentSafe(typeDependent));
+		expression = makeExpression(NewExpression(type, walker.newArray, walker.arguments));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::cast_expression_default, SemaPolicyPushSrc<struct SemaExplicitTypeExpression>)
@@ -383,21 +334,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// [basic.lval] An expression which holds a temporary object resulting from a cast to a non-reference type is an rvalue
 		ExpressionType type = ExpressionType(getUniqueType(walker.type), false); // non lvalue
-		// [temp.dep.expr]
-		// Expressions of the following forms are type-dependent only if the type specified by
-		// the type-id, simple-type-specifier or new-type-id is dependent, even if any subexpression is type-dependent:
-		//  ( type-id ) cast-expression
-		addDependent(typeDependent, walker.type);
-		// [temp.dep.constexpr]
-		// Expressions of the following form are value-dependent if either the type-id or simple-type-specifier is dependent
-		// or the expression or cast-expression is value-dependent:
-		//  ( type-id ) cast-expression
-		addDependent(valueDependent, walker.type.dependent);
-		addDependent(valueDependent, walker.valueDependent);
-		expression = makeExpression(CastExpression(type, walker.arguments),
-			walker.isDependent | walker.type.isDependent,
-			isDependentSafe(typeDependent),
-			isDependentSafe(valueDependent));
+		expression = makeExpression(CastExpression(type, walker.arguments));
 		setExpressionType(symbol, expression.type);
 	}
 	/* 14.6.2.2-4
@@ -426,18 +363,12 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	SEMA_POLICY(cpp::unary_expression_sizeof, SemaPolicyPushSrc<struct SemaExpression>)
 	void action(cpp::unary_expression_sizeof* symbol, const SemaExpressionResult& walker)
 	{
-		// [temp.dep.expr] Expressions of the following form [sizeof unary-expression] are never type-dependent (because the type of the expression cannot be dependent)
-		// [temp.dep.constexpr] Expressions of the following form [sizeof unary-expression] are value-dependent if the unary-expression is type-dependent
-		addDependent(valueDependent, walker.typeDependent);
-		expression = makeExpression(SizeofExpression(walker.expression), walker.expression.isDependent, false, isDependentSafe(valueDependent));
+		expression = makeExpression(SizeofExpression(walker.expression));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::unary_expression_sizeoftype, SemaPolicyPushSrc<struct SemaSizeofTypeExpression>)
 	void action(cpp::unary_expression_sizeoftype* symbol, const SemaSizeofTypeExpression& walker)
 	{
-		// [temp.dep.expr] Expressions of the following form [sizeof(type-id)] are never type-dependent (because the type of the expression cannot be dependent)
-		// [temp.dep.constexpr] Expressions of the following form [sizeof(type-id)] are value-dependent if the unary-expression is type-dependent
-		addDependent(valueDependent, walker.valueDependent);
 		expression = walker.expression;
 		setExpressionType(symbol, expression.type);
 	}
@@ -446,7 +377,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// [expr.delete] The result has type void.
 		ExpressionType type = ExpressionType(gVoid, false); // non lvalue
-		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), walker.expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression));
 		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::throw_expression, SemaPolicyPushSrc<struct SemaExpression>)
@@ -454,7 +385,7 @@ struct SemaExpression : public SemaBase, SemaExpressionResult
 	{
 		// [except] A throw-expression is of type void.
 		ExpressionType type = ExpressionType(gVoid, false); // non lvalue
-		expression = makeExpression(ExplicitTypeExpression(type, walker.expression), walker.expression.isDependent);
+		expression = makeExpression(ExplicitTypeExpression(type, walker.expression));
 	}
 };
 

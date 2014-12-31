@@ -1,13 +1,40 @@
 
-#if 0
-namespace N542
+namespace N547 // test determination of dependentness of nested class type that is the current instantiation
 {
 	template<typename T>
 	struct B
 	{
-		typedef int Type;
 	};
 
+	template<typename T>
+	struct A
+	{
+		typedef typename B<A>::unknown DependentCurrentInstantiation1; //typename required
+		typedef typename B<A<T> >::unknown DependentCurrentInstantiation2; //typename required
+	};
+}
+
+namespace N541 // test determination of dependentness of nested class type that is the current instantiation
+{
+	template<typename T>
+	struct B
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct C
+		{
+			typedef typename B<C>::unknown DependentCurrentInstantiation1; //typename required
+			typedef typename B<A::C>::unknown DependentCurrentInstantiation2; //typename required
+			typedef typename B<A<T>::C>::unknown DependentCurrentInstantiation3; //typename required
+		};
+	};
+}
+
+namespace N542
+{
 	template<typename T>
 	struct A : T
 	{
@@ -15,6 +42,8 @@ namespace N542
 		typedef typename A<T>::unknown MemberOfUnknownSpecialization3;
 	};
 }
+
+#if 0 // TODO
 
 namespace N546
 {
@@ -107,24 +136,6 @@ namespace N543
 	};
 }
 
-namespace N541 // test determination of dependentness of nested class type that is the current instantiation
-{
-	template<typename T>
-	struct B
-	{
-	};
-
-	template<typename T>
-	struct A
-	{
-		struct C
-		{
-			typedef typename B<C>::unknown DependentCurrentInstantiation1; //typename required
-			typedef typename B<A::C>::unknown DependentCurrentInstantiation2; //typename required
-			typedef typename B<A<T>::C>::unknown DependentCurrentInstantiation3; //typename required
-		};
-	};
-}
 #endif
 
 namespace N540 // test determination of dependentness for subscript expression

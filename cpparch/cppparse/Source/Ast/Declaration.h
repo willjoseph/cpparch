@@ -137,19 +137,6 @@ typedef SafePtr<Declaration> DeclarationPtr;
 struct Scope;
 typedef SafePtr<Scope> ScopePtr;
 
-struct Dependent
-{
-	DeclarationPtr declaration; // refers to the innermost template scope that a name/type/expression depends on
-	Dependent()
-		: declaration(0)
-	{
-	}
-	explicit Dependent(Declaration* p)
-		: declaration(p)
-	{
-	}
-};
-
 struct Type
 {
 	IdentifierPtr id;
@@ -157,7 +144,6 @@ struct Type
 	TemplateArguments templateArguments; // may be non-empty if this is a template
 	Qualifying qualifying;
 	ExpressionWrapper expression; // for decltype(expression)
-	Dependent dependent;
 	ScopePtr enclosingTemplate;
 	UniqueType unique;
 	std::size_t dependentIndex; // the index into the array of dependent types within the enclosing instantiated template
@@ -175,7 +161,6 @@ struct Type
 		templateArguments.swap(other.templateArguments);
 		qualifying.swap(other.qualifying);
 		std::swap(expression, other.expression);
-		std::swap(dependent, other.dependent);
 		std::swap(enclosingTemplate, other.enclosingTemplate);
 		std::swap(unique, other.unique);
 		std::swap(dependentIndex, other.dependentIndex);
@@ -256,7 +241,6 @@ struct Location : Source
 struct TemplateArgument
 {
 	TypeId type;
-	Dependent valueDependent;
 	ExpressionWrapper expression;
 	Location source;
 #if 0
@@ -271,7 +255,6 @@ struct TemplateArgument
 	void swap(TemplateArgument& other)
 	{
 		type.swap(other.type);
-		std::swap(valueDependent, other.valueDependent);
 		std::swap(expression, other.expression);
 	}
 };
@@ -438,7 +421,6 @@ public:
 	TypeId type;
 	Scope* enclosed;
 	Scope* templateParamScope;
-	Dependent valueDependent; // the dependent-types/names that are referred to in the declarator-suffix (array size)
 	ExpressionWrapper initializer; // if this is a constant (enumerator or const integral), the initializer constant-expression
 	DeclSpecifiers specifiers;
 	std::size_t templateParameter;
@@ -474,13 +456,11 @@ public:
 		const TemplateParameters& templateParams = TEMPLATEPARAMETERS_NULL,
 		bool isSpecialization = false,
 		const TemplateArguments& templateArguments = TEMPLATEARGUMENTS_NULL,
-		size_t templateParameter = INDEX_INVALID,
-		const Dependent& valueDependent = Dependent()
+		size_t templateParameter = INDEX_INVALID
 		) : AbstractDeclaration(name, scope),
 		type(type),
 		enclosed(enclosed),
 		templateParamScope(0),
-		valueDependent(valueDependent),
 		specifiers(specifiers),
 		templateParameter(templateParameter),
 		templateParams(templateParams),
@@ -517,7 +497,6 @@ public:
 		type.swap(other.type);
 		std::swap(enclosed, other.enclosed);
 		std::swap(templateParamScope, other.templateParamScope);
-		std::swap(valueDependent, other.valueDependent);
 		std::swap(initializer, other.initializer);
 		std::swap(specifiers, other.specifiers);
 		std::swap(templateParameter, other.templateParameter);

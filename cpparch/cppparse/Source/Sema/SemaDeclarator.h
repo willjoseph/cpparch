@@ -125,7 +125,6 @@ struct SemaDeclaratorArray : public SemaBase
 {
 	SEMA_BOILERPLATE;
 
-	Dependent valueDependent;
 	ArrayRank rank;
 	ExpressionWrapper expression;
 	SemaDeclaratorArray(const SemaState& state)
@@ -141,10 +140,8 @@ struct SemaDeclaratorArray : public SemaBase
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(walker.expression.isValueDependent || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 		// [temp.dep.constexpr] An identifier is value-dependent if it is:- a constant with integral or enumeration type and is initialized with an expression that is value-dependent.
-		addDependent(valueDependent, walker.valueDependent);
 		expression = walker.expression;
 		addDeferredExpression(expression);
 	}
@@ -188,7 +185,6 @@ struct SemaDeclarator : public SemaBase
 	TypeSequence typeSequence;
 	CvQualifiers qualifiers;
 	Qualifying memberPointer;
-	Dependent dependent; // track which template parameters the declarator's type depends on. e.g. 'T::* memberPointer', 'void f(T)'
 	TypeId conversionType; // the return-type, if this is a conversion-function declarator
 	ExpressionWrapper newArray; // the expression found in the array form of the new-declarator
 	bool isDestructor;
@@ -212,7 +208,6 @@ struct SemaDeclarator : public SemaBase
 			else
 			{
 				typeSequence.push_front(DeclaratorMemberPointerType(memberPointer.back(), qualifiers));
-				setDependent(dependent, memberPointer);
 			}
 		}
 	}
@@ -233,8 +228,6 @@ struct SemaDeclarator : public SemaBase
 		enclosingScope = walker.enclosingScope;
 		paramScope = walker.paramScope;
 		templateParams = walker.templateParams;
-		addDependent(dependent, walker.dependent);
-		addDependent(enclosingDependent, walker.enclosingDependent);
 		SYMBOLS_ASSERT(typeSequence.empty());
 		typeSequence = walker.typeSequence;
 
@@ -282,13 +275,6 @@ struct SemaDeclarator : public SemaBase
 		{
 			// represents the type of 'this'
 			enclosingType = &getSimpleType(qualifying.value);
-			if(enclosingType->declaration->isTemplate // if the declarator is qualified with a template-id
-				&& !enclosingType->declaration->templateParams.empty()) // and the template is not an explicit-specialization
-			{
-				// 'this' is dependent within a template-definition (except for an explicit-specialization)
-				// NOTE: depends on state of 'enclosing', modified above!
-				setDependentImpl(enclosingDependent, enclosingType->declaration->templateParams.back().declaration);
-			}
 		}
 
 		isExplicitSpecialization = templateParams != 0
@@ -303,13 +289,10 @@ struct SemaDeclarator : public SemaBase
 		{
 			conversionType = walker.conversionType;
 		}
-		addDependent(dependent, conversionType); // TODO: check compliance: conversion-function declarator-id is dependent if it contains a dependent type?
 	}
 	template<typename T>
 	void walkDeclaratorArray(T* symbol, const SemaDeclaratorArray& walker)
 	{
-		// [temp.dep.type] A type is dependent if it is - an array type [...] whose size is specified by a constant expression that is value-dependent
-		addDependent(dependent, walker.valueDependent);
 		typeSequence.push_front(DeclaratorArrayType(walker.rank));
 	}
 	SEMA_POLICY(cpp::declarator_suffix_array, SemaPolicyPushCached<struct SemaDeclaratorArray>)
@@ -325,7 +308,6 @@ struct SemaDeclarator : public SemaBase
 			paramScope = walker.paramScope;
 		}
 		typeSequence.push_front(DeclaratorFunctionType(walker.parameters, walker.qualifiers));
-		setDependent(dependent, walker.parameters);
 	}
 	SEMA_POLICY(cpp::new_declarator_suffix, SemaPolicyPushCached<struct SemaDeclaratorArray>)
 	void action(cpp::new_declarator_suffix* symbol, const SemaDeclaratorArray& walker)
@@ -335,8 +317,6 @@ struct SemaDeclarator : public SemaBase
 	SEMA_POLICY(cpp::expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::expression* symbol, const SemaExpressionResult& walker) // in direct_new_declarator
 	{
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
-		addDependent(dependent, walker.valueDependent);
 		newArray = walker.expression;
 		addDeferredExpression(newArray);
 	}
@@ -348,8 +328,6 @@ struct SemaDeclarator : public SemaBase
 		enclosingScope = walker.enclosingScope;
 		paramScope = walker.paramScope;
 		templateParams = walker.templateParams;
-		addDependent(dependent, walker.dependent);
-		addDependent(enclosingDependent, walker.enclosingDependent);
 		SYMBOLS_ASSERT(typeSequence.empty());
 		typeSequence = walker.typeSequence;
 		conversionType = walker.conversionType;

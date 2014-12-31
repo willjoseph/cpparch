@@ -36,7 +36,6 @@ struct SemaTypeSpecifier : public SemaQualified, SemaTypeSpecifierResult
 		SEMANTIC_ASSERT(walker.type.declaration != 0);
 		type = walker.type;
 		type.qualifying.swap(qualifying);
-		setDependent(type.dependent, type.qualifying);
 		return true;
 	}
 	void action(cpp::terminal<boost::wave::T_COLON_COLON> symbol)
@@ -70,9 +69,6 @@ struct SemaTypeSpecifier : public SemaQualified, SemaTypeSpecifierResult
 		type.declaration = declaration;
 		type.templateArguments = walker.arguments;
 		type.qualifying.swap(qualifying);
-		setDependent(type); // a template-id is dependent if the template-name is a template-parameter
-		setDependent(type.dependent, type.templateArguments); // a template-id is dependent if any of the template arguments are dependent
-		setDependent(type.dependent, type.qualifying);
 		return true;
 	}
 	SEMA_POLICY(cpp::simple_type_specifier_builtin, SemaPolicyIdentity)
@@ -100,7 +96,6 @@ struct SemaDecltypeSpecifier : public SemaBase, SemaDecltypeSpecifierResult
 	{
 		type.declaration = &gUnknown;
 		type.expression = walker.expression;
-		type.dependent = walker.typeDependent;
 	}
 };
 

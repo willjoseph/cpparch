@@ -33,10 +33,8 @@ struct SemaEnumeratorDefinition : public SemaBase
 	SEMA_POLICY(cpp::constant_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) == walker.expression.isValueDependent);
-		SEMANTIC_ASSERT(isDependentSafe(walker.valueDependent) || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
+		SEMANTIC_ASSERT(walker.expression.isValueDependent || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 		declaration->initializer = walker.expression;
-		addDependent(declaration->valueDependent, walker.valueDependent);
 	}
 };
 
@@ -88,12 +86,11 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 		Declaration& enumerator = *walker.declaration;
 		enumerator.type = declaration; // give the enumerator the type of its enumeration
 		enumerator.type.qualifiers = CvQualifiers(true, false); // an enumerator may be used in an integral constant expression
-		setDependent(enumerator.type); // the enumeration type is dependent if it is a member of a class template
 		makeUniqueTypeSafe(enumerator.type);
 		enumerator.isTypeDependent = enumerator.type.isDependent;
 		if(enumerator.initializer.p != 0)
 		{
-			SEMANTIC_ASSERT(isDependentSafe(enumerator.valueDependent) || enumerator.initializer.value.isConstant);
+			SEMANTIC_ASSERT(enumerator.initializer.isValueDependent || enumerator.initializer.value.isConstant);
 			value = enumerator.initializer;
 			addDeferredExpression(enumerator.initializer);
 		}
@@ -109,8 +106,7 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 				// [dcl.enum] An enumerator-definition without an initializer gives the enumerator the value obtained by increasing the value of the previous enumerator by one.
 				ExpressionWrapper one = makeConstantExpressionOne();
 				value = makeExpression(
-					BinaryExpression(gOperatorPlusId, operator+, typeOfBinaryExpression<binaryOperatorAdditiveType>, value, one), // TODO: type of enumerator
-					value.isDependent, value.isTypeDependent, value.isValueDependent
+					BinaryExpression(gOperatorPlusId, operator+, typeOfBinaryExpression<binaryOperatorAdditiveType>, value, one) // TODO: type of enumerator
 				);
 			}
 			enumerator.initializer = value;
