@@ -1,4 +1,132 @@
 
+#if 0
+namespace N542
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A : T
+	{
+		typedef typename A::unknown MemberOfUnknownSpecialization2;
+		typedef typename A<T>::unknown MemberOfUnknownSpecialization3;
+	};
+}
+
+namespace N546
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef int X;
+
+		typedef B<X>::Type NonDependentMemberOfCurrentInstantiation1;
+		typedef B<A::X>::Type NonDependentMemberOfCurrentInstantiation2;
+		typedef B<A<T>::X>::Type NonDependentMemberOfCurrentInstantiation3;
+	};
+}
+
+namespace N545
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	struct Base
+	{
+		typedef int X;
+	};
+
+	template<typename T>
+	struct A : Base
+	{
+		typedef B<X>::Type NonDependentMemberOfCurrentInstantiation1;
+		typedef B<A::X>::Type NonDependentMemberOfCurrentInstantiation2;
+		typedef B<A<T>::X>::Type NonDependentMemberOfCurrentInstantiation3;
+	};
+}
+
+namespace N544
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+	};
+
+	template<typename T>
+	struct A<T*>
+	{
+		typedef int X;
+
+		typedef B<X>::Type NonDependentMemberOfCurrentInstantiation1;
+		typedef B<A::X>::Type NonDependentMemberOfCurrentInstantiation2;
+		typedef B<A<T*>::X>::Type NonDependentMemberOfCurrentInstantiation3;
+	};
+}
+
+namespace N543
+{
+	template<typename T>
+	T* f();
+
+	template<int n>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		int m;
+
+		//typedef B<sizeof f<A>()->m>::Type NonDependentMemberOfCurrentInstantiation;
+
+		void f()
+		{
+			//typedef B<sizeof m>::Type NonDependentMemberOfCurrentInstantiation1;
+			//typedef B<sizeof this->m>::Type NonDependentMemberOfCurrentInstantiation2;
+		}
+	};
+}
+
+namespace N541 // test determination of dependentness of nested class type that is the current instantiation
+{
+	template<typename T>
+	struct B
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct C
+		{
+			typedef typename B<C>::unknown DependentCurrentInstantiation1; //typename required
+			typedef typename B<A::C>::unknown DependentCurrentInstantiation2; //typename required
+			typedef typename B<A<T>::C>::unknown DependentCurrentInstantiation3; //typename required
+		};
+	};
+}
+#endif
+
 namespace N540 // test determination of dependentness for subscript expression
 {
 	int* p;
