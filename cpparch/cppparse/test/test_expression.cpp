@@ -1,4 +1,54 @@
 
+namespace N540 // test determination of dependentness for subscript expression
+{
+	int* p;
+
+	template<int n>
+	struct I
+	{
+		typedef int Type;
+	};
+
+	template<typename T, int n>
+	struct A
+	{
+		static T* m;
+
+		static const int DependentSubscript = I<sizeof p[T(0)]>::unknown;
+		static const int DependentSubscript2 = I<sizeof m[0]>::unknown;
+
+		typedef I<sizeof p[n]>::Type NonDependentSubscript; // gcc 5.0 fails
+	};
+}
+
+namespace N539 // test determination of dependentness for class member access expression
+{
+	template<typename T>
+	T* f();
+
+	struct B
+	{
+		int m;
+	};
+
+	template<int n>
+	struct I
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		T m;
+
+		static const int DependentClassMemberAccess = I<sizeof(f<T>()->m)>::unknown; // member of unknown specialization
+		static const int DependentClassMemberAccess2 = I<sizeof(f<A>()->m)>::unknown; // dependent member of current instantiation
+
+		typedef I<sizeof(f<B>()->m)>::Type NonDependentClassMemberAccess;
+	};
+}
+
 // http://stackoverflow.com/questions/27713666/can-a-throw-or-delete-expression-ever-be-dependent
 namespace N538 // test determination of dependentness for throw and delete expressions
 {
@@ -35,17 +85,20 @@ namespace N536 // test determination of dependent expressions within template de
 	template<typename T>
 	struct B
 	{
-		typedef int Type;
+		typedef T Type;
 	};
 
 	template<int n>
 	struct I
 	{
-		typedef int Type[n];
+		int m;
+		typedef int Type;
 	};
 
+	I<0> f(int);
+
 	template<int n>
-	I<n> f();
+	I<n> f(int);
 
 	template<int n>
 	struct A
@@ -53,9 +106,15 @@ namespace N536 // test determination of dependent expressions within template de
 		typedef I<n> T;
 
 		static void mf(int[n]);
-		static void mf();
+		static I<0> mf();
+
+		static const int m1 = n; // initialized with value-dependent expression
+		static const typename T::Type m2 = 0; // dependent type
+		static const int m3 = 0; // not dependent
 
 		static const int TemplateNonTypeParameter = I<n>::unknown;
+		static const int DependentInitializer = I<m1>::unknown;
+		static const int DependentType = I<m2>::unknown;
 		static const int DependentCast = decltype((T)0)::unknown;
 		static const int DependentSizeof = I<sizeof(T)>::unknown;
 		static const int DependentStaticCast = decltype(static_cast<T>(0))::unknown;
@@ -65,15 +124,36 @@ namespace N536 // test determination of dependent expressions within template de
 		static const int DependentArrayNew = decltype(*new int[n])::unknown;
 		static const int DependentArrayNew2 = decltype(*new int[1][n])::unknown;
 		static const int ValueDependent = I<sizeof(T)>::unknown;
-		static const int DependentTemplateId = decltype(f<n>())::unknown;
+		static const int DependentTemplateId = decltype(f<n>(0))::unknown;
 		static const int DependentOverloaded = decltype(mf())::unknown;
 		static const int DependentOffsetof = I<__builtin_offsetof(T, m)>::unknown;
+		static const int DependentListLeft = I<(n, 0)>::unknown;
+		static const int DependentListRight = I<(0, n)>::unknown;
+		static const int DependentUnary = I<-n>::unknown;
+		static const int DependentBinaryLeft = I<n + 1>::unknown;
+		static const int DependentBinaryRight = I<1 + n>::unknown;
+		static const int DependentTernaryFirst = I<n ? 0 : 1>::unknown;
+		static const int DependentTernarySecond = I<0 ? n : 1>::unknown;
+		static const int DependentTernaryThird = I<0 ? 1 : n>::unknown;
+		static const int DependentTypeTraitsUnary = I<__is_class(T)>::unknown;
+		static const int DependentTypeTraitsBinaryLeft = I<__is_convertible_to(T, int)>::unknown;
+		static const int DependentTypeTraitsBinaryRight = I<__is_convertible_to(int, T)>::unknown;
 
 		typedef I<0>::Type NonDependentLiteral;
+		typedef I<m3>::Type NonDependentMember;
+		typedef I<__builtin_offsetof(I<0>, m)>::Type NonDependentOffsetof;
+		typedef I<-0>::Type NonDependentUnary;
+		typedef I<1 + 1>::Type NonDependentBinary;
+		typedef I<1 ? 0 : 1>::Type NonDependentTernary;
+		typedef I<__is_class(int)>::Type NonDependentTypeTraits;
+		typedef I<__is_convertible_to(int, int)>::Type NonDependentTypeTraitsBinary;
 		typedef I<sizeof n>::Type NonDependentSizeof;
-		typedef I<sizeof sizeof(T)>::Type NonDependentNestedSizeof;
-		typedef B<decltype(throw (int*)n)>::Type NonDependentThrow;
-		typedef B<decltype(delete (int*)n)>::Type NonDependentDelete;
+		typedef I<sizeof sizeof(T)>::Type NonDependentNestedSizeof; // gcc 5.0 fails
+		typedef B<decltype(throw (int*)n)>::Type NonDependentThrow; // gcc 5.0 and clang 3.6 fail
+		typedef B<decltype(delete (int*)n)>::Type NonDependentDelete; // gcc 5.0 and clang 3.6 fail
+		typedef I<sizeof *new int(n)>::Type NonDependentNew; // gcc 5.0 and clang 3.6 fail
+		typedef I<sizeof f(n)>::Type NonDependentFunctionCall; // gcc 5.0 and clang 3.6 fail
+		typedef I<sizeof f<0>(n)>::Type NonDependentTemplateId; // gcc 5.0 and clang 3.6 fail
 	};
 }
 
