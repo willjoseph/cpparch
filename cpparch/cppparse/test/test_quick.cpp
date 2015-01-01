@@ -1249,7 +1249,7 @@ namespace N162
 	template<typename T>
 	struct S
 	{
-		enum { RESULT = S<T>::RESULT }; // enumerator 'RESULT' is dependent
+		enum { RESULT = T::RESULT }; // enumerator 'RESULT' is dependent
 	};
 }
 

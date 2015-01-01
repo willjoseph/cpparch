@@ -1508,7 +1508,7 @@ namespace cpp
 		terminal<boost::wave::T_LEFTPAREN> lp;
 		symbol_required<type_id> type;
 		terminal<boost::wave::T_COMMA> comma;
-		symbol_required<id_expression> member;
+		symbol_required<unqualified_id> member;
 		terminal<boost::wave::T_RIGHTPAREN> rp;
 		FOREACH6(key, lp, type, comma, member, rp);
 	};

@@ -1,53 +1,8 @@
 
-namespace N547 // test determination of dependentness of nested class type that is the current instantiation
+
+namespace N558 // test determination of dependentness of id-expression naming static member of the current instantiation, within a non-static member function
 {
-	template<typename T>
-	struct B
-	{
-	};
-
-	template<typename T>
-	struct A
-	{
-		typedef typename B<A>::unknown DependentCurrentInstantiation1; //typename required
-		typedef typename B<A<T> >::unknown DependentCurrentInstantiation2; //typename required
-	};
-}
-
-namespace N541 // test determination of dependentness of nested class type that is the current instantiation
-{
-	template<typename T>
-	struct B
-	{
-	};
-
-	template<typename T>
-	struct A
-	{
-		struct C
-		{
-			typedef typename B<C>::unknown DependentCurrentInstantiation1; //typename required
-			typedef typename B<A::C>::unknown DependentCurrentInstantiation2; //typename required
-			typedef typename B<A<T>::C>::unknown DependentCurrentInstantiation3; //typename required
-		};
-	};
-}
-
-namespace N542
-{
-	template<typename T>
-	struct A : T
-	{
-		typedef typename A::unknown MemberOfUnknownSpecialization2;
-		typedef typename A<T>::unknown MemberOfUnknownSpecialization3;
-	};
-}
-
-#if 0 // TODO
-
-namespace N546
-{
-	template<typename T>
+	template<int n>
 	struct B
 	{
 		typedef int Type;
@@ -56,11 +11,36 @@ namespace N546
 	template<typename T>
 	struct A
 	{
-		typedef int X;
+		static int m;
 
-		typedef B<X>::Type NonDependentMemberOfCurrentInstantiation1;
-		typedef B<A::X>::Type NonDependentMemberOfCurrentInstantiation2;
-		typedef B<A<T>::X>::Type NonDependentMemberOfCurrentInstantiation3;
+		void f()
+		{
+			typedef B<sizeof m>::Type NonDependentMemberOfCurrentInstantiation1;
+			typedef B<sizeof A::m>::Type NonDependentMemberOfCurrentInstantiation2; // TODO: should be dependent because A is transformed to A<T>?
+			typedef B<sizeof this->m>::Type NonDependentMemberOfCurrentInstantiation3; // gcc 5.0 and clang 3.6 fail
+		}
+	};
+}
+
+namespace N543 // test determination of dependentness of id-expression naming non-static member of the current instantiation, within a non-static member function
+{
+	template<int n>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		int m;
+
+		void f()
+		{
+			typedef B<sizeof m>::Type NonDependentMemberOfCurrentInstantiation1; // gcc 5.0 and clang 3.6 fail
+			typedef B<sizeof A::m>::Type NonDependentMemberOfCurrentInstantiation2; // TODO: should be dependent because A is transformed to A<T>?
+			typedef B<sizeof this->m>::Type NonDependentMemberOfCurrentInstantiation3; // gcc 5.0 and clang 3.6 fail
+		}
 	};
 }
 
@@ -110,11 +90,176 @@ namespace N544
 	};
 }
 
-namespace N543
+
+namespace N557 // test parse of dependent pointer to member expression referring to the current instantiation
+{
+	template<class T>
+	struct A
+	{
+		void f()
+		{
+			&A<T>::f;
+			// type-dependent? contains a dependent template-id
+			// value-dependent according to N4296
+			// [temp.dep.constexpr]/5
+			// An expression of the form &qualified-id where the qualified-id names a dependent member of the current
+			// instantiation is value-dependent.
+		}
+	};
+}
+
+namespace N556
 {
 	template<typename T>
-	T* f();
+	struct A
+	{
+		struct B // B is dependent: could be explicitly specialized
+		{
+			static T g();
+		};
 
+		struct D : B // B should not be evaluated
+		{
+		};
+	};
+
+	int i = A<int>::D::g();
+}
+
+namespace N555 // test parse of type name qualified by dependent class that has not yet been defined
+{
+	template<typename>
+	struct A;
+	template<typename T>
+	struct B
+	{
+		typedef typename A<T>::Type Type;
+	};
+}
+
+namespace N554 // test evaluation of id-expression referring to member of nested class which is the current instantiation
+{
+	template<class T>
+	struct A
+	{
+		struct C
+		{
+			void f()
+			{
+				m;
+			}
+			bool m;
+		};
+	};
+}
+
+namespace N553 // test evaluation of sizeof calling non-static member of static member
+{
+	template<typename T>
+	struct C
+	{
+		T f();
+	};
+	template<typename T>
+	struct A
+	{
+		static C<T>c;
+		static const int value = sizeof(c.f()); // during instantiation of A<int>, 'f' found in context of C<int> after substitution of 'c'
+	};
+	static const int value = A<int>::value;
+}
+
+namespace N552
+{
+	template<int n>
+	struct I
+	{
+		typedef int Type;
+	};
+
+	template<int n>
+	struct A
+	{
+		static const int m = 0; // not dependent
+
+		typedef I<m>::Type NonDependentMember;
+	};
+}
+
+
+#if 0 // TODO
+namespace N551 // test determination of dependentness of __builtin_offsetof
+{
+	template<int n>
+	struct I
+	{
+		int m;
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		static const int DependentOffsetof = I<__builtin_offsetof(T, m)>::unknown;
+	};
+}
+#endif
+
+namespace N550 // test parse of nested-name-specifier containing dependent decltype
+{
+	template<typename T, T n>
+	struct A
+	{
+		static const int DependentCast = decltype(n)::unknown;
+	};
+}
+
+namespace N542
+{
+	template<typename T>
+	struct A : T
+	{
+		typedef typename A::unknown MemberOfUnknownSpecialization2;
+		typedef typename A<T>::unknown MemberOfUnknownSpecialization3;
+	};
+}
+
+namespace N547 // test determination of dependentness of nested class type that is the current instantiation
+{
+	template<typename T>
+	struct B
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef typename B<A>::unknown DependentCurrentInstantiation1; //typename required
+		typedef typename B<A<T> >::unknown DependentCurrentInstantiation2; //typename required
+	};
+}
+
+namespace N541 // test determination of dependentness of nested class type that is the current instantiation
+{
+	template<typename T>
+	struct B
+	{
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct C
+		{
+			typedef typename B<C>::unknown DependentCurrentInstantiation1; //typename required
+			typedef typename B<A::C>::unknown DependentCurrentInstantiation2; //typename required
+			typedef typename B<A<T>::C>::unknown DependentCurrentInstantiation3; //typename required
+		};
+	};
+}
+
+namespace N549
+{
 	template<int n>
 	struct B
 	{
@@ -124,19 +269,34 @@ namespace N543
 	template<typename T>
 	struct A
 	{
-		int m;
+		static const int n = 0;
 
-		//typedef B<sizeof f<A>()->m>::Type NonDependentMemberOfCurrentInstantiation;
-
-		void f()
-		{
-			//typedef B<sizeof m>::Type NonDependentMemberOfCurrentInstantiation1;
-			//typedef B<sizeof this->m>::Type NonDependentMemberOfCurrentInstantiation2;
-		}
+		typedef B<n>::Type NonDependentMemberOfCurrentInstantiation1;
+		typedef B<A::n>::Type NonDependentMemberOfCurrentInstantiation2;
+		typedef B<A<T>::n>::Type NonDependentMemberOfCurrentInstantiation3;
 	};
 }
 
-#endif
+namespace N546
+{
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef int X;
+
+		typedef B<X>::Type NonDependentMemberOfCurrentInstantiation1;
+		typedef B<A::X>::Type NonDependentMemberOfCurrentInstantiation2;
+		typedef B<A<T>::X>::Type NonDependentMemberOfCurrentInstantiation3;
+	};
+}
+
+
 
 namespace N540 // test determination of dependentness for subscript expression
 {
@@ -265,7 +425,6 @@ namespace N536 // test determination of dependent expressions within template de
 		static const int ValueDependent = I<sizeof(T)>::unknown;
 		static const int DependentTemplateId = decltype(f<n>(0))::unknown;
 		static const int DependentOverloaded = decltype(mf())::unknown;
-		static const int DependentOffsetof = I<__builtin_offsetof(T, m)>::unknown;
 		static const int DependentListLeft = I<(n, 0)>::unknown;
 		static const int DependentListRight = I<(0, n)>::unknown;
 		static const int DependentUnary = I<-n>::unknown;

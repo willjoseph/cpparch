@@ -64,7 +64,9 @@ struct SemaPostfixExpressionMember : public SemaQualified
 
 		bool isArrow = symbol->id == cpp::member_operator::ARROW;
 
-		memberClass = &gDependentSimpleType;
+		memberClass = isObjectExpression(objectExpression)
+			? &getSimpleType(removePointer(getObjectExpression(objectExpression).type).value)
+			: &gDependentSimpleType;
 		SEMANTIC_ASSERT(objectExpression.p != 0);
 		objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow));
 		if(!objectExpression.isTypeDependent) // if the type of the object expression is not dependent
@@ -116,14 +118,14 @@ struct SemaTypeTraitsIntrinsic : public SemaBase
 	}
 };
 
-struct SemaOffsetof : public SemaBase
+struct SemaOffsetof : public SemaQualified
 {
 	SEMA_BOILERPLATE;
 
-	UniqueTypeWrapper type;
-	ExpressionWrapper member;
+	Type type;
+	DeclarationPtr member;
 	SemaOffsetof(const SemaState& state)
-		: SemaBase(state)
+		: SemaQualified(state), type(0, context)
 	{
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTPAREN> symbol)
@@ -134,15 +136,13 @@ struct SemaOffsetof : public SemaBase
 	void action(cpp::type_id* symbol, const SemaTypeIdResult& walker)
 	{
 		walker.committed.test();
-		type = getUniqueType(walker.type);
-		setExpressionType(symbol, type);
+		type = walker.type;
+		swapQualifying(type);
 	}
-	SEMA_POLICY(cpp::id_expression, SemaPolicyPush<struct SemaIdExpression>)
-	void action(cpp::id_expression* symbol, SemaIdExpression& walker)
+	SEMA_POLICY(cpp::unqualified_id, SemaPolicyPush<struct SemaUnqualifiedId>)
+	void action(cpp::unqualified_id* symbol, SemaUnqualifiedId& walker)
 	{
-		bool isObjectName = walker.commit();
-		SEMANTIC_ASSERT(isObjectName); // TODO: non-fatal error: expected object name
-		member = walker.expression;
+		member = walker.declaration;
 	}
 };
 
@@ -360,7 +360,8 @@ struct SemaPostfixExpression : public SemaBase
 	SEMA_POLICY(cpp::postfix_expression_offsetof, SemaPolicyPush<struct SemaOffsetof>)
 	void action(cpp::postfix_expression_offsetof* symbol, const SemaOffsetof& walker)
 	{
-		expression = makeExpression(OffsetofExpression(walker.type, walker.member));
+		expression = makeExpression(OffsetofExpression(getUniqueType(*walker.qualifying.get()), walker.member));
+		setExpressionType(symbol, expression.type);
 	}
 	SEMA_POLICY(cpp::postfix_expression_isinstantiated, SemaPolicyPush<struct SemaIsInstantiated>)
 	void action(cpp::postfix_expression_isinstantiated* symbol, const SemaIsInstantiated& walker)

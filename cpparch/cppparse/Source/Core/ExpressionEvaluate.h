@@ -354,7 +354,6 @@ inline bool isLiteralZeroExpression(ExpressionNode* expression)
 	return ice.value.value == 0;
 }
 
-
 // ----------------------------------------------------------------------------
 // expression evaluation
 
@@ -417,6 +416,11 @@ inline const SimpleType* getIdExpressionClass(const SimpleType* qualifying, cons
 		return 0; // the declaration is at namespace-scope, therefore has no enclosing class
 	}
 
+	if(isDependentQualifying(qualifying)) // if qualified by the current instantiation
+	{
+		qualifying = findEnclosingType(enclosingType, *qualifying->declaration);
+		SYMBOLS_ASSERT(qualifying != 0);
+	}
 	const SimpleType* idEnclosing = qualifying != 0 ? qualifying : enclosingType;
 
 	SYMBOLS_ASSERT(idEnclosing != 0);
@@ -636,7 +640,15 @@ inline ExpressionType typeOfUnaryExpression(Name operatorName, Argument operand,
 			// For a qualified-id, if the member is a static member of type "T", the type of the result is plain "pointer to T."
 			// If the member is a non-static member of class C of type T, the type of the result is "pointer to member of class C of type
 			// T."
-			UniqueTypeWrapper classType = makeUniqueSimpleType(*getIdExpression(operand).qualifying);
+			const SimpleType* qualifying = getIdExpression(operand).qualifying;
+#if 0 // not necessary?
+			if(isDependent(*qualifying)) // if qualified by the current instantiation
+			{
+				qualifying = findEnclosingType(context.enclosingType, *qualifying->declaration);
+				SYMBOLS_ASSERT(qualifying != 0);
+			}
+#endif
+			UniqueTypeWrapper classType = makeUniqueSimpleType(*qualifying);
 			UniqueTypeWrapper type = operand.type;
 			type.push_front(MemberPointerType(classType)); // produces a non-const pointer
 			return ExpressionType(type, false); // non lvalue
@@ -1360,7 +1372,6 @@ inline ExpressionType typeOfClassMemberAccessExpression(const ExpressionWrapper&
 	//	    the expression is ignored(5.1).-end note] The type of E1.E2 is "function of parameter-type-list
 	//	    cv returning T".
 	ExpressionType type = typeOfExpressionWrapper(left, context);
-	SYMBOLS_ASSERT(!isDependent(type));
 	const SimpleType& classType = getSimpleType(type.value);
 	ExpressionType result = typeOfExpressionImpl(right, setEnclosingTypeSafe(context, &classType));
 	if(right.isNonStaticMemberName)
@@ -1581,14 +1592,14 @@ inline ExpressionType typeOfExpression(const NewExpression& node, const Instanti
 inline ExpressionType typeOfExpression(const ObjectExpression& node, const InstantiationContext& context)
 {
 	ExpressionType result = node.type;
-	SYMBOLS_ASSERT(!isDependent(result));
+	SYMBOLS_ASSERT(removePointer(result).isSimple());
 	return result;
 }
 
 inline ExpressionType typeOfExpression(const MemberOperatorExpression& node, const InstantiationContext& context)
 {
 	ExpressionType result = getMemberOperatorType(substituteArgument(node.left, context), node.isArrow, context);
-	SYMBOLS_ASSERT(!isDependent(result));
+	SYMBOLS_ASSERT(result.isSimple());
 	return result;
 }
 
@@ -1696,19 +1707,16 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 		return EXPRESSIONRESULT_INVALID;
 	}
 
-	const SimpleType* enclosing = qualified.enclosing != 0 ? qualified.enclosing : context.enclosingType;
+	if(!declaration->initializer.isValueDependent)
+	{
+		return declaration->initializer.value;
+	}
 
-	const SimpleType* memberEnclosing = isMember(*declaration) // if the declaration is a class member
-		? findEnclosingType(enclosing, declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
-		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
+	const SimpleType* idEnclosing = getIdExpressionClass(node.qualifying, *declaration, context.enclosingType);
 
-	const ExpressionWrapper& substituted = declaration->initializer.isValueDependent
-		 ? getSubstitutedExpression(declaration->initializer, memberEnclosing)
-		 : declaration->initializer;
+	const ExpressionWrapper& substituted = getSubstitutedExpression(declaration->initializer, idEnclosing);
 	SYMBOLS_ASSERT(!substituted.isValueDependent);
-	ExpressionValue value = substituted.value;
-	SYMBOLS_ASSERT(value == evaluateExpressionImpl(declaration->initializer, setEnclosingType(context, memberEnclosing))); // DEBUG
-	return value;
+	return substituted.value;
 }
 
 inline DependentIdExpression substituteDependentIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -2121,9 +2129,8 @@ inline bool isValueDependentExpression(const DependentIdExpression& expression)
 
 inline bool isDependentExpression(const IdExpression& expression)
 {
-	return isDependentQualifying(expression.qualifying)
-		|| isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
-		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+	return isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
+		|| ((expression.qualifying == 0 || isDependentQualifying(expression.qualifying) || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
 			&& (isDependentOverloaded(expression.declaration)
 				|| expression.declaration->initializer.isValueDependent));
 }
@@ -2138,9 +2145,8 @@ inline bool isTypeDependentExpression(const IdExpression& expression)
 	// - a nested-name-specifier or a qualified-id that names a member of an unknown specialization;
 	// or if it names a static data member of the current instantiation that has type "array of unknown bound of
 	// T" for some T.
-	return isDependentQualifying(expression.qualifying)
-		|| isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
-		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+	return isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
+		|| ((expression.qualifying == 0 || isDependentQualifying(expression.qualifying) || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
 			&& isDependentOverloaded(expression.declaration));
 }
 
@@ -2151,8 +2157,8 @@ inline bool isValueDependentExpression(const IdExpression& expression)
 	//  - a name declared with a dependent type,
 	// 	- the name of a non-type template parameter,
 	// 	- a constant with literal type and is initialized with an expression that is value-dependent.
-	return isDependentQualifying(expression.qualifying)
-		|| ((expression.qualifying == 0 || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
+	return isDependent(expression.templateArguments) // the id-expression may have an explicit template argument list
+		|| ((expression.qualifying == 0 || isDependentQualifying(expression.qualifying) || expression.qualifying->isLocal) // if qualified by a non-dependent non-local type, named declaration cannot be dependent
 			&& (expression.declaration->isTypeDependent
 				|| expression.declaration->initializer.isValueDependent));
 }
@@ -2246,18 +2252,27 @@ inline bool isDependentExpression(const UnaryExpression& expression)
 	return expression.first.isDependent;
 }
 
+inline bool isDependentPointerToMember(const UnaryExpression& expression)
+{
+	return !expression.first.isParenthesised
+		&& expression.first.isQualifiedNonStaticMemberName
+		&& expression.first.isMemberOfCurrentInstantiation;
+}
+
 inline bool isTypeDependentExpression(const UnaryExpression& expression)
 {
 	// [temp.dep.expr]
 	// an expression is type-dependent if any subexpression is type-dependent.
-	return expression.first.isTypeDependent;
+	return expression.first.isTypeDependent
+		|| isDependentPointerToMember(expression);
 }
 
 inline bool isValueDependentExpression(const UnaryExpression& expression)
 {
 	// [temp.dep.constexpr]
 	// a constant expression is value-dependent if any subexpression is value-dependent.
-	return expression.first.isValueDependent;
+	return expression.first.isValueDependent
+		|| isDependentPointerToMember(expression);
 }
 
 inline bool isDependentExpression(const BinaryExpression& expression)
@@ -2414,8 +2429,16 @@ inline bool isDependentExpression(const ClassMemberAccessExpression& expression)
 
 inline bool isTypeDependentExpression(const ClassMemberAccessExpression& expression)
 {
+	// [temp.dep.expr]
+	// A class member access expression (5.2.5) is type-dependent if the expression refers to a member of the current
+	// instantiation and the type of the referenced member is dependent, or the class member access expression
+	// refers to a member of an unknown specialization.
+	if(expression.right.isMemberOfCurrentInstantiation)
+	{
+		return expression.right.isTypeDependent;
+	}
 	return expression.left.isTypeDependent
-		|| expression.right.isTypeDependent;
+		|| expression.right.isTypeDependent; // TODO: in the case of a local class with a member that has a dependent type, does a class member access refer to a member of the current instantiation?
 }
 
 inline bool isValueDependentExpression(const ClassMemberAccessExpression& expression)
@@ -2425,8 +2448,7 @@ inline bool isValueDependentExpression(const ClassMemberAccessExpression& expres
 
 inline bool isDependentExpression(const OffsetofExpression& expression)
 {
-	return isDependent(expression.type)
-		|| expression.member.isDependent;
+	return isDependent(expression.type);
 }
 
 inline bool isTypeDependentExpression(const OffsetofExpression& expression)
@@ -2657,16 +2679,21 @@ inline ExpressionWrapper substituteExpression(const MemberOperatorExpression& no
 
 inline ExpressionWrapper substituteExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
 {
+	ExpressionWrapper left = substituteExpression(node.left, context);
+	InstantiationContext rightContext = !left.isTypeDependent
+		? setEnclosingType(context, &getSimpleType(left.type.value))
+		: context;
 	return makeExpression2(ClassMemberAccessExpression(
-		substituteExpression(node.left, context),
-		substituteExpression(node.right, context)), context);
+		left,
+		substituteExpression(node.right, rightContext)), context);
 }
 
 inline ExpressionWrapper substituteExpression(const OffsetofExpression& node, const InstantiationContext& context)
 {
+	SYMBOLS_ASSERT(false); // TODO
 	return makeExpression2(OffsetofExpression(
 		substitute(node.type, context),
-		substituteExpression(node.member, context)), context);
+		node.member), context);
 }
 
 inline ExpressionWrapper substituteExpression(const FunctionCallExpression& node, const InstantiationContext& context)

@@ -96,6 +96,7 @@ struct SemaDecltypeSpecifier : public SemaBase, SemaDecltypeSpecifierResult
 	{
 		type.declaration = &gUnknown;
 		type.expression = walker.expression;
+		addDeferredExpression(type.expression);
 	}
 };
 

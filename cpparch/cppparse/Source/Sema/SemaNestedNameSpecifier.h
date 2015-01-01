@@ -26,7 +26,7 @@ struct SemaNestedNameSpecifierSuffix : public SemaBase
 	{
 		LookupResultRef declaration = gDependentNestedInstance;
 		if(isDeclarator
-			|| !isDependentSafe(qualifying_p))
+			|| allowNestedNameLookup())
 		{
 			declaration = lookupQualified(symbol->value, isDeclarator, IsNestedName());
 			if(declaration == &gUndeclared)
@@ -44,7 +44,7 @@ struct SemaNestedNameSpecifierSuffix : public SemaBase
 	{
 		LookupResultRef declaration = gDependentNestedTemplateInstance;
 		if(isDeclarator
-			|| !isDependentSafe(qualifying_p))
+			|| allowNestedNameLookup())
 		{
 			declaration = lookupQualified(*walker.id, isDeclarator, IsNestedName());
 			if(declaration == &gUndeclared)

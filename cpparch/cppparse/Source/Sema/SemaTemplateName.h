@@ -72,7 +72,7 @@ struct SemaTemplateId : public SemaBase, SemaTemplateIdResult
 		// followed by a <, the < is always taken as the delimiter of a template-argument-list and never as the less-than
 		// operator.
 		if(!isTemplate // if the name is not preceded by 'template'
-			&& !isDependentSafe(qualifying_p)) // and the name is not qualified by a dependent type
+			&& allowNestedNameLookup()) // and the name is not qualified by a dependent type
 		{
 			if(qualifyingClass == 0
 				&& getQualifyingScope() != 0
@@ -118,8 +118,9 @@ struct SemaTypenameSpecifier : public SemaQualified, SemaTypenameSpecifierResult
 {
 	SEMA_BOILERPLATE;
 
+	bool isTemplate;
 	SemaTypenameSpecifier(const SemaState& state)
-		: SemaQualified(state), SemaTypenameSpecifierResult(context)
+		: SemaQualified(state), SemaTypenameSpecifierResult(context), isTemplate(false)
 	{
 	}
 
@@ -130,16 +131,16 @@ struct SemaTypenameSpecifier : public SemaQualified, SemaTypenameSpecifierResult
 	{
 		setQualifyingGlobal();
 	}
-	void action(cpp::terminal<boost::wave::T_TEMPLATE> symbol)
-	{
-		// TODO
-	}
 	SEMA_POLICY(cpp::nested_name_specifier, SemaPolicyPushCached<struct SemaNestedNameSpecifier>)
 	void action(cpp::nested_name_specifier* symbol, const SemaQualifyingResult& walker)
 	{
 		swapQualifying(walker.qualifying);
 	}
-	SEMA_POLICY_ARGS(cpp::type_name, SemaPolicyPushCheckedBool<struct SemaTypeName>, true)
+	void action(cpp::terminal<boost::wave::T_TEMPLATE> symbol)
+	{
+		isTemplate = true;
+	}
+	SEMA_POLICY_ARGS(cpp::type_name, SemaPolicyPushCheckedBool2<struct SemaTypeName>, Bool2(true, true))
 	bool action(cpp::type_name* symbol, const SemaTypeName& walker)
 	{
 		if(walker.filter.nonType != 0)

@@ -14,6 +14,7 @@ inline UniqueTypeWrapper makeUniqueQualifying(const Qualifying& qualifying, cons
 		: getUniqueType(qualifying.back(), context, allowDependent);
 }
 
+
 inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context, UniqueTypeWrapper& unique)
 {
 	if(!qualifying.empty())
@@ -24,13 +25,19 @@ inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const
 		}
 		bool allowDependent = qualifying.back().isDependent;
 		unique = getUniqueType(qualifying.back(), context, allowDependent);
-		if(allowDependent)
+		if(allowDependent // if this is a dependent type
+			&& !unique.isSimple())
 		{
 			return 0;
 		}
 		const SimpleType& type = getSimpleType(unique.value);
+		if(allowDependent // if this is a dependent type
+			&& !isEnclosingType(context.enclosingType, &type)) // which not the current instantiation
+		{
+			return 0;
+		}
 		// [temp.inst] A class template is implicitly instantiated ... if the completeness of the class-type affects the semantics of the program.
-		instantiateClass(type, context);
+		instantiateClass(type, context, allowDependent);
 		return &type;
 	}
 	return context.enclosingType;

@@ -835,6 +835,7 @@ struct InstantiationContext
 	const SimpleType* enclosingType;
 	const SimpleType* enclosingFunction;
 	ScopePtr enclosingScope;
+	bool isUnevaluatedOperand;
 	InstantiationContext()
 		: allocator(NullAllocator<UncheckedLinearAllocator>()), enclosingType(0), enclosingFunction(0), enclosingScope(0)
 	{
@@ -979,6 +980,33 @@ inline bool isDependent(const T&)
 
 
 // ----------------------------------------------------------------------------
+// Returns true if the enclosing class is or contains the given class.
+inline bool isEnclosingType(const SimpleType* enclosingType, const SimpleType* classType)
+{
+	SYMBOLS_ASSERT(classType != 0);
+	for(const SimpleType* i = enclosingType; i != 0; i = (*i).enclosing)
+	{
+		if(i == classType)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+// Returns the enclosing class that is the currently instantiated specialization of the given class.
+inline const SimpleType* findEnclosingType(const SimpleType* enclosingType, const Declaration& declaration)
+{
+	for(const SimpleType* i = enclosingType; i != 0; i = (*i).enclosing)
+	{
+		if((*i).declaration == &declaration)
+		{
+			return i;
+		}
+	}
+	return 0;
+}
+
 // Returns the base class or enclosing class that directly contains the given scope.
 inline const SimpleType* findEnclosingType(const SimpleType& enclosingType, Scope* scope)
 {

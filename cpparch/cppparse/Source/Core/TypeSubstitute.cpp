@@ -61,15 +61,19 @@ inline UniqueTypeWrapper substitute(Declaration* declaration, const SimpleType* 
 	return makeUniqueSimpleType(result);
 }
 
-inline const SimpleType* substitute(const SimpleType& instance, const InstantiationContext& context)
+const SimpleType& substitute(const SimpleType& instance, const InstantiationContext& context)
 {
+	if(!isDependent(instance))
+	{
+		return instance;
+	}
 	const SimpleType* enclosing = 0;
 	if(instance.enclosing != 0)
 	{
-		enclosing = substitute(*instance.enclosing, context);
+		enclosing = &substitute(*instance.enclosing, context);
 	}
 	UniqueTypeWrapper result = substitute(instance.declaration, enclosing, instance.templateArguments, context);
-	return &getSimpleType(result.value);
+	return getSimpleType(result.value);
 }
 
 struct SubstituteVisitor : TypeElementVisitor
@@ -250,8 +254,8 @@ struct SubstituteVisitor : TypeElementVisitor
 	}
 	virtual void visit(const SimpleType& element)
 	{
-		const SimpleType* result = substitute(element, context);
-		type.push_front(*result);
+		const SimpleType& result = substitute(element, context);
+		type.push_front(result);
 	}
 	virtual void visit(const PointerType& element)
 	{

@@ -655,8 +655,8 @@ inline const ClassMemberAccessExpression& getClassMemberAccessExpression(Express
 struct OffsetofExpression
 {
 	UniqueTypeWrapper type;
-	ExpressionWrapper member;
-	OffsetofExpression(UniqueTypeWrapper type, ExpressionWrapper member)
+	DeclarationPtr member;
+	OffsetofExpression(UniqueTypeWrapper type, DeclarationPtr member)
 		: type(type), member(member)
 	{
 	}

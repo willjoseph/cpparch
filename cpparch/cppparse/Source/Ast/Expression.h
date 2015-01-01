@@ -190,8 +190,9 @@ struct SubstitutedExpression
 	bool isDependent; // true if any subexpression is type-dependent or value-dependent.
 	bool isTypeDependent;
 	bool isValueDependent;
-	bool isNonStaticMemberName;
-	bool isQualifiedNonStaticMemberName;
+	bool isNonStaticMemberName; // true if this is an id-expression naming a non-static member
+	bool isQualifiedNonStaticMemberName; // true if this is a qualified id-expression naming a non-static member
+	bool isMemberOfCurrentInstantiation; // true if this is an id-expression naming a member of the current instantiation
 	SubstitutedExpression()
 		: value(EXPRESSIONRESULT_INVALID)
 		, isDependent(false)
@@ -199,6 +200,7 @@ struct SubstitutedExpression
 		, isValueDependent(false)
 		, isNonStaticMemberName(false)
 		, isQualifiedNonStaticMemberName(false)
+		, isMemberOfCurrentInstantiation(false)
 	{
 	}
 	SubstitutedExpression(ExpressionType type, ExpressionValue value, bool isDependent, bool isTypeDependent, bool isValueDependent)
@@ -209,6 +211,7 @@ struct SubstitutedExpression
 		, isValueDependent(isValueDependent)
 		, isNonStaticMemberName(false)
 		, isQualifiedNonStaticMemberName(false)
+		, isMemberOfCurrentInstantiation(false)
 	{
 	}
 };

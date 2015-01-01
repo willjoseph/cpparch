@@ -41,7 +41,7 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 		bool isTemplate = false; // dependent names cannot be templates
 
 		if(!isTypename
-			&& !isDependentSafe(qualifying_p))
+			&& allowNestedNameLookup())
 		{
 			existingDeclaration = walker.declaration;
 			if(existingDeclaration == &gUndeclared

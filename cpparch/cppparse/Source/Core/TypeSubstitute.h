@@ -17,6 +17,15 @@ inline UniqueTypeWrapper substitute(UniqueTypeWrapper dependent, const Instantia
 	return substituteImpl(dependent, context);
 }
 void substitute(UniqueTypeArray& substituted, const UniqueTypeArray& dependent, const InstantiationContext& context);
+const SimpleType& substitute(const SimpleType& dependent, const InstantiationContext& context);
+inline const SimpleType* substitute(const SimpleType* dependent, const InstantiationContext& context)
+{
+	if(dependent == 0)
+	{
+		return 0;
+	}
+	return &substitute(*dependent, context);
+}
 // ----------------------------------------------------------------------------
 
 struct TypeError
@@ -196,6 +205,7 @@ inline UniqueTypeWrapper getSubstitutedType(const Type& type, const Instantiatio
 {
 	SYMBOLS_ASSERT(type.dependentIndex != INDEX_INVALID);
 	SYMBOLS_ASSERT(context.enclosingType != 0);
+	SYMBOLS_ASSERT(!isDependent(context.enclosingType));
 	SYMBOLS_ASSERT(type.dependentIndex < context.enclosingType->substitutedTypes.size());
 	return context.enclosingType->substitutedTypes[type.dependentIndex];
 }

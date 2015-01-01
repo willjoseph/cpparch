@@ -746,19 +746,42 @@ struct SemaState
 		return context.typeInfoType;
 	}
 
-	bool objectExpressionIsDependent() const 
+	bool qualifyingIsDependent() const
+	{
+		return qualifyingClass != 0
+			&& (qualifyingClass == &gDependentSimpleType
+				|| isDependentSafe(qualifying_p));
+	}
+
+	bool objectExpressionIsDependent() const
 	{
 		return objectExpression.p != 0
 			&& objectExpression.isTypeDependent
 			&& memberClass != 0;
 	}
-	bool allowNameLookup() const
+
+	bool isCurrentInstantiation(const SimpleType* classType) const
 	{
-		if(isDependentSafe(qualifying_p))
+		return isEnclosingType(enclosingType, classType);
+	}
+
+	bool allowNestedNameLookup() const
+	{
+		if(qualifyingIsDependent()
+			&& !isCurrentInstantiation(qualifyingClass))
 		{
 			return false;
 		}
-		if(objectExpressionIsDependent())
+		return true;
+	}
+	bool allowNameLookup() const
+	{
+		if(!allowNestedNameLookup())
+		{
+			return false;
+		}
+		if(objectExpressionIsDependent()
+			&& !isCurrentInstantiation(memberClass))
 		{
 			return false;
 		}
@@ -819,12 +842,11 @@ struct SemaState
 		{
 			bool isQualified = objectExpression.p != 0
 				&& memberClass != 0;
-			SYMBOLS_ASSERT(!(isUnqualifiedId && objectExpression.isTypeDependent)); // in case of unqualified-id, should check allowNameLookup before calling
+			SYMBOLS_ASSERT(!(isUnqualifiedId && memberClass == &gDependentSimpleType)); // in case of unqualified-id, should check allowNameLookup before calling
 			if(isQualified
-				&& !objectExpression.isTypeDependent)
+				&& memberClass != &gDependentSimpleType)
 			{
 				// [basic.lookup.classref]
-				SYMBOLS_ASSERT(memberClass != &gDependentSimpleType);
 				if(result.append(::findDeclaration(*memberClass, id, filter)))
 				{
 #ifdef LOOKUP_DEBUG
@@ -2180,6 +2202,14 @@ struct SemaPolicyPushCheckedBool : SemaPolicyGeneric<SemaPush<SemaT, CommitNull,
 	{
 	}
 };
+typedef Args2<bool, bool> Bool2;
+template<typename SemaT>
+struct SemaPolicyPushCheckedBool2 : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Bool2>, AnnotateNull, InvokeCheckedResult, DisableCache>
+{
+	CPPP_INLINE SemaPolicyPushCheckedBool2(Bool2 args) : SemaPolicyGeneric(args)
+	{
+	}
+};
 template<typename SemaT>
 struct SemaPolicyPushCachedBool : SemaPolicyGeneric<SemaPush<SemaT, CommitNull, Args1<bool> >, AnnotateNull, InvokeUncheckedResult, CachedWalk>
 {
@@ -2473,6 +2503,7 @@ struct SemaQualified : public SemaBase, SemaQualifyingResult
 				UniqueTypeWrapper type = getUniqueType(*qualifying_p, getInstantiationContext(), isDeclarator || qualifying_p->isDependent);
 				if(!type.isSimple())
 				{
+					qualifyingClass = &gDependentSimpleType;
 					qualifyingScope = 0;
 				}
 				else

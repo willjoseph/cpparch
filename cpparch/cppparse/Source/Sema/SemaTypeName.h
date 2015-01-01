@@ -63,8 +63,9 @@ struct SemaTypeName : public SemaBase
 	Type type;
 	IsHiddenTypeName filter; // allows type-name to be parsed without knowing whether it is the prefix of a nested-name-specifier (in which case it cannot be hidden by a non-type name)
 	bool isTypename; // true if a type is expected in this context; e.g. following 'typename', preceding '::'
-	SemaTypeName(const SemaState& state, bool isTypename = false)
-		: SemaBase(state), type(0, context), isTypename(isTypename)
+	bool isTemplate; // true if a template is expected in this context; e.g. following 'template'
+	SemaTypeName(const SemaState& state, bool isTypename = false, bool isTemplate = false)
+		: SemaBase(state), type(0, context), isTypename(isTypename), isTemplate(isTemplate)
 	{
 	}
 
@@ -72,10 +73,11 @@ struct SemaTypeName : public SemaBase
 	bool action(cpp::identifier* symbol)
 	{
 		LookupResultRef declaration = gDependentTypeInstance;
-		if(!isDependentSafe(qualifying_p))
+		if(allowNestedNameLookup())
 		{
 			declaration = findDeclaration(symbol->value, makeLookupFilter(filter));
-			if(declaration == &gUndeclared)
+			if(declaration == &gUndeclared
+				&& !isTypename)
 			{
 				return reportIdentifierMismatch(symbol, symbol->value, declaration, "type-name");
 			}
@@ -101,7 +103,7 @@ struct SemaTypeName : public SemaBase
 		return true;
 	}
 
-	SEMA_POLICY(cpp::simple_template_id, SemaPolicyPushCachedChecked<struct SemaTemplateId>)
+	SEMA_POLICY_ARGS(cpp::simple_template_id, SemaPolicyPushCachedCheckedBool<struct SemaTemplateId>, isTemplate)
 	bool action(cpp::simple_template_id* symbol, const SemaTemplateIdResult& walker)
 	{
 		LookupResultRef declaration = lookupTemplate(*walker.id, makeLookupFilter(filter));
