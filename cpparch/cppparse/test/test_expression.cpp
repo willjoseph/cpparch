@@ -684,7 +684,7 @@ namespace N524
 		}
 	};
 
-#if 0 // TODO: non-standard?
+#if 0 // TODO: local class is a dependent-type.. non-standard?
 	// DR 1484: http://www.open-std.org/jtc1/sc22/wg21/docs/cwg_defects.html
 	template<typename T>
 	void g()
