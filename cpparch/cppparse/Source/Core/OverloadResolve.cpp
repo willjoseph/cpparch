@@ -105,6 +105,31 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 
 		result.instance = &getSimpleType(makeUniqueSimpleType(specialization).value);
 
+#if 0 // TODO
+		if(!result.instance->substituted)
+		{
+			SimpleType& instance = const_cast<SimpleType&>(*result.instance);
+			instance.substituted = true;
+
+			std::size_t dependentTypeCount = instance.declaration->declarationDependent.typeCount;
+			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
+
+			std::size_t dependentExpressionCount = instance.declaration->declarationDependent.expressionCount;
+			instance.substitutedExpressions.reserve(dependentExpressionCount); // allocate up front to avoid reallocation
+
+			const DeferredSubstitutions& substitutions = instance.declaration->declarationDependent.substitutions;
+			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
+			{
+				const DeferredSubstitution& substitution = *i;
+				InstantiationContext childContext(context.allocator, substitution.location, &instance, 0, context.enclosingScope);
+				substitution(childContext);
+			}
+
+			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
+			SYMBOLS_ASSERT(instance.substitutedExpressions.size() == dependentExpressionCount);
+		}
+#endif
+
 		return result;
 	}
 	catch(TypeError&)

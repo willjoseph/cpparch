@@ -153,11 +153,18 @@ struct SemaTemplateDeclaration : public SemaBase, SemaDeclarationResult
 	SEMA_BOILERPLATE;
 
 	TemplateParameters params; // internal state
+	DependentConstructs declarationDependent; // if this is not a member of a template, contains the dependent types and expressions within this declaration
 	SemaTemplateDeclaration(const SemaState& state)
-		: SemaBase(state), params(context)
+		: SemaBase(state), params(context), declarationDependent(context)
 	{
 		++templateDepth;
 		templateParams = &TEMPLATEPARAMETERS_NULL; // explicit specialization has empty template params: template<> struct S;
+#if 0 // TODO
+		if(enclosingDependentConstructs == 0) // if this is not a member of a template
+		{
+			enclosingDependentConstructs = &declarationDependent;
+		}
+#endif
 	}
 	SEMA_POLICY(cpp::template_parameter_clause, SemaPolicyPush<struct SemaTemplateParameterClause>)
 	void action(cpp::template_parameter_clause* symbol, const SemaTemplateParameterClause& walker)
@@ -172,12 +179,28 @@ struct SemaTemplateDeclaration : public SemaBase, SemaDeclarationResult
 	{
 		declaration = walker.declaration;
 		SEMANTIC_ASSERT(declaration != 0);
+#if 0 // TODO
+		if(enclosingDependentConstructs == &declarationDependent)
+		{
+			swapDeclarationDependent(*declaration, declarationDependent);
+			declaration->declarationDependent.typeCount = declarationDependent.typeCount;
+			declaration->declarationDependent.expressionCount = declarationDependent.expressionCount;
+		}
+#endif
 	}
 	SEMA_POLICY(cpp::member_declaration, SemaPolicyPush<struct SemaMemberDeclaration>)
 	void action(cpp::member_declaration* symbol, const SemaMemberDeclarationResult& walker)
 	{
 		declaration = walker.declaration;
 		SEMANTIC_ASSERT(declaration != 0);
+#if 0 // TODO
+		if(enclosingDependentConstructs == &declarationDependent)
+		{
+			swapDeclarationDependent(*declaration, declarationDependent);
+			declaration->declarationDependent.typeCount = declarationDependent.typeCount;
+			declaration->declarationDependent.expressionCount = declarationDependent.expressionCount;
+		}
+#endif
 	}
 };
 

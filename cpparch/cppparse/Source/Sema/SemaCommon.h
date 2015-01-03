@@ -1209,25 +1209,25 @@ inline BacktrackCallback makePopDeferredSubstitutionCallback(DependentConstructs
 	return result;
 }
 
-inline void popDeferredTypeSubstitution(Declaration* p, LexerAllocator& allocator)
+inline void popDeferredTypeSubstitution(DependentConstructs* p, LexerAllocator& allocator)
 {
-	--p->dependentConstructs.typeCount;
+	--p->typeCount;
 }
 
-inline BacktrackCallback makePopDeferredTypeSubstitutionCallback(Declaration* p)
+inline BacktrackCallback makePopDeferredTypeSubstitutionCallback(DependentConstructs* p)
 {
-	BacktrackCallback result = { BacktrackCallbackThunk<Declaration, &popDeferredTypeSubstitution >::thunk, p };
+	BacktrackCallback result = { BacktrackCallbackThunk<DependentConstructs, &popDeferredTypeSubstitution >::thunk, p };
 	return result;
 }
 
-inline void popDeferredExpressionSubstitution(Declaration* p, LexerAllocator& allocator)
+inline void popDeferredExpressionSubstitution(DependentConstructs* p, LexerAllocator& allocator)
 {
-	--p->dependentConstructs.expressionCount;
+	--p->expressionCount;
 }
 
-inline BacktrackCallback makePopDeferredExpressionSubstitutionCallback(Declaration* p)
+inline BacktrackCallback makePopDeferredExpressionSubstitutionCallback(DependentConstructs* p)
 {
-	BacktrackCallback result = { BacktrackCallbackThunk<Declaration, &popDeferredExpressionSubstitution >::thunk, p };
+	BacktrackCallback result = { BacktrackCallbackThunk<DependentConstructs, &popDeferredExpressionSubstitution >::thunk, p };
 	return result;
 }
 
@@ -1435,23 +1435,23 @@ struct SemaBase : public SemaState
 
 
 
-	void addDeferredSubstitution(const DeferredSubstitution& substitution)
+	void addDeferredSubstitution(DependentConstructs& dependent, const DeferredSubstitution& substitution)
 	{
-		enclosingDependentConstructs->substitutions.push_back(substitution);
-		addBacktrackCallback(makePopDeferredSubstitutionCallback(enclosingDependentConstructs));
+		dependent.substitutions.push_back(substitution);
+		addBacktrackCallback(makePopDeferredSubstitutionCallback(&dependent));
 	}
 
 	void addDeferredBase(Type& type)
 	{
 		if(!type.isDependent
-			|| enclosingInstantiation == 0)
+			|| enclosingDependentConstructs == 0)
 		{
 			return;
 		}
 		SYMBOLS_ASSERT(type.dependentIndex == INDEX_INVALID);
 		// substitute type of base when class is instantiated
-		type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
-		addDeferredSubstitution(
+		type.dependentIndex = enclosingDependentConstructs->typeCount++;
+		addDeferredSubstitution(*enclosingDependentConstructs,
 			makeDeferredSubstitution<Type, substituteDeferredBase>(
 				type, getLocation()));
 	}
@@ -1467,13 +1467,13 @@ struct SemaBase : public SemaState
 		DeferredSubstitution substitution = declaration.isTemplate
 			? makeDeferredSubstitution<Declaration, substituteDeferredMemberTemplateDeclaration>(declaration, getLocation())
 			: makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(declaration, getLocation());
-		addDeferredSubstitution(substitution);
+		addDeferredSubstitution(enclosingInstantiation->dependentConstructs, substitution);
 	}
 
 	void addDeferredDeclarationType(Declaration& declaration)
 	{
 		if(!declaration.type.isDependent
-			|| enclosingInstantiation == 0)
+			|| enclosingDependentConstructs == 0)
 		{
 			return;
 		}
@@ -1484,27 +1484,27 @@ struct SemaBase : public SemaState
 		else if(declaration.type.dependentIndex == INDEX_INVALID) // if this is not a redeclaration/definition
 		{
 			// substitute type of dependent declaration when class is instantiated
-			declaration.type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
-			addDeferredSubstitution(
+			declaration.type.dependentIndex = enclosingDependentConstructs->typeCount++;
+			addDeferredSubstitution(*enclosingDependentConstructs,
 				makeDeferredSubstitution<Declaration, substituteDeferredMemberType>(
 					declaration, getLocation()));
-			addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(enclosingInstantiation));
+			addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(enclosingDependentConstructs));
 		}
 	}
 
 	void addDeferredExpression(ExpressionWrapper& expression, const char* message = 0)
 	{
 		if(!expression.isDependent
-			|| enclosingInstantiation == 0)
+			|| enclosingDependentConstructs == 0)
 		{
 			return;
 		}
-		expression.dependentIndex = enclosingInstantiation->dependentConstructs.expressionCount++;
-		addDeferredSubstitution(
+		expression.dependentIndex = enclosingDependentConstructs->expressionCount++;
+		addDeferredSubstitution(*enclosingDependentConstructs,
 			makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
 				*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
 				getLocation()));
-		addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(enclosingInstantiation));
+		addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(enclosingDependentConstructs));
 	}
 
 	template<typename T>
@@ -1600,17 +1600,18 @@ struct SemaBase : public SemaState
 		if(!isAnonymousUnion(*declaration))
 		{
 			enclosingInstantiation = declaration; // any dependent constructs in the class definition will be added
+			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		}
-		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 	}
 
 	void endMemberDeclaration(Declaration* declaration, DependentConstructs& declarationDependent)
 	{
-		if(declaration == 0 // static-assert declaration
-			&& !declarationDependent.substitutions.empty())
+		if((declaration == 0 // static-assert declaration
+			|| isEnum(*declaration) // nested enum
+			|| isAnonymousUnion(*declaration)) // or anonymous union
+				&& !declarationDependent.substitutions.empty())
 		{
-			SEMANTIC_ASSERT(declarationDependent.expressionCount == 0); // TODO: move count to enclosing-instantiation
-			enclosingDependentConstructs->substitutions.splice(enclosingDependentConstructs->substitutions.end(), declarationDependent.substitutions);
+			enclosingInstantiation->dependentConstructs.substitutions.splice(enclosingInstantiation->dependentConstructs.substitutions.end(), declarationDependent.substitutions);
 			return;
 		}
 

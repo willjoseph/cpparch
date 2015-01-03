@@ -212,19 +212,27 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		{
 			SemaState::enclosingDeferred = &deferred;
 		}
-		enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within each member declaration
+		if(enclosingInstantiation == declaration) // if this class is an enclosing template
+		{
+			declarationDependent.typeCount = enclosingDependentConstructs->typeCount;
+			declarationDependent.expressionCount = enclosingDependentConstructs->expressionCount;
+			enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within each member declaration
+		}
 	}
 	SEMA_POLICY(cpp::member_declaration, SemaPolicyPush<struct SemaMemberDeclaration>)
 	void action(cpp::member_declaration* symbol, const SemaMemberDeclaration& walker)
 	{
-		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		endMemberDeclaration(walker.declaration, declarationDependent);
 		SEMANTIC_ASSERT(declarationDependent.substitutions.empty());
-		enclosingDependentConstructs = &declarationDependent; // collect the dependent types and expressions within each member declaration
 	}
 	void action(cpp::terminal<boost::wave::T_RIGHTBRACE> symbol)
 	{
-		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
+		if(enclosingInstantiation == declaration) // if this class is an enclosing template
+		{
+			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
+			enclosingDependentConstructs->typeCount = declarationDependent.typeCount;
+			enclosingDependentConstructs->expressionCount = declarationDependent.expressionCount;
+		}
 		declaration->isComplete = true;
 
 		parseDeferred(deferred.first, context.parserContext);

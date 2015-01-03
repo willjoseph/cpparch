@@ -427,6 +427,7 @@ struct SimpleType
 	TypeLayout layout;
 	InstantiatedTypes substitutedTypes; // the types substituted when this class template is instantiated
 	InstantiatedExpressions substitutedExpressions; // the expressions substituted when this class template is instantiated
+	bool substituted;
 	bool instantiated;
 	bool instantiating;
 	bool allowLookup;
@@ -444,7 +445,7 @@ struct SimpleType
 
 	SimpleType(Declaration* declaration, const SimpleType* enclosing, TypeLayout layout = TypeLayout(0, 1))
 		: uniqueId(0), primary(declaration), declaration(declaration), enclosing(enclosing), layout(layout),
-		instantiated(false), instantiating(false), allowLookup(false),
+		substituted(false), instantiated(false), instantiating(false), allowLookup(false),
 		hasCopyAssignmentOperator(false), hasVirtualDestructor(false), isPolymorphic(false), isAbstract(false),
 		isEmpty(true), isPod(true), isLocal(false),
 		visited(false), dumped(false)

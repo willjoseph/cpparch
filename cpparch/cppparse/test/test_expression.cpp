@@ -1,5 +1,14 @@
 
 
+namespace TEST
+{
+	template<typename T>
+	T f(T);
+
+	int i = f(0);
+}
+
+
 namespace N558 // test determination of dependentness of id-expression naming static member of the current instantiation, within a non-static member function
 {
 	template<int n>

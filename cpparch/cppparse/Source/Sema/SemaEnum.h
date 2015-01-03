@@ -73,11 +73,6 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 #endif
 			declaration = instance;
 		}
-
-		if(enclosingInstantiation != 0)
-		{
-			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs; // add any dependent types and expressions to the enclosing template class
-		}
 	}
 
 	SEMA_POLICY(cpp::enumerator_definition, SemaPolicyPush<struct SemaEnumeratorDefinition>)
