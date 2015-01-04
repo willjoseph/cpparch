@@ -91,7 +91,8 @@ inline void makeUniqueTemplateParameters(const TemplateParameters& templateParam
 			SubstitutedExpression substituted(
 				isTypeDependent ? gNullExpressionType : ExpressionType(substitute(type, context), false), // non-lvalue
 				EXPRESSIONRESULT_INVALID,
-				isTypeDependent, isTypeDependent, true);
+				Dependent(unsigned char(argument.declaration->scope->templateDepth - 1)),
+				true, isTypeDependent, true);
 			ExpressionWrapper expression = ExpressionWrapper(makeUniqueExpression(NonTypeTemplateParameter(argument.declaration, type)), substituted);
 			expression.isUnique = true;
 			result = pushType(gUniqueTypeNull, DependentNonType(expression));

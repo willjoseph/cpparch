@@ -899,6 +899,10 @@ inline bool isDependent(UniqueTypeWrapper type)
 {
 	return type.value->isDependent;
 }
+inline Dependent isDependent2(UniqueTypeWrapper type)
+{
+	return type.value->dependent;
+}
 
 inline bool isDependent(const UniqueTypeArray& types)
 {
@@ -911,8 +915,18 @@ inline bool isDependent(const UniqueTypeArray& types)
 	}
 	return false;
 }
+inline Dependent isDependent2(const UniqueTypeArray& types)
+{
+	Dependent result;
+	for(UniqueTypeArray::const_iterator i = types.begin(); i != types.end(); ++i)
+	{
+		result |= isDependent2(*i);
+	}
+	return result;
+}
 
 inline bool isDependent(const SimpleType& type);
+inline Dependent isDependent2(const SimpleType& type);
 
 inline bool isDependentQualifying(const SimpleType* qualifying)
 {
@@ -921,6 +935,14 @@ inline bool isDependentQualifying(const SimpleType* qualifying)
 		return false;
 	}
 	return isDependent(*qualifying);
+}
+inline Dependent isDependentQualifying2(const SimpleType* qualifying)
+{
+	if(qualifying == 0)
+	{
+		return Dependent();
+	}
+	return isDependent2(*qualifying);
 }
 
 inline bool isDependent(const SimpleType& type)
@@ -935,41 +957,79 @@ inline bool isDependent(const SimpleType& type)
 	}
 	return false;
 }
-
+inline Dependent isDependent2(const SimpleType& type)
+{
+	return isDependentQualifying2(type.enclosing)
+		| isDependent2(type.templateArguments);
+}
 inline bool isDependent(const MemberPointerType& element)
 {
 	return isDependent(element.type);
+}
+inline Dependent isDependent2(const MemberPointerType& element)
+{
+	return isDependent2(element.type);
 }
 
 inline bool isDependent(const FunctionType& element)
 {
 	return isDependent(element.parameterTypes);
 }
+inline Dependent isDependent2(const FunctionType& element)
+{
+	return isDependent2(element.parameterTypes);
+}
 
 inline bool isDependent(const DependentType&)
 {
 	return true;
 }
+inline Dependent isDependent2(const DependentType& element)
+{
+	return Dependent(unsigned char(element.type->scope->templateDepth - 1));
+}
 inline bool isDependent(const DependentTypename&)
 {
 	return true;
 }
-inline bool isDependent(const DependentNonType&)
+inline Dependent isDependent2(const DependentTypename& element)
 {
+	return isDependent2(element.qualifying)
+		| isDependent2(element.templateArguments);
+}
+inline bool isDependent(const DependentNonType& element)
+{
+	SYMBOLS_ASSERT(element.expression.isDependent);
 	return true;
+}
+inline Dependent isDependent2(const DependentNonType& element)
+{
+	return isDependentExpression2(element.expression);
 }
 inline bool isDependent(const DependentDecltype&)
 {
 	return true;
 }
+inline Dependent isDependent2(const DependentDecltype& element)
+{
+	return isDependentExpression2(element.expression);
+}
 inline bool isDependent(const DependentArrayType&)
 {
 	return true;
+}
+inline Dependent isDependent2(const DependentArrayType& element)
+{
+	return isDependentExpression2(element.expression);
 }
 
 inline bool isDependent(const ExpressionType& type)
 {
 	return isDependent(static_cast<const UniqueTypeWrapper&>(type));
+}
+inline Dependent isDependent2(const ExpressionType& type)
+{
+	return isDependent2(static_cast<const UniqueTypeWrapper&>(type));
 }
 
 
@@ -977,6 +1037,11 @@ template<typename T>
 inline bool isDependent(const T&)
 {
 	return false;
+}
+template<typename T>
+inline Dependent isDependent2(const T&)
+{
+	return Dependent();
 }
 
 

@@ -40,13 +40,13 @@ struct SemaExplicitTypeExpression : public SemaBase, SemaExplicitTypeExpressionR
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		isDependent |= walker.expression.isDependent;
+		isDependent |= isDependentExpression(walker.expression);
 	}
 	SEMA_POLICY(cpp::cast_expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::cast_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		isDependent |= walker.expression.isDependent;
+		isDependent |= isDependentExpression(walker.expression);
 	}
 };
 
@@ -70,7 +70,7 @@ struct SemaNewExpression : public SemaBase, SemaExplicitTypeExpressionResult
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		isDependent |= walker.expression.isDependent;
+		isDependent |= isDependentExpression(walker.expression);
 	}
 };
 
@@ -129,7 +129,7 @@ struct SemaExpressionList : public SemaBase, SemaArgumentListResult
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(walker.expression);
-		isDependent |= walker.expression.isDependent;
+		isDependent |= isDependentExpression(walker.expression);
 		// [expr.comma] The type and value of the result are the type and value of the right operand
 		setExpressionType(symbol, walker.expression.type);
 	}

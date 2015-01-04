@@ -183,11 +183,13 @@ inline bool isNullPointerConstantValue(ExpressionValue value)
 		&& value.value.value == 0;
 }
 
+
 struct SubstitutedExpression
 {
 	ExpressionType type; // valid if this expression is not type-dependent
 	ExpressionValue value;
-	bool isDependent; // true if any subexpression is type-dependent or value-dependent.
+	Dependent dependent; // true if any subexpression requires substitution.
+	bool isDependent; // true if any subexpression requires substitution
 	bool isTypeDependent;
 	bool isValueDependent;
 	bool isNonStaticMemberName; // true if this is an id-expression naming a non-static member
@@ -203,9 +205,10 @@ struct SubstitutedExpression
 		, isMemberOfCurrentInstantiation(false)
 	{
 	}
-	SubstitutedExpression(ExpressionType type, ExpressionValue value, bool isDependent, bool isTypeDependent, bool isValueDependent)
+	SubstitutedExpression(ExpressionType type, ExpressionValue value, Dependent dependent, bool isDependent, bool isTypeDependent, bool isValueDependent)
 		: type(type)
 		, value(value)
+		, dependent(dependent)
 		, isDependent(isDependent)
 		, isTypeDependent(isTypeDependent)
 		, isValueDependent(isValueDependent)
@@ -240,5 +243,16 @@ struct ExpressionWrapper : ExpressionPtr, SubstitutedExpression
 	{
 	}
 };
+
+inline bool isDependentExpression(const ExpressionWrapper& expression)
+{
+	return expression.isDependent;
+}
+
+inline Dependent isDependentExpression2(const ExpressionWrapper& expression)
+{
+	return expression.dependent;
+}
+
 
 #endif

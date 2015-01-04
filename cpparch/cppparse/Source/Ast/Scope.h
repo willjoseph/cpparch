@@ -183,10 +183,10 @@ struct Scope : public ScopeCounter
 	mutable bool visited;
 	bool isClassTemplate;
 
-	Scope(const AstAllocator<int>& allocator, const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN)
+	Scope(const AstAllocator<int>& allocator, const Identifier& name, ScopeType type = SCOPETYPE_UNKNOWN, std::size_t templateDepth = 0)
 		: parent(0), name(name), enclosedScopeCount(0), declarations(allocator), type(type),
 		bases(allocator), usingDirectives(allocator), declarationList(allocator),
-		templateDepth(0), visited(false), isClassTemplate(false)
+		templateDepth(templateDepth), visited(false), isClassTemplate(false)
 	{
 	}
 	~Scope()

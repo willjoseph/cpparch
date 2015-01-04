@@ -1,11 +1,106 @@
 
+template<typename T, int N>
+int f(T(&)[N])
+{
+}
+
+static_assert(sizeof(f("..")) == sizeof(int), "");
+
+
+
+
+
+namespace N562
+{
+	template<typename T>
+	struct C
+	{
+		static T m;
+	};
+	template<typename T>
+	struct A
+	{
+		static int m;
+
+		static C<T>& g();
+
+		template<typename U>
+		static decltype(g().m) f(); // decltype does not depend on U, should be substituted when A<int> is instantiated
+	};
+	static const int value = A<int>::f<int>();
+}
 
 namespace TEST
 {
-	template<typename T>
-	T f(T);
+	template<typename T, typename = T> // T substituted when A<int> is named
+	struct A
+	{
+		T t;// T substituted when A<int> is instantiated
 
-	int i = f(0);
+		template<typename U>
+		static int f(T, U) // T substituted when A<int> is instantiated, X substituted when A<int>::f<int> is used in overload resolution
+		{
+			T t; // T substituted when A<int>::f<int> is instantiated
+			U u; // X substituted when A<int>::f<int> is instantiated
+		}
+	};
+
+	int i = A<int>::f(0, 0);
+}
+
+namespace N560 // test dependentness of enumerator
+{
+	template<int i>
+	struct I
+	{
+	};
+
+	template<class T>
+	struct A
+	{
+		enum E { value };
+
+		static const int DependentEnumerator = I<value>::unknown;
+	};
+}
+
+namespace N559 // test parse of class member access expression referring to current instantiation within out of class member function template definition
+{
+	template<typename T>
+	struct A
+	{ // A<T>: T is inner
+		template<typename U>
+		U f(U);
+
+		void g();
+
+		int m;
+	};
+	template<typename T>
+	template<typename U>
+	U A<T>::f(U) // A<T>: T is not inner
+	{
+		this->m; // A<T> should have been instantiated by this point
+	}
+
+	template<typename T>
+	void A<T>::g() // A<T>: T is inner
+	{
+	}
+}
+
+
+namespace N561 // test parse of function template definition
+{
+	template<typename T>
+	struct A
+	{
+		static const int m = sizeof(T);
+		static const T n = sizeof(int);
+
+		template<typename U>
+		void f(int[n], int[m]);
+	};
 }
 
 

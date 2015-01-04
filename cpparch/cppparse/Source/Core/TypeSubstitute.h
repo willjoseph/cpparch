@@ -342,7 +342,7 @@ inline UniqueTypeWrapper substituteTemplateParameter(const Declaration& declarat
 
 inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const SimpleType* enclosingType)
 {
-	if(!expression.isDependent)
+	if(!isDependentExpression(expression))
 	{
 		return expression;
 	}
@@ -356,5 +356,24 @@ inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper
 	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
 	return getSubstitutedExpression(expression, enclosingType);
 }
+
+inline unsigned char findEnclosingTemplateDepth(const SimpleType* enclosingType)
+{
+	for(const SimpleType* i = enclosingType; i != 0; i = (*i).enclosing)
+	{
+		if((*i).declaration->templateParamScope != 0)
+		{
+			return unsigned char((*i).declaration->templateParamScope->templateDepth - 1);
+		}
+	}
+	return 255;
+}
+
+// returns true if we depend upon the enclosing template
+inline bool canSubstitute(const SimpleType* enclosingType, const Dependent& dependent)
+{
+	return !(findEnclosingTemplateDepth(enclosingType) < dependent.depth);
+}
+
 
 #endif

@@ -69,11 +69,13 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 			type.qualifying.swap(qualifying);
 			makeUniqueTypeSafe(type);
 			declaration->isTypeDependent = declaration->type.isDependent;
+			declaration->typeDependent = isDependent2(getUniqueType(declaration->type));
 		}
 		else if(qualifying_p != TypePtr(0))
 		{
 			declaration->type.isDependent = isDependentSafe(qualifying_p);
 			declaration->isTypeDependent = isDependentSafe(qualifying_p);
+			declaration->typeDependent = isDependent2(qualifyingType);
 		}
 
 		return true;

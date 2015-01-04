@@ -6,6 +6,38 @@
 #include "Parse/Grammar.h"
 #include <typeinfo>
 
+
+// ----------------------------------------------------------------------------
+struct Dependent
+{
+	unsigned char depth; // the depth of the outermost template parameter on which we depend
+	Dependent()
+		: depth(255)
+	{
+	}
+	Dependent(unsigned char depth)
+		: depth(depth)
+	{
+	}
+	bool any() const
+	{
+		return depth != 255;
+	}
+};
+
+inline Dependent operator|(Dependent left, Dependent right)
+{
+	return Dependent(std::min(left.depth, right.depth));
+}
+
+inline Dependent& operator|=(Dependent& left, Dependent right)
+{
+	left = left | right;
+	return left;
+}
+
+const Dependent DEPENDENT_OUTER = Dependent(0);
+
 // ----------------------------------------------------------------------------
 // unique types
 // Representation of a declarator, with type-elements linked in 'normal' order.
@@ -34,6 +66,7 @@ struct TypeElementVisitor
 struct TypeElement : TypeInfo
 {
 	UniqueType next;
+	Dependent dependent;
 	bool isDependent;
 
 	TypeElement(TypeInfo type) : TypeInfo(type)
@@ -102,7 +135,9 @@ inline UniqueType pushBuiltInType(UniqueType type, const T& value)
 {
 	TypeElementGeneric<T> node(value);
 	node.next = type;
+	node.dependent = type->dependent | isDependent2(value);
 	node.isDependent = type->isDependent || isDependent(value);
+	SYMBOLS_ASSERT(node.dependent.any() == node.isDependent);
 	return *gBuiltInTypes.insert(node);
 }
 
@@ -111,7 +146,9 @@ inline UniqueType pushUniqueType(UniqueTypes& types, UniqueType type, const T& v
 {
 	TypeElementGeneric<T> node(value);
 	node.next = type;
+	node.dependent = type->dependent | isDependent2(value);
 	node.isDependent = type->isDependent || isDependent(value);
+	SYMBOLS_ASSERT(node.dependent.any() == node.isDependent);
 	{
 		UniqueTypes::iterator i = gBuiltInTypes.find(node);
 		if(i != gBuiltInTypes.end())

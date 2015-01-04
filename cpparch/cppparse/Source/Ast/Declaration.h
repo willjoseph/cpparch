@@ -430,6 +430,7 @@ public:
 	DependentConstructs dependentConstructs; // the dependent types and expressions within the definition: substituted when this class/member definition is instantiated
 	UniqueTypeWrapper usingBase; // if this is a class-member using-declaration, the type of the qualifying base-class (may be dependent)
 	const DeclarationInstance* usingMember; // if this is a using-declaration, the declaration that is referred to
+	Dependent typeDependent;
 	bool isComplete; // for class declarations, set to true when the closing brace is parsed.
 	bool isType; // true if this is declaration names a type
 	bool isTypeDependent; // if this is a function or object, true if this declaration's type is dependent on a template parameter of its enclosing class
@@ -506,6 +507,7 @@ public:
 		std::swap(dependentConstructs, other.dependentConstructs);
 		std::swap(usingBase, other.usingBase);
 		std::swap(usingMember, other.usingMember);
+		std::swap(typeDependent, other.typeDependent);
 		std::swap(isComplete, other.isComplete);
 		std::swap(isType, other.isType);
 		std::swap(isTypeDependent, other.isTypeDependent);

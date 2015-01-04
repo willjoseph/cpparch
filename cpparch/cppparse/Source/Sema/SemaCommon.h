@@ -1257,19 +1257,10 @@ inline void substituteDeferredMemberDeclaration(Declaration& declaration, const 
 	}
 }
 
-inline void substituteDeferredMemberTemplateDeclaration(Declaration& declaration, const InstantiationContext& context)
-{
-	// dependent types/expressions may depend on a member template's parameters
-	SimpleType instance = SimpleType(&declaration, context.enclosingType);
-	makeUniqueTemplateParameters(declaration.templateParams, instance.templateArguments, context);
-
-	substituteDeferredMemberDeclaration(declaration, setEnclosingTypeSafe(context, &instance));
-}
-
 inline void substituteDeferredMemberType(Declaration& declaration, const InstantiationContext& context)
 {
-	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
-	SimpleType& instance = *const_cast<SimpleType*>(enclosingType);
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
 
 	// substitute dependent members
 	SYMBOLS_ASSERT(declaration.type.isDependent);
@@ -1464,9 +1455,7 @@ struct SemaBase : public SemaState
 			return;
 		}
 
-		DeferredSubstitution substitution = declaration.isTemplate
-			? makeDeferredSubstitution<Declaration, substituteDeferredMemberTemplateDeclaration>(declaration, getLocation())
-			: makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(declaration, getLocation());
+		DeferredSubstitution substitution = makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(declaration, getLocation());
 		addDeferredSubstitution(enclosingInstantiation->dependentConstructs, substitution);
 	}
 
@@ -1494,7 +1483,7 @@ struct SemaBase : public SemaState
 
 	void addDeferredExpression(ExpressionWrapper& expression, const char* message = 0)
 	{
-		if(!expression.isDependent
+		if(!isDependentExpression(expression)
 			|| enclosingDependentConstructs == 0)
 		{
 			return;
@@ -1693,7 +1682,10 @@ struct SemaBase : public SemaState
 			// record whether the declaration's type should be considered dependent
 			declaration->isTypeDependent = !declaration->isTemplate // if this is not a function template declaration/definition
 				|| (enclosingInstantiation != 0 && isClass(*enclosingInstantiation) && enclosingInstantiation->isTemplate); // or the function template is found within a class template
-				//|| declaration->type.dependent.declaration->scope->isClassTemplate; // or the function template declaration's type depends on the template parameter of a class template
+			if(declaration->isTypeDependent)
+			{
+				declaration->typeDependent = isDependent2(getUniqueType(declaration->type)); // TODO: may be unnecessary to track dependent depth
+			}
 		}
 
 		// the type of an object is required to be complete

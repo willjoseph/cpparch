@@ -19,7 +19,7 @@ struct SemaArgumentList : public SemaBase, SemaArgumentListResult
 	void action(cpp::assignment_expression* symbol, const SemaExpressionResult& walker)
 	{
 		arguments.push_back(makeArgument(walker.expression, walker.expression.type));
-		isDependent |= walker.expression.isDependent;
+		isDependent |= isDependentExpression(walker.expression);
 	}
 };
 

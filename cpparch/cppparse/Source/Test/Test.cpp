@@ -74,7 +74,7 @@ struct DependentTypeId : BuiltInType
 	}
 };
 
-Scope gTemplateParameterScope(AST_ALLOCATOR_NULL,  makeIdentifier("$template"), SCOPETYPE_TEMPLATE);
+Scope gTemplateParameterScope(AST_ALLOCATOR_NULL,  makeIdentifier("$template"), SCOPETYPE_TEMPLATE, 1);
 
 Identifier gTemplateParameterId = makeIdentifier("T");
 Declaration gTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateParameterId, TYPE_PARAM, 0, true);
@@ -130,7 +130,7 @@ struct BuiltInDependentNonType : BuiltInType
 {
 	BuiltInDependentNonType(DeclarationPtr declaration, UniqueTypeWrapper type)
 	{
-		SubstitutedExpression substituted(ExpressionType(gSignedInt, false), EXPRESSIONRESULT_INVALID, true, false, true);
+		SubstitutedExpression substituted(ExpressionType(gSignedInt, false), EXPRESSIONRESULT_INVALID, DEPENDENT_OUTER, true, false, true);
 		ExpressionWrapper expression = ExpressionWrapper(makeBuiltInExpression(NonTypeTemplateParameter(declaration, type)), substituted);
 		expression.isUnique = true;
 		expression.type = ExpressionType(type, false);
@@ -920,7 +920,7 @@ struct MakeDependentArray
 {
 	static BuiltInType apply(BuiltInType inner)
 	{
-		SubstitutedExpression substituted(ExpressionType(gSignedInt, false), EXPRESSIONRESULT_INVALID, true, false, true);
+		SubstitutedExpression substituted(ExpressionType(gSignedInt, false), EXPRESSIONRESULT_INVALID, DEPENDENT_OUTER, true, false, true);
 		ExpressionWrapper expression = ExpressionWrapper(makeBuiltInExpression(NonTypeTemplateParameter(&gNonTypeTemplateParameterDeclaration, gSignedInt)), substituted);
 		expression.type = ExpressionType(gSignedInt, false); // non-lvalue
 		return BuiltInType(pushBuiltInType(inner, DependentArrayType(expression)));

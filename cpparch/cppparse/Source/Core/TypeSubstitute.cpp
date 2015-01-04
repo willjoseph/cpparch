@@ -209,7 +209,8 @@ struct SubstituteVisitor : TypeElementVisitor
 			? getSubstitutedExpression(element.expression, context)
 			: element.expression;
 		if(substituted.isDependent
-			&& isDependent(*context.enclosingType))
+			&& (!canSubstitute(context.enclosingType, isDependentExpression2(substituted))
+				|| isDependent(*context.enclosingType))) // occurs in substituteFunctionId with deduced template arguments
 		{
 			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
@@ -232,7 +233,8 @@ struct SubstituteVisitor : TypeElementVisitor
 			? getSubstitutedExpression(element.expression, context)
 			: element.expression;
 		if(substituted.isDependent
-			&& isDependent(*context.enclosingType))
+			&& (!canSubstitute(context.enclosingType, isDependentExpression2(substituted))
+				|| isDependent(*context.enclosingType))) // occurs in substituteFunctionId with deduced template arguments
 		{
 			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
@@ -315,6 +317,11 @@ struct SubstituteVisitor : TypeElementVisitor
 
 UniqueTypeWrapper substituteImpl(UniqueTypeWrapper dependent, const InstantiationContext& context)
 {
+	if(!canSubstitute(context.enclosingType, isDependent2(dependent)))
+	{
+		// occurs when substituting a member template declaration: template<typename T> struct A { template<typename U> void f(U); };
+		return dependent;
+	}
 	UniqueTypeWrapper inner = dependent;
 	inner.pop_front();
 	UniqueTypeWrapper type = inner.empty() ? gUniqueTypeNull : substitute(inner, context);
