@@ -139,7 +139,6 @@ struct SemaDeclarationSuffix : public SemaBase
 			enclosingType = &getSimpleType(walker.qualifying.value);
 
 			enclosingInstantiation = enclosingType->declaration; // any dependent types/expressions in the member definition should be appended
-			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		}
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 
@@ -188,7 +187,6 @@ struct SemaDeclarationSuffix : public SemaBase
 			|| isFunctionParameter(*declaration)) // or this is the initializer in a function parameter declaration (e.g. a default-argument)
 		{
 			enclosingInstantiation = declaration; // for dependent constructs in the initializer
-			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		}
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTPAREN> symbol) // begins initializer_parenthesis
@@ -214,7 +212,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		}
 
 		enclosingInstantiation = declaration; // any dependent expressions in the function definition should be appended
-		enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
+		enclosingDependentConstructs = 0;
 
 		// NOTE: we must ensure that symbol-table modifications within the scope of this function are undone on parse fail
 		pushScope(newScope(enclosingScope->getUniqueName(), SCOPETYPE_LOCAL));
@@ -265,7 +263,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		if(!args.isParameter) // parameters cannot be constants
 		{
 			declaration->initializer = walker.expression;
-			addDeferredExpression(declaration->initializer);
+			addDeferredPersistentExpression(declaration->initializer);
 		}
 	}
 	// handle initializer in separate context to avoid ',' confusing recognition of declaration
@@ -298,7 +296,7 @@ struct SemaDeclarationSuffix : public SemaBase
 		SEMANTIC_ASSERT(declaration != 0);
 		SEMANTIC_ASSERT(walker.expression.isValueDependent || walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
 		declaration->initializer = walker.expression;
-		addDeferredExpression(declaration->initializer);
+		addDeferredPersistentExpression(declaration->initializer);
 		if(isFunction(*declaration))
 		{
 			SEMANTIC_ASSERT(isLiteralZeroExpression(walker.expression)); // TODO: non-fatal error: expected '0'

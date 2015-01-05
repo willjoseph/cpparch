@@ -104,13 +104,25 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 		result.returnType = substitute(result.returnType, functionContext); // substitute the return type. TODO: should wait until overload is chosen?
 
 		result.instance = &getSimpleType(makeUniqueSimpleType(specialization).value);
+	}
+	catch(TypeError&)
+	{
+		// deduction and checking failed
+		return FunctionSignature();
+	}
 
-#if 0 // TODO
+	SimpleType& instance = const_cast<SimpleType&>(*result.instance);
+
+	if(instance.failed) // if we already tried to substitute and failed
+	{
+		return FunctionSignature();
+	}
+
+	try
+	{
 		if(!result.instance->substituted)
 		{
-			SimpleType& instance = const_cast<SimpleType&>(*result.instance);
 			instance.substituted = true;
-
 			std::size_t dependentTypeCount = instance.declaration->declarationDependent.typeCount;
 			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
 
@@ -128,16 +140,15 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
 			SYMBOLS_ASSERT(instance.substitutedExpressions.size() == dependentExpressionCount);
 		}
-#endif
-
-		return result;
 	}
 	catch(TypeError&)
 	{
-		// deduction and checking failed
+		// substitution failed
+		instance.failed = true; /// don't try again
+		return FunctionSignature();
 	}
 
-	return FunctionSignature();
+	return result;
 }
 
 ParameterTypes addOverload(OverloadResolver& resolver, const Overload& overload)

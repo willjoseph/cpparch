@@ -3003,8 +3003,37 @@ struct DeferredExpression : ExpressionWrapper
 
 inline void substituteDeferredExpression(DeferredExpression& expression, const InstantiationContext& context)
 {
-	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
-	SimpleType& instance = *const_cast<SimpleType*>(enclosingType);
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+
+	SYMBOLS_ASSERT(isDependentExpression(expression));
+	ExpressionWrapper substituted = substituteExpression(expression, context);
+
+	if(expression.message != NAME_NULL)
+	{
+#if 1 // TODO: check that the expression is convertible to bool
+		ExpressionType type = typeOfExpressionWrapper(substituted, context);
+		SYMBOLS_ASSERT(!isDependent(type));
+#endif
+		evaluateStaticAssert(substituted, expression.message.c_str(), context);
+	}
+}
+
+inline void substituteDeferredExpression2(DeferredExpression& expression, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+
+	SYMBOLS_ASSERT(isDependentExpression(expression));
+	ExpressionWrapper substituted = substituteExpression(expression, context);
+
+	SYMBOLS_ASSERT(expression.message == NAME_NULL); // static_assert cannot appear in template head
+}
+
+inline void substituteDeferredPersistentExpression(PersistentExpression& expression, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
 
 	SYMBOLS_ASSERT(isDependentExpression(expression));
 	SYMBOLS_ASSERT(expression.dependentIndex != INDEX_INVALID);
@@ -3013,17 +3042,11 @@ inline void substituteDeferredExpression(DeferredExpression& expression, const I
 	ExpressionWrapper substituted = substituteExpression(expression, context);
 	SYMBOLS_ASSERT(instance.substitutedExpressions.size() != instance.substitutedExpressions.capacity());
 	instance.substitutedExpressions.push_back(substituted);
-
-	if(expression.message != NAME_NULL)
-	{
-#if 1 // TODO: check that the expression is convertible to bool
-		ExpressionType type = typeOfExpressionWrapper(expression, context);
-		SYMBOLS_ASSERT(!isDependent(type));
-#endif
-		evaluateStaticAssert(expression, expression.message.c_str(), context);
-	}
 }
 
-
+inline void substituteDeferredPersistentExpression2(PersistentExpression& expression, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(false); // TODO: persistent expression cannot appear in template head?
+}
 
 #endif

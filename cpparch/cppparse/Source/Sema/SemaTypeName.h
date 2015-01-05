@@ -76,10 +76,13 @@ struct SemaTypeName : public SemaBase
 		if(allowNestedNameLookup())
 		{
 			declaration = findDeclaration(symbol->value, makeLookupFilter(filter));
-			if(declaration == &gUndeclared
-				&& !isTypename)
+			if(declaration == &gUndeclared)
 			{
-				return reportIdentifierMismatch(symbol, symbol->value, declaration, "type-name");
+				if(!isTypename)
+				{
+					return reportIdentifierMismatch(symbol, symbol->value, declaration, "type-name");
+				}
+				declaration = gDependentTypeInstance;
 			}
 		}
 		else if(!isTypename)

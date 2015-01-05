@@ -340,7 +340,7 @@ inline UniqueTypeWrapper substituteTemplateParameter(const Declaration& declarat
 	return templateArguments[index];
 }
 
-inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const SimpleType* enclosingType)
+inline const ExpressionWrapper& getSubstitutedExpression(const PersistentExpression& expression, const SimpleType* enclosingType)
 {
 	if(!isDependentExpression(expression))
 	{
@@ -351,10 +351,16 @@ inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper
 	return enclosingType->substitutedExpressions[expression.dependentIndex];
 }
 
-inline const ExpressionWrapper& getSubstitutedExpression(const ExpressionWrapper& expression, const InstantiationContext& context)
+inline const ExpressionWrapper& getSubstitutedExpression(const PersistentExpression& expression, const InstantiationContext& context)
 {
 	const SimpleType* enclosingType = !isDependent(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing;
 	return getSubstitutedExpression(expression, enclosingType);
+}
+
+inline unsigned char getTemplateDepth(const SimpleType& instance)
+{
+	SYMBOLS_ASSERT(instance.declaration->templateParamScope != 0);
+	return unsigned char(instance.declaration->templateParamScope->templateDepth - 1);
 }
 
 inline unsigned char findEnclosingTemplateDepth(const SimpleType* enclosingType)
@@ -363,17 +369,47 @@ inline unsigned char findEnclosingTemplateDepth(const SimpleType* enclosingType)
 	{
 		if((*i).declaration->templateParamScope != 0)
 		{
-			return unsigned char((*i).declaration->templateParamScope->templateDepth - 1);
+			return getTemplateDepth(*i);
 		}
 	}
 	return 255;
 }
 
+
 // returns true if we depend upon the enclosing template
-inline bool canSubstitute(const SimpleType* enclosingType, const Dependent& dependent)
+inline bool canSubstitute(unsigned char depth, Dependent dependent)
 {
-	return !(findEnclosingTemplateDepth(enclosingType) < dependent.depth);
+	SYMBOLS_ASSERT(depth != 255);
+	SYMBOLS_ASSERT(dependent.any());
+	return depth >= dependent.minDepth;
 }
 
+// returns true if we depend only upon the enclosing template
+inline bool canEvaluate(unsigned char depth, Dependent dependent)
+{
+	SYMBOLS_ASSERT(depth != 255);
+	SYMBOLS_ASSERT(dependent.any());
+	return depth >= dependent.maxDepth;
+}
+
+// returns true if we depend upon the enclosing template
+inline bool canSubstitute2(unsigned char depth, Dependent dependent)
+{
+	SYMBOLS_ASSERT(depth != 255);
+	SYMBOLS_ASSERT(dependent.any());
+	return depth == dependent.maxDepth;
+}
+
+// returns true if we depend upon the enclosing template
+inline bool canSubstitute(const SimpleType* enclosingType, Dependent dependent)
+{
+	return canSubstitute(findEnclosingTemplateDepth(enclosingType), dependent);
+}
+
+// returns true if we depend only upon the enclosing template
+inline bool canEvaluate(const SimpleType* enclosingType, Dependent dependent)
+{
+	return canEvaluate(findEnclosingTemplateDepth(enclosingType), dependent);
+}
 
 #endif

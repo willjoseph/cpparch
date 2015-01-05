@@ -159,12 +159,7 @@ struct SemaTemplateDeclaration : public SemaBase, SemaDeclarationResult
 	{
 		++templateDepth;
 		templateParams = &TEMPLATEPARAMETERS_NULL; // explicit specialization has empty template params: template<> struct S;
-#if 0 // TODO
-		if(enclosingDependentConstructs == 0) // if this is not a member of a template
-		{
-			enclosingDependentConstructs = &declarationDependent;
-		}
-#endif
+		enclosingDependentConstructs = &declarationDependent;
 	}
 	SEMA_POLICY(cpp::template_parameter_clause, SemaPolicyPush<struct SemaTemplateParameterClause>)
 	void action(cpp::template_parameter_clause* symbol, const SemaTemplateParameterClause& walker)
@@ -179,28 +174,25 @@ struct SemaTemplateDeclaration : public SemaBase, SemaDeclarationResult
 	{
 		declaration = walker.declaration;
 		SEMANTIC_ASSERT(declaration != 0);
-#if 0 // TODO
-		if(enclosingDependentConstructs == &declarationDependent)
+		// TODO: combine dependent default arguments from all redeclarations!
+		if(declaration->count == 1) // if this is the initial declaration
 		{
 			swapDeclarationDependent(*declaration, declarationDependent);
 			declaration->declarationDependent.typeCount = declarationDependent.typeCount;
 			declaration->declarationDependent.expressionCount = declarationDependent.expressionCount;
 		}
-#endif
 	}
 	SEMA_POLICY(cpp::member_declaration, SemaPolicyPush<struct SemaMemberDeclaration>)
 	void action(cpp::member_declaration* symbol, const SemaMemberDeclarationResult& walker)
 	{
 		declaration = walker.declaration;
 		SEMANTIC_ASSERT(declaration != 0);
-#if 0 // TODO
-		if(enclosingDependentConstructs == &declarationDependent)
+		if(declaration->count == 1) // if this is the initial declaration
 		{
 			swapDeclarationDependent(*declaration, declarationDependent);
 			declaration->declarationDependent.typeCount = declarationDependent.typeCount;
 			declaration->declarationDependent.expressionCount = declarationDependent.expressionCount;
 		}
-#endif
 	}
 };
 

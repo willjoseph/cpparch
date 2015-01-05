@@ -23,6 +23,7 @@ struct SemaTemplateArgumentList : public SemaBase
 	{
 		committed();
 		arguments.push_front(argument); // allocates last element first!
+		addDeferredExpression(arguments.front().expression);
 	}
 	SEMA_POLICY(cpp::type_id, SemaPolicyPushCommit<struct SemaTypeId>)
 	void action(cpp::type_id* symbol, const SemaTypeIdResult& walker)
@@ -43,7 +44,6 @@ struct SemaTemplateArgumentList : public SemaBase
 		argument.expression = walker.expression;
 		argument.source = getLocation();
 		SEMANTIC_ASSERT(argument.expression.isValueDependent || argument.expression.value.isConstant);
-		addDeferredExpression(argument.expression);
 		return true;
 	}
 	SEMA_POLICY(cpp::template_argument_list, SemaPolicyPushCommit<struct SemaTemplateArgumentList>)

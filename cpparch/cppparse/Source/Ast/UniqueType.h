@@ -10,24 +10,29 @@
 // ----------------------------------------------------------------------------
 struct Dependent
 {
-	unsigned char depth; // the depth of the outermost template parameter on which we depend
+	unsigned char minDepth; // the depth of the outermost template parameter on which we depend
+	unsigned char maxDepth; // the depth of the innermost template parameter on which we depend
 	Dependent()
-		: depth(255)
+		: minDepth(255), maxDepth(0)
 	{
 	}
 	Dependent(unsigned char depth)
-		: depth(depth)
+		: minDepth(depth), maxDepth(depth)
+	{
+	}
+	Dependent(unsigned char minDepth, unsigned char maxDepth)
+		: minDepth(minDepth), maxDepth(maxDepth)
 	{
 	}
 	bool any() const
 	{
-		return depth != 255;
+		return minDepth != 255;
 	}
 };
 
 inline Dependent operator|(Dependent left, Dependent right)
 {
-	return Dependent(std::min(left.depth, right.depth));
+	return Dependent(std::min(left.minDepth, right.minDepth), std::max(left.maxDepth, right.maxDepth));
 }
 
 inline Dependent& operator|=(Dependent& left, Dependent right)

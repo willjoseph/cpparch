@@ -4,10 +4,6 @@
 
 #include "Ast/Type.h"
 
-// special-case
-extern Declaration gUndeclared;
-extern const DeclarationInstance gUndeclaredInstance;
-
 
 extern Identifier gGlobalId;
 extern Identifier gAnonymousId;

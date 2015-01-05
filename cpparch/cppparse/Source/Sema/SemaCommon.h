@@ -1025,6 +1025,7 @@ struct SemaState
 		instance.visibility = context.declarationCount++;
 		const DeclarationInstance& result = parent->declarations.insert(instance);
 		parent->declarationList.push_back(instance);
+		++result->count;
 		return result;
 	}
 
@@ -1245,17 +1246,6 @@ inline void substituteDeferredBase(Type& type, const InstantiationContext& conte
 	instance.substitutedTypes.push_back(substituted);
 }
 
-inline void substituteDeferredMemberDeclaration(Declaration& declaration, const InstantiationContext& context)
-{
-	// substitute the dependent types/expressions in the declaration
-	const DeferredSubstitutions& substitutions = declaration.declarationDependent.substitutions;
-	for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
-	{
-		const DeferredSubstitution& substitution = *i;
-		InstantiationContext childContext(context.allocator, substitution.location, context.enclosingType, 0, context.enclosingScope);
-		substitution(childContext);
-	}
-}
 
 inline void substituteDeferredMemberType(Declaration& declaration, const InstantiationContext& context)
 {
@@ -1280,6 +1270,33 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 		{
 			requireCompleteObjectType(substituted, context);
 		}
+	}
+}
+
+inline void substituteDeferredMemberType2(Declaration& declaration, const InstantiationContext& context)
+{
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
+	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+
+	// substitute dependent members
+	SYMBOLS_ASSERT(declaration.type.isDependent);
+	SYMBOLS_ASSERT(declaration.type.dependentIndex2 != INDEX_INVALID);
+	if(isUsing(declaration))
+	{
+		// TODO: substitute type of dependent using-declaration when class is instantiated
+	}
+	else
+	{
+		UniqueTypeWrapper type = declaration.type.dependentIndex != INDEX_INVALID // if the type depends on a template parameter from the enclosing class
+			? getSubstitutedType(declaration.type, setEnclosingTypeSafe(context, context.enclosingType->enclosing)) // it should already have been substituted
+			: getUniqueType(declaration.type);
+
+		SYMBOLS_ASSERT(declaration.type.dependentIndex2 == instance.substitutedTypes.size());
+		UniqueTypeWrapper substituted = substitute(type, context);
+		SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
+		instance.substitutedTypes.push_back(substituted);
+
+		SYMBOLS_ASSERT(!isCompleteTypeRequired(declaration)); // type of function template not required to be complete?
 	}
 }
 
@@ -1425,6 +1442,24 @@ struct SemaBase : public SemaState
 	}
 
 
+	inline bool allowDefer(Dependent dependent) const
+	{
+		SEMANTIC_ASSERT(enclosingInstantiation != 0);
+		std::size_t depth = enclosingInstantiation->templateParamScope != 0
+			? enclosingInstantiation->templateParamScope->templateDepth // template
+			: enclosingInstantiation->scope->templateDepth; // member of template
+		return dependent.any()
+			&& depth != 0
+			&& canSubstitute(unsigned char(depth - 1), dependent);
+	}
+	inline bool allowDefer2(Dependent dependent) const
+	{
+		std::size_t depth = templateDepth;
+		SEMANTIC_ASSERT(depth != 0);
+		return dependent.any()
+			&& canSubstitute2(unsigned char(depth - 1), dependent);
+	}
+
 
 	void addDeferredSubstitution(DependentConstructs& dependent, const DeferredSubstitution& substitution)
 	{
@@ -1434,66 +1469,104 @@ struct SemaBase : public SemaState
 
 	void addDeferredBase(Type& type)
 	{
-		if(!type.isDependent
-			|| enclosingDependentConstructs == 0)
+		if(!allowDefer(isDependent2(getUniqueType(type)))
+			|| enclosingInstantiation == 0)
 		{
 			return;
 		}
 		SYMBOLS_ASSERT(type.dependentIndex == INDEX_INVALID);
 		// substitute type of base when class is instantiated
-		type.dependentIndex = enclosingDependentConstructs->typeCount++;
-		addDeferredSubstitution(*enclosingDependentConstructs,
+		type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
+		addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
 			makeDeferredSubstitution<Type, substituteDeferredBase>(
 				type, getLocation()));
 	}
 
-	void addDeferredMemberDeclaration(Declaration& declaration)
-	{
-		if(declaration.declarationDependent.substitutions.empty()
-			|| enclosingInstantiation == 0)
-		{
-			return;
-		}
-
-		DeferredSubstitution substitution = makeDeferredSubstitution<Declaration, substituteDeferredMemberDeclaration>(declaration, getLocation());
-		addDeferredSubstitution(enclosingInstantiation->dependentConstructs, substitution);
-	}
-
 	void addDeferredDeclarationType(Declaration& declaration)
 	{
-		if(!declaration.type.isDependent
-			|| enclosingDependentConstructs == 0)
+		Dependent dependent = isDependent2(getUniqueType(declaration.type));
+		if(enclosingInstantiation != 0
+			&& allowDefer(dependent))
 		{
-			return;
-		}
-		if(isUsing(declaration))
-		{
-			// TODO: substitute type of dependent using-declaration when class is instantiated
-		}
-		else if(declaration.type.dependentIndex == INDEX_INVALID) // if this is not a redeclaration/definition
-		{
-			// substitute type of dependent declaration when class is instantiated
-			declaration.type.dependentIndex = enclosingDependentConstructs->typeCount++;
-			addDeferredSubstitution(*enclosingDependentConstructs,
-				makeDeferredSubstitution<Declaration, substituteDeferredMemberType>(
+			if(isUsing(declaration))
+			{
+				// TODO: substitute type of dependent using-declaration when class is instantiated
+			}
+			else
+			{
+				SEMANTIC_ASSERT(declaration.type.dependentIndex == INDEX_INVALID);
+				// substitute type of dependent declaration when class is instantiated
+				declaration.type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
+				addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
+					makeDeferredSubstitution<Declaration, substituteDeferredMemberType>(
 					declaration, getLocation()));
-			addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(enclosingDependentConstructs));
+				addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(&enclosingInstantiation->dependentConstructs));
+			}
+		}
+		if(enclosingDependentConstructs != 0
+			&& allowDefer2(dependent))
+		{
+			if(isUsing(declaration))
+			{
+				// TODO: substitute type of dependent using-declaration when class is instantiated
+			}
+			else
+			{
+				SEMANTIC_ASSERT(declaration.type.dependentIndex2 == INDEX_INVALID);
+				// substitute type of dependent declaration when class is instantiated
+				declaration.type.dependentIndex2 = enclosingDependentConstructs->typeCount++;
+				addDeferredSubstitution(*enclosingDependentConstructs,
+					makeDeferredSubstitution<Declaration, substituteDeferredMemberType2>(
+					declaration, getLocation()));
+				addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(enclosingDependentConstructs));
+			}
 		}
 	}
 
-	void addDeferredExpression(ExpressionWrapper& expression, const char* message = 0)
+	void addDeferredExpression(const ExpressionWrapper& expression, const char* message = 0)
 	{
-		if(!isDependentExpression(expression)
-			|| enclosingDependentConstructs == 0)
+		Dependent dependent = isDependentExpression2(expression);
+		if(enclosingInstantiation != 0
+			&& allowDefer(dependent))
 		{
-			return;
+			addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
+				makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
+					*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
+					getLocation()));
 		}
-		expression.dependentIndex = enclosingDependentConstructs->expressionCount++;
-		addDeferredSubstitution(*enclosingDependentConstructs,
-			makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
-				*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
-				getLocation()));
-		addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(enclosingDependentConstructs));
+		if(enclosingDependentConstructs != 0
+			&& allowDefer2(dependent))
+		{
+			addDeferredSubstitution(*enclosingDependentConstructs,
+				makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression2>(
+					*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
+					getLocation()));
+		}
+	}
+
+	void addDeferredPersistentExpression(PersistentExpression& expression)
+	{
+		Dependent dependent = isDependentExpression2(expression);
+		if(enclosingInstantiation != 0
+			&& allowDefer(dependent))
+		{
+			SEMANTIC_ASSERT(expression.dependentIndex == INDEX_INVALID);
+			expression.dependentIndex = enclosingInstantiation->dependentConstructs.expressionCount++;
+			addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
+				makeDeferredSubstitution<PersistentExpression, substituteDeferredPersistentExpression>(
+				expression, getLocation()));
+			addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(&enclosingInstantiation->dependentConstructs));
+		}
+		if(enclosingDependentConstructs != 0
+			&& allowDefer2(dependent))
+		{
+			SEMANTIC_ASSERT(expression.dependentIndex == INDEX_INVALID);
+			expression.dependentIndex2 = enclosingDependentConstructs->expressionCount++;
+			addDeferredSubstitution(*enclosingDependentConstructs,
+				makeDeferredSubstitution<PersistentExpression, substituteDeferredPersistentExpression2>(
+				expression, getLocation()));
+			addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(enclosingDependentConstructs));
+		}
 	}
 
 	template<typename T>
@@ -1589,33 +1662,20 @@ struct SemaBase : public SemaState
 		if(!isAnonymousUnion(*declaration))
 		{
 			enclosingInstantiation = declaration; // any dependent constructs in the class definition will be added
-			enclosingDependentConstructs = &enclosingInstantiation->dependentConstructs;
 		}
+		enclosingDependentConstructs = 0;
 	}
 
-	void endMemberDeclaration(Declaration* declaration, DependentConstructs& declarationDependent)
+	void endMemberDeclaration(Declaration* declaration)
 	{
-		if((declaration == 0 // static-assert declaration
-			|| isEnum(*declaration) // nested enum
-			|| isAnonymousUnion(*declaration)) // or anonymous union
-				&& !declarationDependent.substitutions.empty())
-		{
-			enclosingInstantiation->dependentConstructs.substitutions.splice(enclosingInstantiation->dependentConstructs.substitutions.end(), declarationDependent.substitutions);
-			return;
-		}
-
 		if(declaration == 0 // static-assert declaration
 			|| declaration == &gCtor
 			|| isClassKey(*declaration) // elaborated-type-specifier
 			|| isClass(*declaration)
 			|| isEnum(*declaration)) // nested class or enum
 		{
-			SEMANTIC_ASSERT(declaration == 0 || declarationDependent.substitutions.empty());
 			return;
 		}
-
-		swapDeclarationDependent(*declaration, declarationDependent);
-		addDeferredMemberDeclaration(*declaration);
 
 		if(isUsing(*declaration)) // using-declaration
 		{
@@ -1699,7 +1759,8 @@ struct SemaBase : public SemaState
 			requireCompleteObjectType(uniqueType, context);
 		}
 
-		if(type.isDependent)
+		if(type.isDependent
+			&& declaration->count == 1) // and is the initial declaration
 		{
 			addDeferredDeclarationType(*declaration);
 		}

@@ -205,11 +205,8 @@ struct SubstituteVisitor : TypeElementVisitor
 	virtual void visit(const DependentNonType& element)
 	{
 		// TODO: unify DependentNonType and NonType?
-		const ExpressionWrapper& substituted = element.expression.dependentIndex != INDEX_INVALID
-			? getSubstitutedExpression(element.expression, context)
-			: element.expression;
-		if(substituted.isDependent
-			&& (!canSubstitute(context.enclosingType, isDependentExpression2(substituted))
+		if(element.expression.isDependent
+			&& (!canEvaluate(context.enclosingType, isDependentExpression2(element.expression))
 				|| isDependent(*context.enclosingType))) // occurs in substituteFunctionId with deduced template arguments
 		{
 			// occurs when substituting with a dependent template argument list
@@ -218,7 +215,7 @@ struct SubstituteVisitor : TypeElementVisitor
 		}
 
 		// TODO: SFINAE for expressions: check that type of template argument matches template parameter
-		ExpressionValue result = evaluateExpression(substituted, context);
+		ExpressionValue result = evaluateExpression(element.expression, context);
 		SYMBOLS_ASSERT(result.isConstant); // TODO: non-fatal error: expected integral constant expression
 		type.push_front(NonType(result.value));
 	}
@@ -229,11 +226,8 @@ struct SubstituteVisitor : TypeElementVisitor
 	virtual void visit(const DependentArrayType& element)
 	{
 		// TODO: unify DependentNonType and DependentArrayType?
-		const ExpressionWrapper& substituted = element.expression.dependentIndex != INDEX_INVALID
-			? getSubstitutedExpression(element.expression, context)
-			: element.expression;
-		if(substituted.isDependent
-			&& (!canSubstitute(context.enclosingType, isDependentExpression2(substituted))
+		if(element.expression.isDependent
+			&& (!canEvaluate(context.enclosingType, isDependentExpression2(element.expression))
 				|| isDependent(*context.enclosingType))) // occurs in substituteFunctionId with deduced template arguments
 		{
 			// occurs when substituting with a dependent template argument list
@@ -241,7 +235,7 @@ struct SubstituteVisitor : TypeElementVisitor
 			return;
 		}
 
-		ExpressionValue value = evaluateExpression(substituted, context);
+		ExpressionValue value = evaluateExpression(element.expression, context);
 		SYMBOLS_ASSERT(value.isConstant); // TODO: non-fatal error: expected integral constant expression
 		type.push_front(ArrayType(value.value.value));
 	}

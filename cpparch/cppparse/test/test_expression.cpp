@@ -1,13 +1,91 @@
 
-template<typename T, int N>
-int f(T(&)[N])
+namespace N565
 {
+	template<typename T>
+	struct A
+	{
+		typedef bool F(T t);
+		F f;
+	};
+	template<typename T>
+	inline bool A<T>::f(T t)
+	{
+		T id = t;
+	}
 }
 
-static_assert(sizeof(f("..")) == sizeof(int), "");
+namespace N564
+{
+	template<typename C>
+	struct B
+	{
+	};
 
+	template<typename T>
+	void f(T*);
 
+	template<typename C>
+	struct A : C
+	{
+		~A()
+		{
+			enum
+			{
+				value = sizeof(f((void(*)(B<typename A::iterator>))0))
+			};
+		}
+	};
+}
 
+namespace N563 // test SFINAE during substitution of type of function id
+{
+	namespace detail
+	{
+		typedef char yes;
+		typedef char(&no)[2];
+		template<class Model, void(Model::*)()>
+		struct wrap_constraints
+		{
+		};
+		template<class Model>
+		inline yes has_constraints_(Model*, wrap_constraints<Model, &Model::constraints>* =0);
+		inline no has_constraints_(...);
+	}
+	template<class Model>
+	struct not_satisfied
+	{
+		static const bool value=sizeof(detail::has_constraints_((Model*)0))==sizeof(detail::yes);
+	};
+
+	struct M
+	{
+		void constraints();
+	};
+
+	static_assert(not_satisfied<M>::value, "");
+	static_assert(!not_satisfied<int>::value, "");
+}
+
+namespace TEST
+{
+	template<typename T, typename>
+	struct A
+	{
+		T t;// T substituted when A<int> is instantiated
+
+		template<typename U>
+		static int f(T, U) // T substituted when A<int> is instantiated, X substituted when A<int>::f<int> is used in overload resolution
+		{
+			T t; // T substituted when A<int>::f<int> is instantiated
+			U u; // X substituted when A<int>::f<int> is instantiated
+		}
+	};
+
+	template<typename T, typename = T> // T substituted when A<int> is named
+	struct A;
+
+	int i = A<int>::f(0, 0);
+}
 
 
 namespace N562
@@ -28,24 +106,6 @@ namespace N562
 		static decltype(g().m) f(); // decltype does not depend on U, should be substituted when A<int> is instantiated
 	};
 	static const int value = A<int>::f<int>();
-}
-
-namespace TEST
-{
-	template<typename T, typename = T> // T substituted when A<int> is named
-	struct A
-	{
-		T t;// T substituted when A<int> is instantiated
-
-		template<typename U>
-		static int f(T, U) // T substituted when A<int> is instantiated, X substituted when A<int>::f<int> is used in overload resolution
-		{
-			T t; // T substituted when A<int>::f<int> is instantiated
-			U u; // X substituted when A<int>::f<int> is instantiated
-		}
-	};
-
-	int i = A<int>::f(0, 0);
 }
 
 namespace N560 // test dependentness of enumerator

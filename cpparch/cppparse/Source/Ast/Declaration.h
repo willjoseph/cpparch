@@ -146,12 +146,23 @@ struct Type
 	ExpressionWrapper expression; // for decltype(expression)
 	ScopePtr enclosingTemplate;
 	UniqueType unique;
-	std::size_t dependentIndex; // the index into the array of dependent types within the enclosing instantiated template
+	std::size_t dependentIndex; // the index into the array of dependent types within the enclosing instantiated class template
+	std::size_t dependentIndex2; // the index into the array of dependent types within the enclosing template declaration
 	bool isDependent; // true if the type is dependent in the context in which it was parsed
 	bool isImplicitTemplateId; // true if this is a template but the template-argument-clause has not been specified
 	bool isInjectedClassName; // true if this is the type of an enclosing class
 	Type(Declaration* declaration, const AstAllocator<int>& allocator)
-		: id(0), declaration(declaration), templateArguments(allocator), qualifying(allocator), enclosingTemplate(0), unique(0), dependentIndex(INDEX_INVALID), isDependent(false), isImplicitTemplateId(false), isInjectedClassName(false)
+		: id(0)
+		, declaration(declaration)
+		, templateArguments(allocator)
+		, qualifying(allocator)
+		, enclosingTemplate(0)
+		, unique(0)
+		, dependentIndex(INDEX_INVALID)
+		, dependentIndex2(INDEX_INVALID)
+		, isDependent(false)
+		, isImplicitTemplateId(false)
+		, isInjectedClassName(false)
 	{
 	}
 	void swap(Type& other)
@@ -164,6 +175,7 @@ struct Type
 		std::swap(enclosingTemplate, other.enclosingTemplate);
 		std::swap(unique, other.unique);
 		std::swap(dependentIndex, other.dependentIndex);
+		std::swap(dependentIndex2, other.dependentIndex2);
 		std::swap(isDependent, other.isDependent);
 		std::swap(isImplicitTemplateId, other.isImplicitTemplateId);
 		std::swap(isInjectedClassName, other.isInjectedClassName);
@@ -421,9 +433,10 @@ public:
 	TypeId type;
 	Scope* enclosed;
 	Scope* templateParamScope;
-	ExpressionWrapper initializer; // if this is a constant (enumerator or const integral), the initializer constant-expression
+	PersistentExpression initializer; // if this is a constant (enumerator or const integral), the initializer constant-expression
 	DeclSpecifiers specifiers;
 	std::size_t templateParameter;
+	std::size_t count; // the number of times this declaration has been redeclared
 	TemplateParameters templateParams;
 	TemplateArguments templateArguments; // non-empty if this is an explicit (or partial) specialization
 	DependentConstructs declarationDependent; // the dependent types and expressions within the declaration: substituted when the enclosing template class/function is instantiated
@@ -464,6 +477,7 @@ public:
 		templateParamScope(0),
 		specifiers(specifiers),
 		templateParameter(templateParameter),
+		count(0),
 		templateParams(templateParams),
 		templateArguments(templateArguments),
 		declarationDependent(allocator),
@@ -501,6 +515,7 @@ public:
 		std::swap(initializer, other.initializer);
 		std::swap(specifiers, other.specifiers);
 		std::swap(templateParameter, other.templateParameter);
+		std::swap(count, other.count);
 		templateParams.swap(other.templateParams);
 		templateArguments.swap(other.templateArguments);
 		std::swap(declarationDependent, other.declarationDependent);
@@ -525,7 +540,6 @@ public:
 };
 
 typedef SafePtr<Declaration> DeclarationPtr;
-
 
 
 #endif

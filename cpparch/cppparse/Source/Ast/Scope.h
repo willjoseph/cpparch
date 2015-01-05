@@ -314,4 +314,9 @@ inline Declaration* getFunctionDeclaration(Scope* scope)
 
 
 
+// special-case
+extern Declaration gUndeclared;
+extern const DeclarationInstance gUndeclaredInstance;
+
+
 #endif

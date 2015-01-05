@@ -222,13 +222,11 @@ struct SubstitutedExpression
 
 struct ExpressionWrapper : ExpressionPtr, SubstitutedExpression
 {
-	std::size_t dependentIndex;
 	bool isUnique;
 	bool isTemplateArgumentAmbiguity; // [temp.arg] In a template argument, an ambiguity between a typeid and an expression is resolved to a typeid
 	bool isParenthesised; // true if the expression is surrounded by one or more sets of parentheses
 	ExpressionWrapper()
 		: ExpressionPtr(0)
-		, dependentIndex(INDEX_INVALID)
 		, isUnique(false)
 		, isTemplateArgumentAmbiguity(false)
 		, isParenthesised(false)
@@ -236,7 +234,6 @@ struct ExpressionWrapper : ExpressionPtr, SubstitutedExpression
 	}
 	explicit ExpressionWrapper(ExpressionNode* node, const SubstitutedExpression& substituted = SubstitutedExpression())
 		: ExpressionPtr(node), SubstitutedExpression(substituted)
-		, dependentIndex(INDEX_INVALID)
 		, isUnique(false)
 		, isTemplateArgumentAmbiguity(false)
 		, isParenthesised(false)
@@ -254,5 +251,22 @@ inline Dependent isDependentExpression2(const ExpressionWrapper& expression)
 	return expression.dependent;
 }
 
+
+struct PersistentExpression : ExpressionWrapper
+{
+	std::size_t dependentIndex;
+	std::size_t dependentIndex2;
+	PersistentExpression()
+		: dependentIndex(INDEX_INVALID)
+		, dependentIndex2(INDEX_INVALID)
+	{
+	}
+	PersistentExpression(const ExpressionWrapper& expression)
+		: ExpressionWrapper(expression)
+		, dependentIndex(INDEX_INVALID)
+		, dependentIndex2(INDEX_INVALID)
+	{
+	}
+};
 
 #endif

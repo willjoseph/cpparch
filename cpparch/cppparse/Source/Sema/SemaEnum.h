@@ -88,7 +88,7 @@ struct SemaEnumSpecifier : public SemaBase, SemaEnumSpecifierResult
 		{
 			SEMANTIC_ASSERT(enumerator.initializer.isValueDependent || enumerator.initializer.value.isConstant);
 			value = enumerator.initializer;
-			addDeferredExpression(enumerator.initializer);
+			addDeferredPersistentExpression(enumerator.initializer);
 		}
 		else
 		{
