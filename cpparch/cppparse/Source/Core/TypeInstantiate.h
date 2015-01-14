@@ -305,4 +305,32 @@ inline bool isAbstract(UniqueTypeWrapper type, const InstantiationContext& conte
 	return isAbstract(classType, context);
 }
 
+
+
+//-----------------------------------------------------------------------------
+struct DeferredInstantiation
+{
+	InstantiationContext context;
+	const SimpleType* instance;
+	DeferredInstantiation(const InstantiationContext& context, const SimpleType* instance)
+		: context(context), instance(instance)
+	{
+	}
+};
+typedef std::list<DeferredInstantiation> DeferredInstantiations;
+
+inline void instantiateDeferred(DeferredInstantiations& deferred)
+{
+	for(DeferredInstantiations::const_iterator i = deferred.begin(); i != deferred.end(); ++i)
+	{
+		const DeferredInstantiation& instantiation = *i;
+		const_cast<SimpleType*>(instantiation.instance)->instantiated = false;
+		instantiateClass(*instantiation.instance, instantiation.context);
+	}
+	deferred.clear();
+}
+
+extern DeferredInstantiations gDeferredInstantiations;
+
+
 #endif

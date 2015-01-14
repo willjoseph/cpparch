@@ -205,7 +205,7 @@ inline UniqueTypeWrapper getSubstitutedType(const Type& type, const Instantiatio
 {
 	SYMBOLS_ASSERT(type.dependentIndex != INDEX_INVALID);
 	SYMBOLS_ASSERT(context.enclosingType != 0);
-	SYMBOLS_ASSERT(!isDependent(context.enclosingType));
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
 	SYMBOLS_ASSERT(type.dependentIndex < context.enclosingType->substitutedTypes.size());
 	return context.enclosingType->substitutedTypes[type.dependentIndex];
 }

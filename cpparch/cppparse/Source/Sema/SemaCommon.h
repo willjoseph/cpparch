@@ -1479,7 +1479,7 @@ struct SemaBase : public SemaState
 		type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
 		addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
 			makeDeferredSubstitution<Type, substituteDeferredBase>(
-				type, getLocation()));
+				type, getLocation(), enclosingScope));
 	}
 
 	void addDeferredDeclarationType(Declaration& declaration)
@@ -1499,7 +1499,7 @@ struct SemaBase : public SemaState
 				declaration.type.dependentIndex = enclosingInstantiation->dependentConstructs.typeCount++;
 				addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
 					makeDeferredSubstitution<Declaration, substituteDeferredMemberType>(
-					declaration, getLocation()));
+					declaration, getLocation(), enclosingScope));
 				addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(&enclosingInstantiation->dependentConstructs));
 			}
 		}
@@ -1517,7 +1517,7 @@ struct SemaBase : public SemaState
 				declaration.type.dependentIndex2 = enclosingDependentConstructs->typeCount++;
 				addDeferredSubstitution(*enclosingDependentConstructs,
 					makeDeferredSubstitution<Declaration, substituteDeferredMemberType2>(
-					declaration, getLocation()));
+					declaration, getLocation(), enclosingScope));
 				addBacktrackCallback(makePopDeferredTypeSubstitutionCallback(enclosingDependentConstructs));
 			}
 		}
@@ -1532,7 +1532,7 @@ struct SemaBase : public SemaState
 			addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
 				makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression>(
 					*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
-					getLocation()));
+					getLocation(), enclosingScope));
 		}
 		if(enclosingDependentConstructs != 0
 			&& allowDefer2(dependent))
@@ -1540,7 +1540,7 @@ struct SemaBase : public SemaState
 			addDeferredSubstitution(*enclosingDependentConstructs,
 				makeDeferredSubstitution<DeferredExpression, substituteDeferredExpression2>(
 					*allocatorNew(context, DeferredExpression(expression, TokenValue(message))),
-					getLocation()));
+					getLocation(), enclosingScope));
 		}
 	}
 
@@ -1554,7 +1554,7 @@ struct SemaBase : public SemaState
 			expression.dependentIndex = enclosingInstantiation->dependentConstructs.expressionCount++;
 			addDeferredSubstitution(enclosingInstantiation->dependentConstructs,
 				makeDeferredSubstitution<PersistentExpression, substituteDeferredPersistentExpression>(
-				expression, getLocation()));
+				expression, getLocation(), enclosingScope));
 			addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(&enclosingInstantiation->dependentConstructs));
 		}
 		if(enclosingDependentConstructs != 0
@@ -1564,7 +1564,7 @@ struct SemaBase : public SemaState
 			expression.dependentIndex2 = enclosingDependentConstructs->expressionCount++;
 			addDeferredSubstitution(*enclosingDependentConstructs,
 				makeDeferredSubstitution<PersistentExpression, substituteDeferredPersistentExpression2>(
-				expression, getLocation()));
+				expression, getLocation(), enclosingScope));
 			addBacktrackCallback(makePopDeferredExpressionSubstitutionCallback(enclosingDependentConstructs));
 		}
 	}

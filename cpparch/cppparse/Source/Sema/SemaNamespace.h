@@ -201,6 +201,7 @@ struct SemaNamespace : public SemaBase, SemaNamespaceResult
 	SEMA_POLICY(cpp::declaration, SemaPolicyPushTop<struct SemaDeclaration>)
 	void action(cpp::declaration* symbol, const SemaDeclarationResult& walker)
 	{
+		instantiateDeferred(gDeferredInstantiations);
 	}
 };
 

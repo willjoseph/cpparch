@@ -327,6 +327,7 @@ struct DeferredSubstitution
 	void(*thunk)(void*, const InstantiationContext&);
 	void* object;
 	Location location;
+	ScopePtr enclosingScope;
 
 	template<typename T, void target(T&, const InstantiationContext&)>
 	static void thunkGeneric(void* object, const InstantiationContext& context)
@@ -340,9 +341,9 @@ struct DeferredSubstitution
 };
 
 template<typename T, void target(T&, const InstantiationContext&)>
-inline DeferredSubstitution makeDeferredSubstitution(T& object, const Location& location)
+inline DeferredSubstitution makeDeferredSubstitution(T& object, const Location& location, Scope* enclosingScope)
 {
-	DeferredSubstitution result = { &DeferredSubstitution::thunkGeneric<T, target>, &object, location };
+	DeferredSubstitution result = { &DeferredSubstitution::thunkGeneric<T, target>, &object, location, enclosingScope };
 	return result;
 }
 

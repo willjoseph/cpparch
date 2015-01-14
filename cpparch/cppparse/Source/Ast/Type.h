@@ -120,6 +120,11 @@ inline bool isMember(const Declaration& declaration)
 	return declaration.scope != 0 && declaration.scope->type == SCOPETYPE_CLASS;
 }
 
+inline bool isLocal(const Declaration& declaration)
+{
+	return declaration.scope != 0 && declaration.scope->type == SCOPETYPE_LOCAL;
+}
+
 inline bool isMemberOfTemplate(const Declaration& declaration)
 {
 	return isMember(declaration) && isTemplate(*declaration.scope);
@@ -838,7 +843,6 @@ struct InstantiationContext
 	const SimpleType* enclosingType;
 	const SimpleType* enclosingFunction;
 	ScopePtr enclosingScope;
-	bool isUnevaluatedOperand;
 	InstantiationContext()
 		: allocator(NullAllocator<UncheckedLinearAllocator>()), enclosingType(0), enclosingFunction(0), enclosingScope(0)
 	{

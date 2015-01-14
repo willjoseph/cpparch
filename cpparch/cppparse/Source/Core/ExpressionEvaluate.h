@@ -411,6 +411,13 @@ inline bool isSpecialMember(const Declaration& declaration)
 
 inline const SimpleType* getIdExpressionClass(const SimpleType* qualifying, const Declaration& declaration, const SimpleType* enclosingType)
 {
+	if(isLocal(declaration)) // if the declaration is a local object
+	{
+		return enclosingType != 0 && isFunction(*enclosingType->declaration) // if we are substituting a function template
+			? enclosingType // the id-expression is enclosed by the enclosing function
+			: 0;
+	}
+
 	if(!isMember(declaration)) // if the declaration is not a class member
 	{
 		return 0; // the declaration is at namespace-scope, therefore has no enclosing class
@@ -437,7 +444,21 @@ inline const SimpleType* getIdExpressionClass(const SimpleType* qualifying, cons
 	return idEnclosing;
 }
 
-
+#if 0
+inline const SimpleType* getIdExpressionEnclosing(const SimpleType* qualifying, const Declaration& declaration, const SimpleType* enclosingType)
+{
+	SYMBOLS_ASSERT(enclosingType != 0);
+	SYMBOLS_ASSERT(!isDependent(*enclosingType));
+	if(!isMember(declaration))
+	{
+		SYMBOLS_ASSERT(qualifying == 0);
+		return enclosingType;
+	}
+	const SimpleType* idEnclosing = findEnclosingType(enclosingType, qualifying->declaration);
+	SYMBOLS_ASSERT(idEnclosing != 0);
+	return idEnclosing;
+}
+#endif
 
 typedef std::vector<Overload> OverloadSet;
 
@@ -775,7 +796,8 @@ inline ExpressionType typeOfEnclosingClass(const InstantiationContext& context)
 	SYMBOLS_ASSERT(scope != 0); // TODO: report non-fatal error: 'this' allowed only within function body
 	Declaration* declaration = getFunctionDeclaration(scope);
 	UniqueTypeWrapper functionType = getUniqueType(declaration->type, context, true);
-	ExpressionType result(makeUniqueSimpleType(*context.enclosingType), true);
+	const SimpleType* classType = isClass(*context.enclosingType) ? context.enclosingType : context.enclosingType->enclosing; // TODO: clean up!
+	ExpressionType result(makeUniqueSimpleType(*classType), true);
 	result.value.setQualifiers(functionType.value.getQualifiers());
 	return result;
 }
@@ -805,21 +827,6 @@ inline const Object& makeUniqueObject(Declaration* declaration, const SimpleType
 	return getSimpleType(makeUniqueSimpleType(object).value);
 }
 
-inline void instantiateObject(const Object& uniqueObject, const InstantiationContext& context)
-{
-	if(isFunction(*uniqueObject.declaration))
-	{
-		if(!uniqueObject.instantiated)
-		{
-			const_cast<Object*>(&uniqueObject)->instantiated = true; // TODO: instantiate
-		}
-	}
-	else
-	{
-		instantiateClass(uniqueObject, context);
-	}
-}
-
 template<typename T>
 inline void instantiateExpression(const T& node, const InstantiationContext& context)
 {
@@ -832,16 +839,29 @@ inline void instantiateExpression(const IdExpression& node, const InstantiationC
 		return; // can't evaluate id-expression within function-call-expression
 	}
 
+	if(isLocal(*node.declaration))
+	{
+		return; // local declaration can't be a template
+	}
+
 	if(node.declaration == gDestructorInstance.p
 		|| node.declaration == gCopyAssignmentOperatorInstance.p)
 	{
 		return;
 	}
 
+	if(isDependentQualifying(node.qualifying))
+	{
+		return; // id-expression names a member of the current instantiation
+	}
+
 	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(node.qualifying, node.declaration), context);
-	const SimpleType* idEnclosing = getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
-	const Object& uniqueObject = makeUniqueObject(qualified.declaration, idEnclosing, node.templateArguments);
-	instantiateObject(uniqueObject, context);
+	const Object& uniqueObject = makeUniqueObject(qualified.declaration, qualified.enclosing, node.templateArguments);
+	if(!uniqueObject.instantiated)
+	{
+		const_cast<Object*>(&uniqueObject)->instantiated = true;
+		gDeferredInstantiations.push_back(DeferredInstantiation(context, &uniqueObject));
+	}
 }
 
 
@@ -870,7 +890,9 @@ inline ExpressionType typeOfIdExpression(const SimpleType* qualifying, const Dec
 
 	QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifying, declaration), context);
 
-	const SimpleType* idEnclosing = getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
+	const SimpleType* idEnclosing = isLocal(*qualified.declaration)
+		? context.enclosingType
+		: getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
 
 	// a member of a class template may have a type which depends on a template parameter
 	UniqueTypeWrapper type = getUniqueType(qualified.declaration->type, setEnclosingType(context, idEnclosing), qualified.declaration->isTemplate);
@@ -1755,7 +1777,8 @@ inline IdExpression makeIdExpression(const DependentIdExpression& node, const In
 		throw MemberNotFoundError(context.source, node.name, qualifyingType);
 	}
 
-	return IdExpression(declaration, qualifyingType, node.templateArguments, node.isQualified);
+	const SimpleType* idEnclosing = getIdExpressionClass(qualifyingType, *declaration, context.enclosingType);
+	return IdExpression(declaration, idEnclosing, node.templateArguments, node.isQualified);
 }
 
 inline IdExpression substituteIdExpression(const DependentIdExpression& node, const InstantiationContext& context)
@@ -2824,7 +2847,6 @@ inline ExpressionWrapper substituteExpression(const NewExpression& node, const I
 
 inline ExpressionWrapper substituteExpression(const ObjectExpression& node, const InstantiationContext& context)
 {
-	SYMBOLS_ASSERT(node.type.isLvalue); // TODO: redundant to store this?
 	return makeExpression2(ObjectExpression(ExpressionType(substitute(node.type, context), true)), context);
 }
 

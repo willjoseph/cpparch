@@ -214,19 +214,20 @@ struct SemaIdExpression : public SemaQualified
 	}
 	bool commit()
 	{
-		bool isQualified = !qualifying.empty();
+		bool isQualified = objectExpression.p != 0 || !qualifying.empty();
 		UniqueTypeWrapper qualifyingType = makeUniqueQualifying(qualifying, getInstantiationContext(), isDependentSafe(qualifying.get_ref()));
 
 		TemplateArgumentsInstance templateArguments;
 		makeUniqueTemplateArguments(arguments, templateArguments, getInstantiationContext());
 
-		if(!allowNameLookup())
+		if(!allowNameLookup() // if name lookup cannot be performed
+			|| (isQualified && declaration == &gUndeclared)) // or the id-expression names a member of an unknown specialization
 		{
 			setDecoration(id, gDependentObjectInstance);
 
 			expression = makeExpression(DependentIdExpression(id->value, qualifyingType, templateArguments, isQualified));
 		}
-		else if(isIdentifier // the expression is 'identifier'
+		else if(!isQualified && isIdentifier // the expression is unqualified 'identifier'
 			&& declaration == &gUndeclared) // the identifier was not previously declared
 		{
 			// [temp.dep]

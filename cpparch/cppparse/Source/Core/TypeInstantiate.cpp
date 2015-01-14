@@ -5,6 +5,9 @@
 #include "TypeUnique.h"
 
 
+DeferredInstantiations gDeferredInstantiations;
+
+
 inline bool deduceAndSubstitute(const UniqueTypeArray& parameters, const UniqueTypeArray& arguments, const InstantiationContext& context, SimpleType& enclosing, TemplateArgumentsInstance& substituted)
 {
 	// deduce the partial-specialization's template arguments from the original argument list
@@ -375,7 +378,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 			{
 				const DeferredSubstitution& substitution = *i;
-				InstantiationContext childContext(context.allocator, substitution.location, &instance, 0, context.enclosingScope);
+				InstantiationContext childContext(context.allocator, substitution.location, &instance, 0, substitution.enclosingScope);
 				substitution(childContext);
 			}
 

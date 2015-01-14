@@ -1,4 +1,137 @@
 
+namespace N568
+{
+	template<typename T>
+	struct B
+	{
+		B* next;
+	};
+
+	template<typename T>
+	struct A
+	{
+		typedef B<T> Node;
+		int f()
+		{
+			Node* p = 0;
+			Node* next = p->next;
+		}
+	};
+
+	A<int> a;
+	static_assert(!__is_instantiated(B<int>), "");
+	int i = a.f(); // instantiates A<int>::f, which instantiates B<int>
+	static_assert(__is_instantiated(B<int>), "");
+}
+
+namespace N567
+{
+	template<typename T>
+	struct C
+	{
+		void f(T);
+	};
+
+	template<typename T>
+	struct B
+	{
+		C<T> m;
+	};
+	template<typename T>
+	struct A : B<T>
+	{
+		int f(T a)
+		{
+			this->m.f(a);
+		}
+	};
+
+	A<int> a;
+	int i = a.f(0);
+}
+
+namespace N566
+{
+	template<typename T>
+	struct A
+	{
+		void f()
+		{
+			T t;
+		}
+		void g()
+		{
+			f(); // dependent because transformed to (*this).f ?
+		}
+	};
+}
+
+
+#if 0
+namespace TEST2
+{
+	template<typename T>
+	T f(T);
+
+	int g = f(0); // point of instantiation: follows g
+
+	struct S
+	{
+		template<typename T>
+		struct B
+		{
+		};
+
+		B b; // point of instantiation: before S
+
+		void g()
+		{
+			f(0); // point of instantiation: follows S
+		}
+	};
+
+	template<typename T>
+	struct A
+	{
+		struct B
+		{
+		};
+
+		B b; // point of instantiation: before A
+
+		template<typename U>
+		void mf();
+
+		void mg()
+		{
+			mf(); // point of instantiation: same point as mg();
+		}
+	};
+}
+#endif
+
+namespace TEST
+{
+	template<typename T, typename>
+	struct A
+	{
+		T t;// T substituted when A<int> is instantiated
+
+		template<typename U>
+		static int f(T, U) // T substituted when A<int> is instantiated, X substituted when A<int>::f<int> is used in overload resolution
+		{
+			T t; // T substituted when A<int>::f<int> is instantiated
+			U u; // X substituted when A<int>::f<int> is instantiated
+		}
+	};
+
+	template<typename T, typename = T> // T substituted when A<int> is named
+	struct A;
+
+	int i = A<int>::f(0, 0);
+}
+
+
 namespace N565
 {
 	template<typename T>
@@ -66,26 +199,6 @@ namespace N563 // test SFINAE during substitution of type of function id
 	static_assert(!not_satisfied<int>::value, "");
 }
 
-namespace TEST
-{
-	template<typename T, typename>
-	struct A
-	{
-		T t;// T substituted when A<int> is instantiated
-
-		template<typename U>
-		static int f(T, U) // T substituted when A<int> is instantiated, X substituted when A<int>::f<int> is used in overload resolution
-		{
-			T t; // T substituted when A<int>::f<int> is instantiated
-			U u; // X substituted when A<int>::f<int> is instantiated
-		}
-	};
-
-	template<typename T, typename = T> // T substituted when A<int> is named
-	struct A;
-
-	int i = A<int>::f(0, 0);
-}
 
 
 namespace N562
