@@ -1,4 +1,28 @@
 
+
+namespace N418 //  test that template argument F() indicates function type, rather than non-type cast-expression
+{
+	template<typename F>
+	struct S;
+	template<typename F>
+	struct S<F()>
+	{
+		typedef F Type;
+	};
+
+	int f();
+
+	typedef S<decltype(f)>::Type Type;
+}
+
+namespace N534
+{
+	int f(int[4]);
+
+	int a[4];
+	int i = f(a);
+}
+
 namespace N568
 {
 	template<typename T>
@@ -110,27 +134,107 @@ namespace TEST2
 }
 #endif
 
-namespace TEST
+namespace N569 // test instantiation of type required to be complete when used in template default argument
 {
 	template<typename T, typename>
 	struct A
 	{
-		T t;// T substituted when A<int> is instantiated
-
-		template<typename U>
-		static int f(T, U) // T substituted when A<int> is instantiated, X substituted when A<int>::f<int> is used in overload resolution
-		{
-			T t; // T substituted when A<int>::f<int> is instantiated
-			U u; // X substituted when A<int>::f<int> is instantiated
-		}
 	};
 
-	template<typename T, typename = T> // T substituted when A<int> is named
+	template<typename T, typename = typename T::Type> // T instantiated when A<T> is named
 	struct A;
 
-	int i = A<int>::f(0, 0);
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	typedef B<int> T;
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T> Type;
+	static_assert(__is_instantiated(T), "");
 }
 
+namespace N573 // test instantiation of type required to be complete when used in unused template default argument
+{
+	template<typename T, typename = typename T::Type> // T not instantiated when A<T, int> is named
+	struct A
+	{
+	};
+
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	typedef B<int> T;
+
+	static_assert(!__is_instantiated(T), "");
+	typedef A<T, int> Type;
+	static_assert(!__is_instantiated(T), "");
+}
+
+namespace N570 // test instantiation of type required to be complete within function template declaration
+{
+	template<typename T>
+	typename T::Type f(); // T instantiated when f<T> is used in overload resolution
+
+	template<typename T>
+	struct B
+	{
+		typedef int Type;
+	};
+
+	typedef B<int> T;
+
+	static_assert(!__is_instantiated(T), "");
+	int i = sizeof(f<T>());
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N571 // test instantiation of type of member object within class template definition
+{
+	template<typename T>
+	struct A
+	{
+		T t; // T instantiated when A<T> is instantiated
+	};
+
+	template<typename T>
+	struct B
+	{
+	};
+
+	typedef B<int> T;
+
+	typedef A<T> Type;
+	static_assert(!__is_instantiated(T), "");
+	int i = sizeof(A<T>);
+	static_assert(__is_instantiated(T), "");
+}
+
+namespace N572 // test instantiation of type of local object within function template definition
+{
+	template<typename T>
+	void f(T)
+	{
+		T t; // T instantiated when f<T> is instantiated
+	}
+
+	template<typename T>
+	struct B
+	{
+	};
+
+	typedef B<int> T;
+
+	static_assert(!__is_instantiated(T), "");
+	int i = sizeof(f(T()));
+	static_assert(__is_instantiated(T), "");
+}
 
 namespace N565
 {
@@ -800,17 +904,6 @@ namespace N535 // test evaluation of dependent expression
 	static_assert(A<int>::value == sizeof(int), "");
 }
 
-#if 0 // TODO
-namespace N534
-{
-	int f(int[4]);
-
-	int a[4];
-	int i = f(a);
-}
-#endif
-
-
 namespace N529 // test substitution of partially dependent type in member function template (non-type)
 {
 	template<typename T>
@@ -1398,7 +1491,6 @@ namespace N501 // test instantiation of declaration within member function
 	static_assert(__is_instantiated(T), "");
 }
 
-#if 0 // TODO
 namespace N502 // test instantiation of declaration with dependent type within member function
 {
 	template<typename T>
@@ -1415,10 +1507,10 @@ namespace N502 // test instantiation of declaration with dependent type within m
 		}
 	};
 
+	static_assert(!__is_instantiated(T), "");
 	int i = A<T>::f();
 	static_assert(__is_instantiated(T), "");
 }
-#endif
 
 namespace N500 // test instantation of dependent default-argument
 {
@@ -2338,7 +2430,6 @@ namespace N451
 }
 #endif
 
-#if 0
 namespace N450
 {
 	template<class T>
@@ -2350,7 +2441,6 @@ namespace N450
 		g<T[N]>();
 	}
 }
-#endif
 
 namespace N449 // TODO: exercising bitfield parse path: constant_expression in SemaMemberDeclaratorBitfield
 {
@@ -2380,18 +2470,26 @@ namespace N449 // TODO: exercising bitfield parse path: constant_expression in S
 	} LDT_ENTRY, *PLDT_ENTRY;
 }
 
-#if 1 // TODO: check that all dependent expressions in initializer are substituted at point of instantiation
-namespace N448
+namespace N448 //  check that all dependent expressions in initializer are substituted at point of instantiation
 {
-	template<int n>
+	template<typename T>
 	struct A
 	{
-		static const int i = (n + 0, n + 1, n);
+		static const int i = (T::value + 1, 0);
 	};
 
-	int i = A<0>::i;
+	template<typename>
+	struct B
+	{
+		static const int value = 1;
+	};
+
+	typedef B<int> T;
+
+	static_assert(!__is_instantiated(T), "");
+	int i = A<T>::i;
+	static_assert(__is_instantiated(T), "");
 }
-#endif
 
 namespace N446
 {
@@ -2830,23 +2928,6 @@ namespace N410 // workaround implementation of boost::is_base_and_derived specif
 			operator D*();
 		};
 		static_assert(sizeof(bd_helper::check_sig(Host(), 0)) == sizeof(yes_type), "");
-	};
-}
-#endif
-
-#if 0
-namespace N418
-{
-	template<typename>
-	struct B
-	{
-	};
-
-	template<typename F>
-	struct S;
-	template<typename F>
-	struct S<F()> : B<F()> // bug: incorrectly recognises the F() in the base-specifier as the definition of a template function
-	{
 	};
 }
 #endif
@@ -3367,8 +3448,18 @@ namespace N382
 	STATIC_ASSERT_IS_DIFFERENT(int, unsigned int);
 }
 
+namespace N574
+{
+	void f(void()); // [dcl.fct]/5: parameter adjusted to 'void(*)()'
+	void g(int[1]); // [dcl.fct]/5: parameter adjusted to 'int*'
+
+	STATIC_ASSERT_IS_SAME(decltype(f), void(void(*)()));
+	STATIC_ASSERT_IS_SAME(decltype(g), void(int*));
+}
+
+
 #if 0 // TODO: offsetof expression should be usable in a template argument
-namespace N434
+namespace N576
 {
 	struct S
 	{

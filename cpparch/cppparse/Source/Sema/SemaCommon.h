@@ -404,31 +404,9 @@ inline void mergeTemplateParamDefaults(Declaration& declaration, const TemplateP
 
 //-----------------------------------------------------------------------------
 
-inline bool isFunctionParameterEquivalent(UniqueTypeWrapper left, UniqueTypeWrapper right)
+inline bool isEquivalentParameterTypes(const ParameterTypes& left, const ParameterTypes& right)
 {
-	return adjustFunctionParameter(left) == adjustFunctionParameter(right);
-}
-
-inline bool isEquivalent(const ParameterTypes& left, const ParameterTypes& right)
-{
-	ParameterTypes::const_iterator l = left.begin();
-	ParameterTypes::const_iterator r = right.begin();
-	for(;; ++l, ++r)
-	{
-		if(l == left.end())
-		{
-			return r == right.end();
-		}
-		if(r == right.end())
-		{
-			return false;
-		}
-		if(!isFunctionParameterEquivalent(*l, *r))
-		{
-			return false;
-		}
-	}
-	return true;
+	return left == right;
 }
 
 inline bool isReturnTypeEqual(UniqueTypeWrapper left, UniqueTypeWrapper right)
@@ -541,7 +519,7 @@ inline bool isEquivalent(const Declaration& declaration, const Declaration& othe
 				&& (declaration.getName().value == gConversionFunctionId
 				? isReturnTypeEqual(l, r) // return-types match
 				// (only template overloads may differ in return type, return-type is not used to distinguish overloads, except for conversion-function)
-				: isEquivalent(getParameterTypes(l.value), getParameterTypes(r.value))); // and parameter-types match
+				: isEquivalentParameterTypes(getParameterTypes(l.value), getParameterTypes(r.value))); // and parameter-types match
 		}
 		// redeclaring an object, unless this is a new explicit specialization
 		return isSpecialization(declaration) == isSpecialization(other)
@@ -787,6 +765,11 @@ struct SemaState
 		}
 		return true;
 	}
+	bool qualifyingIsValid()
+	{
+		return qualifyingClass != 0 // early out, avoid using qualifyingScope in case qualifyingClass is an explicit specialization enclosing its own scope
+			|| getQualifyingScope() != 0;
+	}
 	LookupResult lookupQualified(const Identifier& id, bool isDeclarator, LookupFilter filter = IsAny())
 	{
 		return isDeclarator
@@ -806,7 +789,7 @@ struct SemaState
 	}
 	LookupResult lookupQualified(const Identifier& id, LookupFilter filter = IsAny())
 	{
-		SEMANTIC_ASSERT(getQualifyingScope() != 0);
+		SEMANTIC_ASSERT(qualifyingIsValid());
 		LookupResult result;
 		// [basic.lookup.qual]
 		if(qualifyingClass != 0)
@@ -834,7 +817,7 @@ struct SemaState
 		std::cout << "lookup: " << getValue(id) << " (" << getIdentifierType(filter) << ")" << std::endl;
 #endif
 		LookupResult result;
-		if(getQualifyingScope() != 0)
+		if(qualifyingIsValid())
 		{
 			return lookupQualified(id, filter);
 		}

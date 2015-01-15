@@ -352,7 +352,7 @@ struct TypeSequenceMakeUnique : TypeSequenceVisitor
 		for(Parameters::const_iterator i = element.parameters.begin(); i != element.parameters.end(); ++i)
 		{
 			bool allowDependent = (*i).declaration->type.isDependent;
-			result.parameterTypes.push_back(getUniqueType((*i).declaration->type, context, allowDependent));
+			result.parameterTypes.push_back(adjustFunctionParameter(getUniqueType((*i).declaration->type, context, allowDependent)));
 		}
 		pushUniqueType(type, result);
 		type.setQualifiers(element.qualifiers);
