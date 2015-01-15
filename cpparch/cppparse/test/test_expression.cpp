@@ -23,7 +23,7 @@ namespace N534
 	int i = f(a);
 }
 
-namespace N568
+namespace N568 // test instantiation of dependent class-member-access expression within function template definition
 {
 	template<typename T>
 	struct B
@@ -34,9 +34,9 @@ namespace N568
 	template<typename T>
 	struct A
 	{
-		typedef B<T> Node;
 		int f()
 		{
+			typedef B<T> Node;
 			Node* p = 0;
 			Node* next = p->next;
 		}
