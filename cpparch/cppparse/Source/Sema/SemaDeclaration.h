@@ -473,7 +473,8 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				// template<class T> class C;
 				// template<> class C<int>;
 				// template<class T> class C<T*>;
-				DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *seq.forward, TYPE_CLASS, 0, true, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, seq.type.templateArguments);
+				DeclarationFlags flags(true, false, templateParams != 0, isSpecialization);
+				DeclarationInstanceRef instance = pointOfDeclaration(context, enclosingScope, *seq.forward, TYPE_CLASS, 0, flags, DeclSpecifiers(), getTemplateParams(), seq.type.templateArguments);
 #ifdef ALLOCATOR_DEBUG
 				trackDeclaration(instance);
 #endif

@@ -91,7 +91,7 @@ Types2::Pointer::Value gTemplateParam1 = Types2::Node(Type(&gTemplateParameterDe
 Identifier gTemplateClassId = makeIdentifier("$template");
 struct TemplateClassDeclaration : Declaration
 {
-	TemplateClassDeclaration() : Declaration(AST_ALLOCATOR_NULL, 0, gTemplateClassId, TYPE_CLASS, 0, true, DeclSpecifiers(), true)
+	TemplateClassDeclaration() : Declaration(AST_ALLOCATOR_NULL, 0, gTemplateClassId, TYPE_CLASS, 0, DeclarationFlags(true, false, true), DeclSpecifiers())
 	{
 		templateParamScope = &gTemplateParameterScope;
 		templateParams.head.next = &gTemplateParam1;
@@ -103,7 +103,7 @@ TemplateClassDeclaration gTemplateClassDeclaration;
 
 
 Identifier gTemplateTemplateParameterId = makeIdentifier("TT");
-Declaration gTemplateTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateTemplateParameterId, TYPE_CLASS, 0, true, DeclSpecifiers(), true, TEMPLATEPARAMETERS_NULL, false, TEMPLATEARGUMENTS_NULL, 0);
+Declaration gTemplateTemplateParameterDeclaration(AST_ALLOCATOR_NULL, &gTemplateParameterScope, gTemplateTemplateParameterId, TYPE_CLASS, 0, DeclarationFlags(true, false, true), DeclSpecifiers(), TEMPLATEPARAMETERS_NULL, TEMPLATEARGUMENTS_NULL, 0);
 
 struct BuiltInTemplateTemplateArgument : BuiltInType
 {

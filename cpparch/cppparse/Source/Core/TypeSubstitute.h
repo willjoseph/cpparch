@@ -311,7 +311,7 @@ inline ResolvedDeclaration resolveUsingDeclaration(ResolvedDeclaration resolved,
 
 	// the member name was introduced by a using declaration
 	ResolvedDeclaration substituted = getUsingMember(declaration, resolved.enclosingInstance, context);
-	return resolveUsingDeclaration(substituted, context); // the result may also be a (possibly depedendent) using-declaration
+	return resolveUsingDeclaration(substituted, context); // the result may also be a (possibly dependent) using-declaration
 }
 
 inline ResolvedDeclaration resolveUsingDeclaration(ResolvedDeclaration resolved)

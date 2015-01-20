@@ -41,13 +41,13 @@ Identifier gDependentObjectId = makeIdentifier("$object");
 Declaration gDependentObject(AST_ALLOCATOR_NULL, 0, gDependentObjectId, TYPE_UNKNOWN, 0, false);
 const DeclarationInstance gDependentObjectInstance(&gDependentObject);
 Identifier gDependentTemplateId = makeIdentifier("$template");
-Declaration gDependentTemplate(AST_ALLOCATOR_NULL, 0, gDependentTemplateId, TYPE_SPECIAL, 0, true, DeclSpecifiers(), true);
+Declaration gDependentTemplate(AST_ALLOCATOR_NULL, 0, gDependentTemplateId, TYPE_SPECIAL, 0, DeclarationFlags(true, false, true), DeclSpecifiers());
 const DeclarationInstance gDependentTemplateInstance(&gDependentTemplate);
 Identifier gDependentNestedId = makeIdentifier("$nested");
 Declaration gDependentNested(AST_ALLOCATOR_NULL, 0, gDependentNestedId, TYPE_SPECIAL, 0, true);
 const DeclarationInstance gDependentNestedInstance(&gDependentNested);
 Identifier gDependentNestedTemplateId = makeIdentifier("$nested-template");
-Declaration gDependentNestedTemplate(AST_ALLOCATOR_NULL, 0, gDependentNestedTemplateId, TYPE_SPECIAL, 0, true, DeclSpecifiers(), true);
+Declaration gDependentNestedTemplate(AST_ALLOCATOR_NULL, 0, gDependentNestedTemplateId, TYPE_SPECIAL, 0, DeclarationFlags(true, false, true), DeclSpecifiers());
 const DeclarationInstance gDependentNestedTemplateInstance(&gDependentNestedTemplate);
 
 Identifier gParamId = makeIdentifier("$param");

@@ -423,7 +423,22 @@ public:
 
 struct DeclarationInstance;
 
-class Declaration : public AbstractDeclaration
+struct DeclarationFlags
+{
+	bool isType; // true if this is declaration names a type
+	bool isUsing; // true if this is a using-declaration
+	bool isTemplate;
+	bool isSpecialization;
+	DeclarationFlags()
+	{
+	}
+	DeclarationFlags(bool isType, bool isUsing = false, bool isTemplate = false, bool isSpecialization = false)
+		: isType(isType), isUsing(isUsing), isTemplate(isTemplate), isSpecialization(isSpecialization)
+	{
+	}
+};
+
+class Declaration : public AbstractDeclaration, public DeclarationFlags
 {
 
 #if 0
@@ -443,14 +458,11 @@ public:
 	DependentConstructs declarationDependent; // the dependent types and expressions within the declaration: substituted when the enclosing template class/function is instantiated
 	DependentConstructs dependentConstructs; // the dependent types and expressions within the definition: substituted when this class/member definition is instantiated
 	UniqueTypeWrapper usingBase; // if this is a class-member using-declaration, the type of the qualifying base-class (may be dependent)
-	const DeclarationInstance* usingMember; // if this is a using-declaration, the declaration that is referred to
+	const DeclarationInstance* usingMember; // if this is a non-type using-declaration, the declaration that is referred to (defines the visible overload set)
 	Dependent typeDependent;
 	bool isComplete; // for class declarations, set to true when the closing brace is parsed.
-	bool isType; // true if this is declaration names a type
 	bool isTypeDependent; // if this is a function or object, true if this declaration's type is dependent on a template parameter of its enclosing class
-	bool isTemplate;
 	bool isTemplateName; // true if this is a template declaration, or an overload of a template declaration
-	bool isSpecialization;
 	bool isFunction;
 	bool isFunctionDefinition;
 	bool isEnumerator; // true if this is the declaration of an enumerator
@@ -465,14 +477,13 @@ public:
 		Identifier& name,
 		const TypeId& type,
 		Scope* enclosed,
-		bool isType,
+		DeclarationFlags flags,
 		DeclSpecifiers specifiers = DeclSpecifiers(),
-		bool isTemplate = false,
 		const TemplateParameters& templateParams = TEMPLATEPARAMETERS_NULL,
-		bool isSpecialization = false,
 		const TemplateArguments& templateArguments = TEMPLATEARGUMENTS_NULL,
 		size_t templateParameter = INDEX_INVALID
 		) : AbstractDeclaration(name, scope),
+		DeclarationFlags(flags),
 		type(type),
 		enclosed(enclosed),
 		templateParamScope(0),
@@ -485,11 +496,8 @@ public:
 		dependentConstructs(allocator),
 		usingMember(0),
 		isComplete(false),
-		isType(isType),
 		isTypeDependent(false),
-		isTemplate(isTemplate),
 		isTemplateName(isTemplate),
-		isSpecialization(isSpecialization),
 		isFunction(false),
 		isFunctionDefinition(false),
 		isEnumerator(false),
@@ -510,6 +518,7 @@ public:
 	void swap(Declaration& other)
 	{
 		AbstractDeclaration::swap(other);
+		std::swap(*static_cast<DeclarationFlags*>(this), *static_cast<DeclarationFlags*>(&other));
 		type.swap(other.type);
 		std::swap(enclosed, other.enclosed);
 		std::swap(templateParamScope, other.templateParamScope);
@@ -525,11 +534,8 @@ public:
 		std::swap(usingMember, other.usingMember);
 		std::swap(typeDependent, other.typeDependent);
 		std::swap(isComplete, other.isComplete);
-		std::swap(isType, other.isType);
 		std::swap(isTypeDependent, other.isTypeDependent);
-		std::swap(isTemplate, other.isTemplate);
 		std::swap(isTemplateName, other.isTemplateName);
-		std::swap(isSpecialization, other.isSpecialization);
 		std::swap(isFunction, other.isFunction);
 		std::swap(isFunctionDefinition, other.isFunctionDefinition);
 		std::swap(isEnumerator, other.isEnumerator);

@@ -875,21 +875,19 @@ struct SemaState
 		Identifier& name,
 		const TypeId& type,
 		Scope* enclosed,
-		bool isType,
+		DeclarationFlags flags,
 		DeclSpecifiers specifiers = DeclSpecifiers(),
-		bool isTemplate = false,
 		const TemplateParameters& params = TEMPLATEPARAMETERS_NULL,
-		bool isSpecialization = false,
 		const TemplateArguments& arguments = TEMPLATEARGUMENTS_NULL,
 		size_t templateParameter = INDEX_INVALID)
 	{
 		SEMANTIC_ASSERT(parent != 0);
 		SEMANTIC_ASSERT(templateParameter == INDEX_INVALID || ::isTemplate(*parent));
-		SEMANTIC_ASSERT(isTemplate || params.empty());
+		SEMANTIC_ASSERT(flags.isTemplate || params.empty());
 		SEMANTIC_ASSERT(isClassKey(*type.declaration) || !hasTemplateParamDefaults(params)); // 14.1-9: a default template-arguments may be specified in a class template declaration/definition (not for a function or class-member)
-		SEMANTIC_ASSERT(!isClassKey(*type.declaration) || !isSpecialization || isTemplate); // if this is a class, only a template can be a specialization
-		SEMANTIC_ASSERT(!isTemplate || isSpecialization || !params.empty()); // only a specialization may have an empty template parameter clause <>
-		SEMANTIC_ASSERT(type.unique != 0 || isType || type.declaration == &gNamespace || type.declaration == &gUsing || type.declaration == &gEnumerator);
+		SEMANTIC_ASSERT(!isClassKey(*type.declaration) || !flags.isSpecialization || flags.isTemplate); // if this is a class, only a template can be a specialization
+		SEMANTIC_ASSERT(!flags.isTemplate || flags.isSpecialization || !params.empty()); // only a specialization may have an empty template parameter clause <>
+		SEMANTIC_ASSERT(type.unique != 0 || flags.isType || type.declaration == &gNamespace || flags.isUsing || type.declaration == &gEnumerator);
 		if(parent != 0
 			&& parent->type == SCOPETYPE_CLASS) // if this is a class member
 		{
@@ -901,14 +899,7 @@ struct SemaState
 
 		SEMANTIC_ASSERT(!name.value.empty());
 
-		SEMANTIC_ASSERT(type.declaration != &gUsing
-				|| type.declaration != &gUsing == (specifiers.isTypedef
-				|| type.declaration == &gSpecial
-				|| type.declaration == &gArithmetic
-				|| type.declaration == &gClass
-				|| type.declaration == &gEnum));
-
-		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter);
+		Declaration declaration(allocator, parent, name, type, enclosed, flags, specifiers, params, arguments, templateParameter);
 		declaration.enclosingInstance = enclosingInstance;
 		declaration.isFunction = type.unique != 0 && getUniqueType(type).isFunction();
 		if(Scope* parentClassScope = getEnclosingClass(parent))
@@ -916,7 +907,7 @@ struct SemaState
 			Declaration* parentClass = getClassDeclaration(parentClassScope);
 			declaration.isMemberOfClassTemplate = parentClass->isTemplate || parentClass->isMemberOfClassTemplate;
 		}
-		SEMANTIC_ASSERT(!isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
+		SEMANTIC_ASSERT(!flags.isTemplate || (isClass(declaration) || isFunction(declaration) || declaration.templateParameter != INDEX_INVALID)); // only a class, function or template-parameter can be a template
 		declaration.location = getLocation();
 		declaration.uniqueId = ++uniqueId;
 		DeclarationInstance instance;
@@ -1594,7 +1585,8 @@ struct SemaBase : public SemaState
 	Declaration* declareClass(Scope* parent, Identifier* id, bool isCStyle, bool isUnion, bool isSpecialization, TemplateArguments& arguments)
 	{
 		Scope* enclosed = newScope(makeIdentifier("$class"), SCOPETYPE_CLASS);
-		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, id == 0 ? parent->getUniqueName() : *id, TYPE_CLASS, enclosed, true, DeclSpecifiers(), templateParams != 0, getTemplateParams(), isSpecialization, arguments);
+		DeclarationFlags flags(true, false, templateParams != 0, isSpecialization);
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, id == 0 ? parent->getUniqueName() : *id, TYPE_CLASS, enclosed, flags, DeclSpecifiers(), getTemplateParams(), arguments);
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
 #endif
@@ -1703,7 +1695,8 @@ struct SemaBase : public SemaState
 		}
 
 		bool isTemplate = templateParams != 0;
-		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, specifiers.isTypedef, specifiers, isTemplate, getTemplateParams(), isExplicitSpecialization, TEMPLATEARGUMENTS_NULL, templateParameter); // 3.3.1.1
+		DeclarationFlags flags(specifiers.isTypedef, false, isTemplate, isExplicitSpecialization);
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, type, enclosed, flags, specifiers, getTemplateParams(), TEMPLATEARGUMENTS_NULL, templateParameter); // 3.3.1.1
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
 #endif
@@ -1847,12 +1840,13 @@ struct SemaBase : public SemaState
 
 	Declaration* declareUsing(Scope* parent, Identifier* id, UniqueTypeWrapper base, const DeclarationInstance& member, bool isType, bool isTemplate)
 	{
-		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, TYPE_USING, 0, isType);
+		DeclarationInstanceRef declaration = pointOfDeclaration(context, parent, *id, TYPE_USING, 0, DeclarationFlags(isType, true));
 #ifdef ALLOCATOR_DEBUG
 		trackDeclaration(declaration);
 #endif
 		setDecoration(id, declaration);
 
+		declaration->isUsing = true;
 		declaration->usingBase = base;
 		declaration->usingMember = &member;
 		declaration->isTemplateName = isTemplate;

@@ -56,7 +56,7 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 		}
 		else
 		{
-			SYMBOLS_ASSERT(qualifyingType != gUniqueTypeNull); // TODO: non-fatal error: cannot use 'typename' with a member of a namespace
+			SYMBOLS_ASSERT(!isNamespace(*qualifying_p->declaration)); // TODO: non-fatal error: cannot use 'typename' with a member of a namespace
 		}
 
 		declaration = declareUsing(enclosingScope, walker.id, qualifyingType, existingDeclaration, isType, isTemplate);
@@ -72,7 +72,7 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 			declaration->isTypeDependent = declaration->type.isDependent;
 			declaration->typeDependent = isDependent2(getUniqueType(declaration->type));
 		}
-		else if(qualifying_p != TypePtr(0))
+		else
 		{
 			declaration->type.isDependent = isDependentSafe(qualifying_p);
 			declaration->isTypeDependent = isDependentSafe(qualifying_p);

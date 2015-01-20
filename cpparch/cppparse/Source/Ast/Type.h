@@ -76,7 +76,7 @@ inline bool isClass(const Declaration& declaration)
 
 inline bool isUsing(const Declaration& declaration)
 {
-	return declaration.type.declaration == &gUsing;
+	return declaration.isUsing;
 }
 
 inline bool isEnum(const Declaration& declaration)

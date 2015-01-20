@@ -198,7 +198,8 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	}
 
 	// TODO: resolve using-declaration during name lookup instead?
-	while(isUsing(*declaration)) // occurs when this declaration names a template that is introduced via a using-declaration
+	while(declaration->isTemplateName
+		&& isUsing(*declaration)) // occurs when this declaration names a template that is introduced via a using-declaration
 	{
 		SYMBOLS_ASSERT(declaration->usingMember != &gDependentTypeInstance);
 		declaration = *declaration->usingMember;
