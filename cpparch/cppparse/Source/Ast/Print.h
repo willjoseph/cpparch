@@ -12,7 +12,7 @@ typedef TokenPrinter<OutputStream> FileTokenPrinter;
 typedef std::list<UniqueType> TypeElements;
 
 inline void printType(UniqueTypeWrapper type, OutputStream& out = stdOut(), bool escape = false);
-inline void printType(const SimpleType& type, OutputStream& out = stdOut(), bool escape = false);
+inline void printType(const Instance& type, OutputStream& out = stdOut(), bool escape = false);
 
 struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 {
@@ -78,9 +78,9 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 	}
 	void visit(const IdExpression& node)
 	{
-		if(node.qualifying != 0)
+		if(node.enclosingInstance != 0)
 		{
-			printType(*node.qualifying);
+			printType(*node.enclosingInstance);
 			printer.out << ".";
 		}
 		printer.out << getValue(node.declaration->getName());
@@ -265,7 +265,7 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 		printer.out << element.value;
 		visitTypeElement();
 	}
-	void visit(const SimpleType& element)
+	void visit(const Instance& element)
 	{
 		if(qualifierStack.back().isConst)
 		{
@@ -372,7 +372,7 @@ struct SymbolPrinter : TypeElementVisitor, ExpressionNodeVisitor
 		printType(UniqueTypeWrapper(type.unique));
 	}
 
-	void printType(const SimpleType& type)
+	void printType(const Instance& type)
 	{
 		if(type.enclosing != 0)
 		{
@@ -475,7 +475,7 @@ inline void printName(const Scope* scope, OutputStream& out = stdOut())
 	printer.printName(scope);
 }
 
-inline void printType(const SimpleType& type, OutputStream& out, bool escape)
+inline void printType(const Instance& type, OutputStream& out, bool escape)
 {
 	FileTokenPrinter tokenPrinter(out);
 	SymbolPrinter printer(tokenPrinter, escape);

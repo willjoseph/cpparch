@@ -65,5 +65,5 @@ BuiltInTypeId gPointerToMemberPlaceholder(&gPointerToMemberPlaceholderDeclaratio
 
 
 
-const SimpleType gDependentSimpleType(&gDependentType, 0);
+const Instance gDependentInstance(&gDependentType, 0);
 

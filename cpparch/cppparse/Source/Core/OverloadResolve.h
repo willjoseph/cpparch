@@ -13,8 +13,8 @@ struct FunctionOverload
 {
 	Declaration* declaration;
 	ExpressionType type;
-	const SimpleType* instance; // if this is a function template, the unique instance of the function template specialization
-	FunctionOverload(Declaration* declaration, ExpressionType type, const SimpleType* instance = 0)
+	const Instance* instance; // if this is a function template, the unique instance of the function template specialization
+	FunctionOverload(Declaration* declaration, ExpressionType type, const Instance* instance = 0)
 		: declaration(declaration), type(type), instance(instance)
 	{
 	}
@@ -96,7 +96,7 @@ ImplicitConversion makeImplicitConversionSequence(To to, Argument from, const In
 			}
 			if(to.isSimple()
 				&& from.type.isSimple()
-				&& isBaseOf(getSimpleType(to.value), getSimpleType(from.type.value), context))
+				&& isBaseOf(getInstance(to.value), getInstance(from.type.value), context))
 			{
 				StandardConversionSequence sequence(SCSRANK_CONVERSION, to.value.getQualifiers());
 				sequence.isReference = true;
@@ -167,7 +167,7 @@ ImplicitConversion makeImplicitConversionSequence(To to, Argument from, const In
 		}
 		if(to.isSimple()
 			&& from.type.isSimple()
-			&& isBaseOf(getSimpleType(to.value), getSimpleType(from.type.value), context))
+			&& isBaseOf(getInstance(to.value), getInstance(from.type.value), context))
 		{
 			return ImplicitConversion(StandardConversionSequence(SCSRANK_CONVERSION, CvQualifiers()));
 		}
@@ -450,7 +450,7 @@ struct OverloadResolver
 		bool isNullPointerConstant = !from.isValueDependent && isNullPointerConstantValue(evaluateExpression(from, context));
 		return makeImplicitConversionSequence(to, from, context, isNullPointerConstant, isUserDefinedConversion);
 	}
-	void add(const FunctionOverload& overload, const FunctionType& functionType, CvQualifiers qualifiers, const SimpleType* memberEnclosing, FunctionTemplate& functionTemplate = FunctionTemplate())
+	void add(const FunctionOverload& overload, const FunctionType& functionType, CvQualifiers qualifiers, const Instance* memberEnclosing, FunctionTemplate& functionTemplate = FunctionTemplate())
 	{
 		const ParameterTypes& parameters = functionType.parameterTypes;
 		bool isEllipsis = functionType.isEllipsis;
@@ -477,7 +477,7 @@ struct OverloadResolver
 				// For non-static member functions, the type of the implicit object parameter is "reference to cv X" where X is
 				// the class of which the function is a member and cv is the cv-qualification on the member function declaration.
 				// TODO: conversion-functions, non-conversions introduced by using-declaration
-				implicitObjectParameter = makeUniqueSimpleType(*memberEnclosing);
+				implicitObjectParameter = makeUniqueInstance(*memberEnclosing);
 				implicitObjectParameter.value.setQualifiers(qualifiers);
 				implicitObjectParameter.push_front(ReferenceType());
 			}
@@ -584,9 +584,9 @@ struct OverloadResolver
 struct Overload
 {
 	const Declaration* declaration;
-	const SimpleType* memberEnclosing;
+	const Instance* memberEnclosing;
 	bool fromUsing;
-	Overload(const Declaration* declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
+	Overload(const Declaration* declaration, const Instance* memberEnclosing, bool fromUsing = false)
 		: declaration(declaration), memberEnclosing(memberEnclosing), fromUsing(fromUsing)
 	{
 	}
@@ -602,7 +602,7 @@ struct FunctionSignature : FunctionType, FunctionTemplate
 {
 	UniqueTypeWrapper returnType;
 	CvQualifiers qualifiers;
-	const SimpleType* instance; // if this is a function template, the unique instance of the function template specialization
+	const Instance* instance; // if this is a function template, the unique instance of the function template specialization
 
 	const FunctionType& getFunctionType() const
 	{
@@ -616,18 +616,18 @@ ParameterTypes addOverload(OverloadResolver& resolver, const Overload& overload)
 
 
 template<typename To>
-inline void addConversionFunctionOverloads(OverloadResolver& resolver, const SimpleType& classType, To to)
+inline void addConversionFunctionOverloads(OverloadResolver& resolver, const Instance& classInstance, To to)
 {
 	InstantiationContext& context = resolver.context;
-	instantiateClass(classType, context); // searching for overloads requires a complete type
+	instantiateClass(classInstance, context); // searching for overloads requires a complete type
 	Identifier id;
 	extern Name gConversionFunctionId; // TODO
 	id.value = gConversionFunctionId;
-	LookupResultRef declaration = ::findDeclaration(classType, id, IsAny());
+	LookupResultRef declaration = ::findDeclaration(classInstance, id, IsAny());
 	// TODO: conversion functions in base classes should not be hidden by those in derived
 	if(declaration != 0)
 	{
-		const SimpleType* memberEnclosing = findEnclosingType(&classType, declaration->scope); // find the base class which contains the member-declaration
+		const Instance* memberEnclosing = findEnclosingClass(&classInstance, declaration->scope); // find the base class which contains the member-declaration
 		SYMBOLS_ASSERT(memberEnclosing != 0);
 
 		for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
@@ -639,7 +639,7 @@ inline void addConversionFunctionOverloads(OverloadResolver& resolver, const Sim
 			// [temp.deduct.conv] Template argument deduction is done by comparing the return type of the template conversion function
 			// (call it P) with the type that is required as the result of the conversion (call it A)
 
-			UniqueTypeWrapper result = getUniqueType(p->type, setEnclosingTypeSafe(context, memberEnclosing));
+			UniqueTypeWrapper result = getUniqueType(p->type, setEnclosingInstanceSafe(context, memberEnclosing));
 			result.pop_front(); // T() -> T
 			ExpressionType yielded = getFunctionCallExpressionType(result);
 
@@ -701,13 +701,13 @@ inline void addConversionFunctionOverloads(OverloadResolver& resolver, const Sim
 	}
 }
 
-inline LookupResultRef findConstructor(const SimpleType& classType, const InstantiationContext& context)
+inline LookupResultRef findConstructor(const Instance& classInstance, const InstantiationContext& context)
 {
-	instantiateClass(classType, context); // searching for overloads requires a complete type
+	instantiateClass(classInstance, context); // searching for overloads requires a complete type
 	Identifier tmp;
-	tmp.value = classType.declaration->getName().value;
+	tmp.value = classInstance.declaration->getName().value;
 	tmp.source = context.source;
-	return ::findDeclaration(classType, tmp, IsConstructor());
+	return ::findDeclaration(classInstance, tmp, IsConstructor());
 }
 
 template<typename To>
@@ -728,12 +728,12 @@ FunctionOverload findBestConversionFunction(To to, Argument from, const Instanti
 		&& isComplete(to)) // can only convert to a class that is complete
 	{
 		// add converting constructors of 'to'
-		const SimpleType& classType = getSimpleType(to.value);
-		LookupResultRef declaration = findConstructor(classType, context);
+		const Instance& classInstance = getInstance(to.value);
+		LookupResultRef declaration = findConstructor(classInstance, context);
 
 		if(declaration != 0) // TODO: add implicit copy constructor!
 		{
-			const SimpleType* memberEnclosing = findEnclosingType(&classType, declaration->scope); // find the base class which contains the member-declaration
+			const Instance* memberEnclosing = findEnclosingClass(&classInstance, declaration->scope); // find the base class which contains the member-declaration
 			SYMBOLS_ASSERT(memberEnclosing != 0);
 
 			for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
@@ -757,14 +757,14 @@ FunctionOverload findBestConversionFunction(To to, Argument from, const Instanti
 	if(isClass(from.type)
 		&& isComplete(from.type)) // can only convert from a class that is complete
 	{
-		addConversionFunctionOverloads(resolver, getSimpleType(from.type.value), to);
+		addConversionFunctionOverloads(resolver, getInstance(from.type.value), to);
 	}
 
 	// TODO: return-type of constructor should be 'to'
 	FunctionOverload result = resolver.get();
 	if(result.declaration != 0
 		&& result.type.isSimple()
-		&& getSimpleType(result.type.value).declaration == &gCtor)
+		&& getInstance(result.type.value).declaration == &gCtor)
 	{
 		result.type = getFunctionCallExpressionType(to);
 		result.type.value.setQualifiers(CvQualifiers());

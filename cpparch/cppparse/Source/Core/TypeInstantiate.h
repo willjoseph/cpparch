@@ -7,9 +7,9 @@
 #include "Ast/Print.h"
 #include "Fundamental.h"
 
-TypeLayout instantiateClass(const SimpleType& instanceConst, const InstantiationContext& context, bool allowDependent = false);
+TypeLayout instantiateClass(const Instance& instanceConst, const InstantiationContext& context, bool allowDependent = false);
 
-inline std::size_t getPointOfInstantiation(const SimpleType& instance)
+inline std::size_t getPointOfInstantiation(const Instance& instance)
 {
 	return instance.instantiation.pointOfInstantiation;
 }
@@ -25,7 +25,7 @@ inline void requireCompleteObjectType(UniqueTypeWrapper type, const Instantiatio
 	}
 	else if(type.isSimple())
 	{
-		const SimpleType& objectType = getSimpleType(type.value);
+		const Instance& objectType = getInstance(type.value);
 		if(isClass(*objectType.declaration))
 		{
 			instantiateClass(objectType, context);
@@ -53,7 +53,7 @@ inline TypeLayout getTypeLayout(UniqueTypeWrapper type)
 	}
 	else if(type.isSimple())
 	{
-		const SimpleType& objectType = getSimpleType(type.value);
+		const Instance& objectType = getInstance(type.value);
 		if(isEnum(*objectType.declaration))
 		{
 			return TypeLayout(4, 4); // TODO: x64, variable enum size
@@ -68,13 +68,13 @@ inline TypeLayout getTypeLayout(UniqueTypeWrapper type)
 	return TYPELAYOUT_NONE; // this type has no meaningful layout (e.g. incomplete array, reference, function)
 }
 
-inline bool findBase(const SimpleType& other, const SimpleType& type)
+inline bool findBase(const Instance& other, const Instance& type)
 {
 	SYMBOLS_ASSERT(other.declaration->enclosed != 0);
 	SYMBOLS_ASSERT(isClass(*type.declaration));
 	for(UniqueBases::const_iterator i = other.bases.begin(); i != other.bases.end(); ++i)
 	{
-		const SimpleType& base = *(*i);
+		const Instance& base = *(*i);
 		SYMBOLS_ASSERT(isClass(*base.declaration));
 		if(&base == &type)
 		{
@@ -89,7 +89,7 @@ inline bool findBase(const SimpleType& other, const SimpleType& type)
 }
 
 // Returns true if 'type' is a base of 'other'
-inline bool isBaseOf(const SimpleType& type, const SimpleType& other, const InstantiationContext& context)
+inline bool isBaseOf(const Instance& type, const Instance& other, const InstantiationContext& context)
 {
 	if(!isClass(*type.declaration)
 		|| !isClass(*other.declaration))
@@ -113,8 +113,8 @@ inline bool isBaseOf(UniqueTypeWrapper base, UniqueTypeWrapper derived, const In
 	{
 		return false;
 	}
-	const SimpleType& baseType = getSimpleType(base.value);
-	const SimpleType& derivedType = getSimpleType(derived.value);
+	const Instance& baseType = getInstance(base.value);
+	const Instance& derivedType = getInstance(derived.value);
 	if(&baseType == &derivedType)
 	{
 		return true;
@@ -124,16 +124,16 @@ inline bool isBaseOf(UniqueTypeWrapper base, UniqueTypeWrapper derived, const In
 }
 
 
-inline bool hasVirtualDestructor(const SimpleType& classType)
+inline bool hasVirtualDestructor(const Instance& classInstance)
 {
-	SYMBOLS_ASSERT(isClass(classType));
-	SYMBOLS_ASSERT(isComplete(classType));
-	SYMBOLS_ASSERT(classType.instantiated);
+	SYMBOLS_ASSERT(isClass(classInstance));
+	SYMBOLS_ASSERT(isComplete(classInstance));
+	SYMBOLS_ASSERT(classInstance.instantiated);
 	// [class.dtor]
 	// A destructor can be declared virtual (10.3) or pure virtual (10.4); if any objects of that class or any
 	// derived class are created in the program, the destructor shall be defined.If a class has a base class with a
 	// virtual destructor, its destructor(whether user- or implicitly-declared) is virtual.
-	return classType.hasVirtualDestructor;
+	return classInstance.hasVirtualDestructor;
 }
 
 // return true if class (or any base thereof) has a virtual destructor.
@@ -143,22 +143,22 @@ inline bool hasVirtualDestructor(UniqueTypeWrapper type, const InstantiationCont
 	{
 		return false;
 	}
-	const SimpleType& classType = getSimpleType(type.value);
-	instantiateClass(classType, context); // requires a complete type
-	return hasVirtualDestructor(classType);
+	const Instance& classInstance = getInstance(type.value);
+	instantiateClass(classInstance, context); // requires a complete type
+	return hasVirtualDestructor(classInstance);
 }
 
-inline bool isEmpty(const SimpleType& classType)
+inline bool isEmpty(const Instance& classInstance)
 {
-	SYMBOLS_ASSERT(isClass(classType));
-	SYMBOLS_ASSERT(isComplete(classType));
-	SYMBOLS_ASSERT(classType.instantiated);
-	if(isUnion(classType))
+	SYMBOLS_ASSERT(isClass(classInstance));
+	SYMBOLS_ASSERT(isComplete(classInstance));
+	SYMBOLS_ASSERT(classInstance.instantiated);
+	if(isUnion(classInstance))
 	{
 		return false; // union cannot be empty
 	}
 	// TODO: if any member is not a zero-sized bitfield, return false
-	return classType.isEmpty;
+	return classInstance.isEmpty;
 }
 
 const bool TYPETRAITS_ISEMPTY_NONCLASS = false;
@@ -170,21 +170,21 @@ inline bool isEmpty(UniqueTypeWrapper type, const InstantiationContext& context)
 	{
 		return TYPETRAITS_ISEMPTY_NONCLASS;
 	}
-	const SimpleType& classType = getSimpleType(type.value);
-	instantiateClass(classType, context); // requires a complete type
-	return isEmpty(classType);
+	const Instance& classInstance = getInstance(type.value);
+	instantiateClass(classInstance, context); // requires a complete type
+	return isEmpty(classInstance);
 }
 
-inline bool isPod(const SimpleType& classType)
+inline bool isPod(const Instance& classInstance)
 {
-	SYMBOLS_ASSERT(isClass(classType));
-	SYMBOLS_ASSERT(isComplete(classType));
-	SYMBOLS_ASSERT(classType.instantiated);
-	if(isUnion(classType))
+	SYMBOLS_ASSERT(isClass(classInstance));
+	SYMBOLS_ASSERT(isComplete(classInstance));
+	SYMBOLS_ASSERT(classInstance.instantiated);
+	if(isUnion(classInstance))
 	{
 		return true;
 	}
-	return classType.isPod;
+	return classInstance.isPod;
 }
 
 const bool TYPETRAITS_ISPOD_NONCLASS = true; // TODO: MSVC returns false for non-class non-union types, GCC returns true
@@ -196,9 +196,9 @@ inline bool isPod(UniqueTypeWrapper type, const InstantiationContext& context)
 	{
 		return TYPETRAITS_ISPOD_NONCLASS;
 	}
-	const SimpleType& classType = getSimpleType(type.value);
-	instantiateClass(classType, context); // requires a complete type
-	return isPod(classType);
+	const Instance& classInstance = getInstance(type.value);
+	instantiateClass(classInstance, context); // requires a complete type
+	return isPod(classInstance);
 }
 
 inline bool isAnonymousUnion(const Declaration& declaration)
@@ -208,9 +208,9 @@ inline bool isAnonymousUnion(const Declaration& declaration)
 		&& declaration.getName().value.c_str()[0] == '$';
 }
 
-inline bool isAnonymousUnion(const SimpleType& classType)
+inline bool isAnonymousUnion(const Instance& classInstance)
 {
-	return isAnonymousUnion(*classType.declaration);
+	return isAnonymousUnion(*classInstance.declaration);
 }
 
 // returns true if this declaration requires a complete type at the point of declaration
@@ -246,31 +246,31 @@ inline bool isNonStaticDataMember(const Declaration& declaration)
 
 
 
-inline void addNonStaticMember(const SimpleType& classType, bool isPod, bool isEmpty)
+inline void addNonStaticMember(const Instance& classInstance, bool isPod, bool isEmpty)
 {
-	const_cast<SimpleType&>(classType).isPod &= isPod;
-	const_cast<SimpleType&>(classType).isEmpty &= isEmpty;
-	if(isAnonymousUnion(classType))
+	const_cast<Instance&>(classInstance).isPod &= isPod;
+	const_cast<Instance&>(classInstance).isEmpty &= isEmpty;
+	if(isAnonymousUnion(classInstance))
 	{
-		addNonStaticMember(*classType.enclosing, isPod, isEmpty);
+		addNonStaticMember(*classInstance.enclosing, isPod, isEmpty);
 	}
 }
 
-inline void addNonStaticMember(const SimpleType& classType, UniqueTypeWrapper type)
+inline void addNonStaticMember(const Instance& classInstance, UniqueTypeWrapper type)
 {
 	TypeLayout layout = getTypeLayout(type);
-	const_cast<SimpleType&>(classType).layout = addMember(const_cast<SimpleType&>(classType).layout, layout, isUnion(classType));
-	addNonStaticMember(classType,
-		isClass(type) ? isPod(getSimpleType(type.value)) : TYPETRAITS_ISPOD_NONCLASS,
-		isClass(type) ? isEmpty(getSimpleType(type.value)) : TYPETRAITS_ISEMPTY_NONCLASS); // TODO: ignore bitfield with size zero!
+	const_cast<Instance&>(classInstance).layout = addMember(const_cast<Instance&>(classInstance).layout, layout, isUnion(classInstance));
+	addNonStaticMember(classInstance,
+		isClass(type) ? isPod(getInstance(type.value)) : TYPETRAITS_ISPOD_NONCLASS,
+		isClass(type) ? isEmpty(getInstance(type.value)) : TYPETRAITS_ISEMPTY_NONCLASS); // TODO: ignore bitfield with size zero!
 }
 
-inline bool isPolymorphic(const SimpleType& classType)
+inline bool isPolymorphic(const Instance& classInstance)
 {
-	SYMBOLS_ASSERT(isClass(classType));
-	SYMBOLS_ASSERT(isComplete(classType));
-	SYMBOLS_ASSERT(classType.instantiated);
-	return classType.isPolymorphic;
+	SYMBOLS_ASSERT(isClass(classInstance));
+	SYMBOLS_ASSERT(isComplete(classInstance));
+	SYMBOLS_ASSERT(classInstance.instantiated);
+	return classInstance.isPolymorphic;
 }
 
 // return true if class (or any base thereof) has at least one virtual function.
@@ -280,17 +280,17 @@ inline bool isPolymorphic(UniqueTypeWrapper type, const InstantiationContext& co
 	{
 		return false;
 	}
-	const SimpleType& classType = getSimpleType(type.value);
-	instantiateClass(classType, context); // requires a complete type
-	return isPolymorphic(classType);
+	const Instance& classInstance = getInstance(type.value);
+	instantiateClass(classInstance, context); // requires a complete type
+	return isPolymorphic(classInstance);
 }
 
-inline bool isAbstract(const SimpleType& classType, const InstantiationContext& context)
+inline bool isAbstract(const Instance& classInstance, const InstantiationContext& context)
 {
-	SYMBOLS_ASSERT(isClass(classType));
-	SYMBOLS_ASSERT(isComplete(classType));
-	SYMBOLS_ASSERT(classType.instantiated);
-	return classType.isAbstract;
+	SYMBOLS_ASSERT(isClass(classInstance));
+	SYMBOLS_ASSERT(isComplete(classInstance));
+	SYMBOLS_ASSERT(classInstance.instantiated);
+	return classInstance.isAbstract;
 }
 
 // return true if class (or any base thereof) has at least one pure virtual function.
@@ -300,9 +300,9 @@ inline bool isAbstract(UniqueTypeWrapper type, const InstantiationContext& conte
 	{
 		return false;
 	}
-	const SimpleType& classType = getSimpleType(type.value);
-	instantiateClass(classType, context); // requires a complete type
-	return isAbstract(classType, context);
+	const Instance& classInstance = getInstance(type.value);
+	instantiateClass(classInstance, context); // requires a complete type
+	return isAbstract(classInstance, context);
 }
 
 
@@ -311,8 +311,8 @@ inline bool isAbstract(UniqueTypeWrapper type, const InstantiationContext& conte
 struct DeferredInstantiation
 {
 	InstantiationContext context;
-	const SimpleType* instance;
-	DeferredInstantiation(const InstantiationContext& context, const SimpleType* instance)
+	const Instance* instance;
+	DeferredInstantiation(const InstantiationContext& context, const Instance* instance)
 		: context(context), instance(instance)
 	{
 	}
@@ -324,7 +324,7 @@ inline void instantiateDeferred(DeferredInstantiations& deferred)
 	for(DeferredInstantiations::const_iterator i = deferred.begin(); i != deferred.end(); ++i)
 	{
 		const DeferredInstantiation& instantiation = *i;
-		const_cast<SimpleType*>(instantiation.instance)->instantiated = false;
+		const_cast<Instance*>(instantiation.instance)->instantiated = false;
 		instantiateClass(*instantiation.instance, instantiation.context);
 	}
 	deferred.clear();

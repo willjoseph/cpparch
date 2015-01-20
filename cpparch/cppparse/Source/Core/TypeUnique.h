@@ -15,7 +15,7 @@ inline UniqueTypeWrapper makeUniqueQualifying(const Qualifying& qualifying, cons
 }
 
 
-inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context, UniqueTypeWrapper& unique)
+inline const Instance* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context, UniqueTypeWrapper& unique)
 {
 	if(!qualifying.empty())
 	{
@@ -30,9 +30,9 @@ inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const
 		{
 			return 0;
 		}
-		const SimpleType& type = getSimpleType(unique.value);
+		const Instance& type = getInstance(unique.value);
 		if(allowDependent // if this is a dependent type
-			&& !isEnclosingType(context.enclosingType, &type)) // which not the current instantiation
+			&& !isEnclosingClass(context.enclosingInstance, &type)) // which not the current instantiation
 		{
 			return 0;
 		}
@@ -40,10 +40,10 @@ inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const
 		instantiateClass(type, context, allowDependent);
 		return &type;
 	}
-	return context.enclosingType;
+	return context.enclosingInstance;
 }
 
-inline const SimpleType* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context)
+inline const Instance* makeUniqueEnclosing(const Qualifying& qualifying, const InstantiationContext& context)
 {
 	UniqueTypeWrapper tmp;
 	return makeUniqueEnclosing(qualifying, context, tmp);
@@ -139,8 +139,8 @@ inline bool isDependentQualifying(const Qualifying& qualifying)
 // unqualified typedef: Typedef, TemplateParam
 // qualified typedef: Qualifying::Type
 // /p type
-// /p enclosingType The enclosing template, required when uniquing a template-argument: e.g. Enclosing<int>::Type
-//			Note: if 'type' is a class-template template default argument, 'enclosingType' will be the class-template, which does not require instantiation!
+// /p context The enclosing instantiation context
+//			Note: if 'type' is a class-template template default argument, 'context' will be the class-template, which does not require instantiation!
 inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationContext& context)
 {
 	if(type.expression) // decltype(expression)
@@ -151,9 +151,9 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		}
 		return typeOfDecltypeSpecifier(type.expression, context);
 	}
-	// the type in which template-arguments are looked up: returns qualifying type if specified, else returns enclosingType
+	// the type in which template-arguments are looked up: returns qualifying type if specified, else returns the context's enclosing instance
 	UniqueTypeWrapper qualifying;
-	const SimpleType* enclosing = makeUniqueEnclosing(type.qualifying, context, qualifying);
+	const Instance* enclosing = makeUniqueEnclosing(type.qualifying, context, qualifying);
 	Declaration* declaration = type.declaration;
 	extern Declaration gDependentType;
 	extern Declaration gDependentTemplate;
@@ -176,7 +176,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	{
 		SYMBOLS_ASSERT(type.qualifying.empty());
 		// Find the template-specialisation it belongs to:
-		const SimpleType* parameterEnclosing = findEnclosingType(enclosing, declaration->scope);
+		const Instance* parameterEnclosing = findEnclosingClass(enclosing, declaration->scope);
 		if(parameterEnclosing != 0
 			&& !isDependent(*parameterEnclosing)) // if the enclosing type is not dependent
 		{
@@ -205,15 +205,15 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		SYMBOLS_ASSERT(declaration->templateParameter == INDEX_INVALID);
 	}
 
-	const SimpleType* memberEnclosing = isMember(*declaration) // if the declaration is a class member
-		? findEnclosingType(enclosing, declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
+	const Instance* memberEnclosing = isMember(*declaration) // if the declaration is a class member
+		? findEnclosingClass(enclosing, declaration->scope) // it must be a member of (a base of) the qualifying class: find which one.
 		: 0; // the declaration is not a class member and cannot be found through qualified name lookup
 
 	if(isTypedef(*declaration))
 	{
 		bool allowDependent = declaration->type.isDependent
 			&& (memberEnclosing == 0 || memberEnclosing->isLocal || isDependent(*memberEnclosing)); // if a member of a non-dependent non-local type, declaration cannot be dependent
-		UniqueTypeWrapper result = getUniqueType(declaration->type, setEnclosingType(context, memberEnclosing), allowDependent);
+		UniqueTypeWrapper result = getUniqueType(declaration->type, setEnclosingInstance(context, memberEnclosing), allowDependent);
 		return result;
 	}
 
@@ -225,7 +225,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 		return UniqueTypeWrapper(pushUniqueType(gUniqueTypes, UNIQUETYPE_NULL, TemplateTemplateArgument(declaration, memberEnclosing)));
 	}
 
-	SimpleType tmp(declaration, memberEnclosing);
+	Instance tmp(declaration, memberEnclosing);
 	SYMBOLS_ASSERT(declaration->type.declaration != &gArithmetic || tmp.enclosing == 0); // arithmetic types should not have an enclosing template!
 	if(declaration->isTemplate)
 	{
@@ -278,7 +278,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 					const TemplateArgument& argument = *d;
 					SYMBOLS_ASSERT(argument.type.declaration != 0); // TODO: non-fatal error: not enough template arguments!
 					// resolve dependent template-parameter-defaults in context of template class
-					UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, setEnclosingType(context, &tmp), false, true);
+					UniqueTypeWrapper result = makeUniqueTemplateArgument(argument, setEnclosingInstance(context, &tmp), false, true);
 					tmp.templateArguments.push_back(result);
 				}
 
@@ -289,7 +289,7 @@ inline UniqueTypeWrapper makeUniqueType(const Type& type, const InstantiationCon
 	SYMBOLS_ASSERT(tmp.bases.empty());
 	static size_t uniqueId = 0;
 	tmp.uniqueId = ++uniqueId;
-	return makeUniqueSimpleType(tmp);
+	return makeUniqueInstance(tmp);
 }
 
 

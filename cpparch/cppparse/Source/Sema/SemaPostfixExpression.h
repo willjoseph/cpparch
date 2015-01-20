@@ -64,15 +64,15 @@ struct SemaPostfixExpressionMember : public SemaQualified
 
 		bool isArrow = symbol->id == cpp::member_operator::ARROW;
 
-		memberClass = isObjectExpression(objectExpression)
-			? &getSimpleType(removePointer(getObjectExpression(objectExpression).type).value)
-			: &gDependentSimpleType;
+		objectExpressionClass = isObjectExpression(objectExpression)
+			? &getInstance(removePointer(getObjectExpression(objectExpression).type).value)
+			: &gDependentInstance;
 		SEMANTIC_ASSERT(objectExpression.p != 0);
 		objectExpression = makeExpression(MemberOperatorExpression(objectExpression, isArrow));
 		if(!objectExpression.isTypeDependent) // if the type of the object expression is not dependent
 		{
-			memberClass = &getSimpleType(objectExpression.type.value);
-			enclosingType = memberClass; // when evaluating the type of the following id-expression, use the object-expression class in the instantiation context
+			objectExpressionClass = &getInstance(objectExpression.type.value);
+			enclosingInstance = objectExpressionClass; // when evaluating the type of the following id-expression, use the object-expression class in the instantiation context
 		}
 	}
 	void action(cpp::terminal<boost::wave::T_TEMPLATE> symbol)
@@ -181,15 +181,15 @@ struct SemaIsInstantiated : public SemaBase
 		const InstantiationContext& context = getInstantiationContext();
 
 		UniqueTypeWrapper qualifyingType = makeUniqueQualifying(walker.qualifying, context);
-		const SimpleType* qualifying = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
+		const Instance* qualifying = qualifyingType == gUniqueTypeNull ? 0 : &getInstance(qualifyingType.value);
 		TemplateArgumentsInstance templateArguments;
 		makeUniqueTemplateArguments(walker.arguments, templateArguments, context);
 
 		SEMANTIC_ASSERT(!isOverloadedFunction(walker.declaration, qualifying, context)); // TODO: non-fatal error: only non-overloaded functions supported
 
-		QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifying, walker.declaration), context);
-		const SimpleType* idEnclosing = getIdExpressionClass(qualified.enclosing, *qualified.declaration, context.enclosingType);
-		const SimpleType& uniqueObject = makeUniqueObject(qualified.declaration, idEnclosing, templateArguments);
+		ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(qualifying, walker.declaration), context);
+		const Instance* idEnclosing = getIdExpressionEnclosing(resolved.enclosingInstance, *resolved.declaration, context.enclosingInstance);
+		const Instance& uniqueObject = makeUniqueObject(resolved.declaration, idEnclosing, templateArguments);
 		value.value = uniqueObject.instantiated;
 	}
 };
@@ -208,7 +208,7 @@ struct SemaPostfixExpression : public SemaBase
 	}
 	void updateMemberType()
 	{
-		memberClass = 0;
+		objectExpressionClass = 0;
 		if(expression.type.isFunction())
 		{
 			clearMemberType();
@@ -321,7 +321,7 @@ struct SemaPostfixExpression : public SemaBase
 		if(expression.type.isFunction())
 		{
 			// type determination is deferred until overload resolution is complete
-			memberClass = walker.memberClass; // store the type of the implied object argument in a qualified function call.
+			objectExpressionClass = walker.objectExpressionClass; // store the type of the implied object argument in a qualified function call.
 		}
 	}
 	SEMA_POLICY(cpp::postfix_expression_destructor, SemaPolicySrc)

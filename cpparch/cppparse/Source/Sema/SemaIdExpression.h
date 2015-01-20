@@ -259,10 +259,10 @@ struct SemaIdExpression : public SemaQualified
 				setDecoration(id, declaration);
 			}
 
-			const SimpleType* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getSimpleType(qualifyingType.value);
+			const Instance* qualifyingClass = qualifyingType == gUniqueTypeNull ? 0 : &getInstance(qualifyingType.value);
 			SEMANTIC_ASSERT(qualifyingClass == this->qualifyingClass);
 
-			const SimpleType* idEnclosing = getIdExpressionClass(qualifyingClass, *declaration, enclosingType);
+			const Instance* idEnclosing = getIdExpressionEnclosing(qualifyingClass, *declaration, enclosingInstance);
 
 			SEMANTIC_ASSERT(declaration->templateParameter == INDEX_INVALID || qualifying.empty()); // template params cannot be qualified
 			expression = declaration->templateParameter == INDEX_INVALID
@@ -272,8 +272,8 @@ struct SemaIdExpression : public SemaQualified
 
 			if(!expression.isTypeDependent)
 			{
-				QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(qualifyingClass, declaration), getInstantiationContext());
-				expression.isNonStaticMemberName = isMember(*qualified.declaration) && !isStatic(*qualified.declaration) && !isEnumerator(*qualified.declaration);
+				ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(qualifyingClass, declaration), getInstantiationContext());
+				expression.isNonStaticMemberName = isMember(*resolved.declaration) && !isStatic(*resolved.declaration) && !isEnumerator(*resolved.declaration);
 				expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && isQualified;
 			}
 			expression.isMemberOfCurrentInstantiation = isDependentQualifying(idEnclosing);

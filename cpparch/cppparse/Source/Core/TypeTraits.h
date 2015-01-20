@@ -16,7 +16,7 @@ inline Name getTypeTraitName(T* symbol)
 
 inline bool isUnion(UniqueTypeWrapper type, const InstantiationContext& context)
 {
-	return type.isSimple() && isUnion(getSimpleType(type.value));
+	return type.isSimple() && isUnion(getInstance(type.value));
 }
 
 inline bool isClass(UniqueTypeWrapper type, const InstantiationContext& context)
@@ -73,7 +73,7 @@ inline bool isConvertibleTo(UniqueTypeWrapper from, UniqueTypeWrapper to, const 
 
 inline bool isInstantiated(UniqueTypeWrapper type, const InstantiationContext& context)
 {
-	return !isClass(type) ? true : getSimpleType(type.value).instantiated;
+	return !isClass(type) ? true : getInstance(type.value).instantiated;
 }
 
 

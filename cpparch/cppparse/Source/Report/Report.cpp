@@ -233,7 +233,7 @@ struct DependencyBuilder
 	{
 		if(type.isSimple())
 		{
-			const SimpleType& objectType = getSimpleType(type.value);
+			const Instance& objectType = getInstance(type.value);
 			if(isClass(*objectType.declaration))
 			{
 				//TODO SYMBOLS_ASSERT(objectType.instantiated);

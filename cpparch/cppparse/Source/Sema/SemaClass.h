@@ -78,7 +78,7 @@ struct SemaClassHead : public SemaBase
 	{
 		SYMBOLS_ASSERT(walker.qualifyingScope != 0);
 		parent = walker.qualifyingScope->enclosed;
-		enclosingType = walker.qualifyingClass;
+		enclosingInstance = walker.qualifyingClass;
 
 		if(templateParams != 0
 			&& !templateParams->empty()
@@ -176,7 +176,7 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		isSpecialization = walker.isSpecialization;
 		arguments = walker.arguments;
 		enclosingScope = walker.parent;
-		enclosingType = walker.enclosingType;
+		enclosingInstance = walker.enclosingInstance;
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 	}
 	void action(cpp::terminal<boost::wave::T_LEFTBRACE> symbol)
@@ -201,9 +201,9 @@ struct SemaClassSpecifier : public SemaBase, SemaClassSpecifierResult
 		}
 		bool isExplicitSpecialization = isSpecialization && declaration->templateParams.empty();
 		bool allowDependent = declaration->type.isDependent || (declaration->isTemplate && !isExplicitSpecialization); // prevent uniquing of template-arguments in implicit template-id
-		enclosingType = &getSimpleType(declaration->type.unique);
-		const_cast<SimpleType*>(enclosingType)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
-		instantiateClass(*enclosingType, InstantiationContext(context.instantiationAllocator, getLocation(), 0, 0, 0), allowDependent); // instantiate non-dependent base classes
+		enclosingInstance = &getInstance(declaration->type.unique);
+		const_cast<Instance*>(enclosingInstance)->declaration = declaration; // if this is a specialization, use the specialization instead of the primary template
+		instantiateClass(*enclosingInstance, InstantiationContext(context.instantiationAllocator, getLocation(), 0, 0), allowDependent); // instantiate non-dependent base classes
 
 		clearTemplateParams();
 

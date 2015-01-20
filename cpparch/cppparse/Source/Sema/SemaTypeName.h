@@ -5,12 +5,12 @@
 #include "SemaCommon.h"
 
 
-inline const SimpleType* findEnclosingPrimaryTemplate(const SimpleType* enclosing, Declaration* declaration)
+inline const Instance* findEnclosingPrimaryTemplate(const Instance* enclosing, Declaration* declaration)
 {
 	Declaration* primary = findPrimaryTemplate(declaration);
 	SYMBOLS_ASSERT(primary->isTemplate);
 	SYMBOLS_ASSERT(!primary->isSpecialization);
-	for(const SimpleType* i = enclosing; i != 0; i = (*i).enclosing)
+	for(const Instance* i = enclosing; i != 0; i = (*i).enclosing)
 	{
 		SYMBOLS_ASSERT(!(*i).primary->isSpecialization);
 		if((*i).primary->isTemplate
@@ -95,7 +95,7 @@ struct SemaTypeName : public SemaBase
 		if(type.declaration->isTemplate)
 		{
 			type.isImplicitTemplateId = true; // this is either a template-name or an implicit template-id
-			const SimpleType* enclosingTemplate = findEnclosingPrimaryTemplate(enclosingType, type.declaration);
+			const Instance* enclosingTemplate = findEnclosingPrimaryTemplate(enclosingInstance, type.declaration);
 			if(enclosingTemplate != 0) // if this is the name of an enclosing class-template definition (which may be an explicit/partial specialization)
 			{
 				type.isInjectedClassName = true; // this is an implicit template-id

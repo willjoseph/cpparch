@@ -34,7 +34,7 @@ inline bool deducePairs(const UniqueTypeArray& parameters, const UniqueTypeArray
 //	 a templateparameter.
 // When a type name is specified in a way that includes a nondeduced context, all of the types that comprise
 // that type name are also nondeduced.
-inline bool isNonDeduced(const SimpleType& type)
+inline bool isNonDeduced(const Instance& type)
 {
 	return false; // TODO
 }
@@ -80,7 +80,7 @@ struct DeduceVisitor : TypeElementVisitor
 					result = false;
 					return;
 				}
-				const SimpleType& type = getSimpleType(argument.value);
+				const Instance& type = getInstance(argument.value);
 				if(!type.declaration->isTemplate
 					|| !deducePairs(element.templateArguments, type.templateArguments, templateArguments)) // template-template-parameter may have template-arguments that refer to a template parameter
 				{
@@ -138,10 +138,10 @@ struct DeduceVisitor : TypeElementVisitor
 	{
 		// cannot deduce from integral constant expression
 	}
-	virtual void visit(const SimpleType& element)
+	virtual void visit(const Instance& element)
 	{
 		SYMBOLS_ASSERT(argument.isSimple());
-		const SimpleType& type = getSimpleType(argument.value);
+		const Instance& type = getInstance(argument.value);
 		if(type.primary != element.primary) // if the class type does not match
 		{
 			result = false; // deduction fails
@@ -185,14 +185,14 @@ struct DeductionFailure
 {
 };
 
-inline const SimpleType* findUniqueBase(const SimpleType& derived, const Declaration& type, const SimpleType* result = 0)
+inline const Instance* findUniqueBase(const Instance& derived, const Declaration& type, const Instance* result = 0)
 {
 	SYMBOLS_ASSERT(derived.instantiated);
 	SYMBOLS_ASSERT(derived.declaration->enclosed != 0);
 	SYMBOLS_ASSERT(isClass(type));
 	for(UniqueBases::const_iterator i = derived.bases.begin(); i != derived.bases.end(); ++i)
 	{
-		const SimpleType& base = *(*i);
+		const Instance& base = *(*i);
 		SYMBOLS_ASSERT(isClass(*base.declaration));
 		if(base.primary == &type)
 		{
@@ -216,13 +216,13 @@ inline UniqueTypeWrapper removePointer(UniqueTypeWrapper type)
 	return type;
 }
 
-inline const SimpleType* getClassType(UniqueTypeWrapper type)
+inline const Instance* getClassType(UniqueTypeWrapper type)
 {
 	if(!type.isSimple())
 	{
 		return 0;
 	}
-	const SimpleType* result = &getSimpleType(type.value);
+	const Instance* result = &getInstance(type.value);
 	if(!isClass(*result->declaration))
 	{
 		return 0;
@@ -278,21 +278,21 @@ inline void adjustFunctionCallDeductionPair(UniqueTypeWrapper& parameter, Unique
 	// These alternatives are considered only if type deduction would otherwise fail. If they yield more than one
 	// possible deduced A, the type deduction fails.
 
-	const SimpleType* parameterType = getClassType(removePointer(parameter));
-	const SimpleType* argumentType = getClassType(removePointer(argument));
+	const Instance* parameterType = getClassType(removePointer(parameter));
+	const Instance* argumentType = getClassType(removePointer(argument));
 	if(parameterType != 0 && parameterType->declaration->isTemplate // if P is a class-template
 		&& argumentType != 0 && isComplete(*argumentType->declaration) // and A is a complete class
 		&& parameter.isPointer() == argument.isPointer() // and neither (or both) are pointers
 		&& argumentType->primary != parameterType->primary) // and deduction would fail
 	{
 		instantiateClass(*argumentType, context); // A must be instantiated before searching its bases
-		const SimpleType* base = findUniqueBase(*argumentType, *parameterType->primary);
+		const Instance* base = findUniqueBase(*argumentType, *parameterType->primary);
 		if(base != 0) // if P is an unambiguous base-class of A
 		{
 			// A can be a derived class of the deduced A
 			bool isPointer = argument.isPointer();
 			CvQualifiers qualifiers = removePointer(argument).value.getQualifiers();
-			argument = makeUniqueSimpleType(*base); // use the base-class in place of A for deduction
+			argument = makeUniqueInstance(*base); // use the base-class in place of A for deduction
 			argument.value.setQualifiers(qualifiers); // preserve the cv-qualification of the original A
 			if(isPointer)
 			{

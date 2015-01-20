@@ -8,7 +8,7 @@
 bool isSubstitutedClass(UniqueTypeWrapper type)
 {
 	return type.isDependentType() // template parameter
-		|| (type.isSimple() && isClass(*getSimpleType(type.value).declaration)); // or class
+		|| (type.isSimple() && isClass(*getInstance(type.value).declaration)); // or class
 }
 
 void substitute(UniqueTypeArray& substituted, const UniqueTypeArray& dependent, const InstantiationContext& context)
@@ -22,9 +22,9 @@ void substitute(UniqueTypeArray& substituted, const UniqueTypeArray& dependent, 
 }
 
 // 'enclosing' is already substituted
-inline UniqueTypeWrapper substitute(Declaration* declaration, const SimpleType* enclosing, const TemplateArgumentsInstance& templateArguments, const InstantiationContext& context)
+inline UniqueTypeWrapper substitute(Declaration* declaration, const Instance* enclosing, const TemplateArgumentsInstance& templateArguments, const InstantiationContext& context)
 {
-	SimpleType result(declaration, enclosing);
+	Instance result(declaration, enclosing);
 	if(declaration->isTemplate)
 	{
 		result.declaration = result.primary = findPrimaryTemplate(declaration); // TODO: name lookup should always find primary template
@@ -48,7 +48,7 @@ inline UniqueTypeWrapper substitute(Declaration* declaration, const SimpleType* 
 				}
 				// evaluate template-parameter defaults in the context of the owning template
 				// handles when template-param-default depends on a template param (which may also be left as a default)
-				UniqueTypeWrapper argument = makeUniqueTemplateArgument(*i, setEnclosingTypeSafe(context, &result), false, true);
+				UniqueTypeWrapper argument = makeUniqueTemplateArgument(*i, setEnclosingInstanceSafe(context, &result), false, true);
 				SYMBOLS_ASSERT(!isDependent(argument));
 				result.templateArguments.push_back(argument);
 			}
@@ -58,22 +58,22 @@ inline UniqueTypeWrapper substitute(Declaration* declaration, const SimpleType* 
 
 	static size_t uniqueId = 0;
 	result.uniqueId = ++uniqueId;
-	return makeUniqueSimpleType(result);
+	return makeUniqueInstance(result);
 }
 
-const SimpleType& substitute(const SimpleType& instance, const InstantiationContext& context)
+const Instance& substitute(const Instance& instance, const InstantiationContext& context)
 {
 	if(!isDependent(instance))
 	{
 		return instance;
 	}
-	const SimpleType* enclosing = 0;
+	const Instance* enclosing = 0;
 	if(instance.enclosing != 0)
 	{
 		enclosing = &substitute(*instance.enclosing, context);
 	}
 	UniqueTypeWrapper result = substitute(instance.declaration, enclosing, instance.templateArguments, context);
-	return getSimpleType(result.value);
+	return getInstance(result.value);
 }
 
 struct SubstituteVisitor : TypeElementVisitor
@@ -134,11 +134,11 @@ struct SubstituteVisitor : TypeElementVisitor
 		id.value = element.name;
 
 		Declaration* declaration = 0;
-		const SimpleType* memberEnclosing = 0;
+		const Instance* memberEnclosing = 0;
 
 		{
 			{
-				const SimpleType* enclosing = qualifying.isSimple() ? &getSimpleType(qualifying.value) : 0;
+				const Instance* enclosing = qualifying.isSimple() ? &getInstance(qualifying.value) : 0;
 				if(enclosing == 0
 					|| !isClass(*enclosing->declaration))
 				{
@@ -147,7 +147,7 @@ struct SubstituteVisitor : TypeElementVisitor
 				}
 
 				instantiateClass(*enclosing, context);
-				std::size_t visibility = enclosing->instantiating ? getPointOfInstantiation(*context.enclosingType) : VISIBILITY_ALL;
+				std::size_t visibility = enclosing->instantiating ? getPointOfInstantiation(*context.enclosingInstance) : VISIBILITY_ALL;
 				LookupResultRef result = findDeclaration(*enclosing, id, element.isNested ? LookupFilter(IsNestedName(visibility)) : LookupFilter(IsAny(visibility)));
 
 				if(result == 0) // if the name was not found within the qualifying class
@@ -166,9 +166,9 @@ struct SubstituteVisitor : TypeElementVisitor
 					throw MemberNotFoundError(context.source, element.name, enclosing);
 				}
 
-				QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(enclosing, result), context);
-				declaration = qualified.declaration;
-				enclosing = qualified.enclosing;
+				ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(enclosing, result), context);
+				declaration = resolved.declaration;
+				enclosing = resolved.enclosingInstance;
 
 				SYMBOLS_ASSERT(isTemplateName(*declaration) == element.isTemplate); // TODO: non-fatal error: expected template-name after 'template'
 
@@ -181,7 +181,7 @@ struct SubstituteVisitor : TypeElementVisitor
 				}
 
 				SYMBOLS_ASSERT(isMember(*declaration));
-				memberEnclosing = findEnclosingType(enclosing, declaration->scope); // the declaration must be a member of (a base of) the qualifying class: find which one.
+				memberEnclosing = findEnclosingClass(enclosing, declaration->scope); // the declaration must be a member of (a base of) the qualifying class: find which one.
 			}
 		}
 
@@ -199,15 +199,15 @@ struct SubstituteVisitor : TypeElementVisitor
 		if(declaration->type.isDependent)
 		{
 			SYMBOLS_ASSERT(memberEnclosing != 0);
-			type = substitute(type, setEnclosingTypeSafe(context, memberEnclosing));
+			type = substitute(type, setEnclosingInstanceSafe(context, memberEnclosing));
 		}
 	}
 	virtual void visit(const DependentNonType& element)
 	{
 		// TODO: unify DependentNonType and NonType?
 		if(element.expression.isDependent
-			&& (!canEvaluate(context.enclosingType, isDependentExpression2(element.expression))
-				|| isDependent(*context.enclosingType))) // occurs in substituteFunctionId with deduced template arguments
+			&& (!canEvaluate(context.enclosingInstance, isDependentExpression2(element.expression))
+				|| isDependent(*context.enclosingInstance))) // occurs in substituteFunctionId with deduced template arguments
 		{
 			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
@@ -227,8 +227,8 @@ struct SubstituteVisitor : TypeElementVisitor
 	{
 		// TODO: unify DependentNonType and DependentArrayType?
 		if(element.expression.isDependent
-			&& (!canEvaluate(context.enclosingType, isDependentExpression2(element.expression))
-				|| isDependent(*context.enclosingType))) // occurs in substituteFunctionId with deduced template arguments
+			&& (!canEvaluate(context.enclosingInstance, isDependentExpression2(element.expression))
+				|| isDependent(*context.enclosingInstance))) // occurs in substituteFunctionId with deduced template arguments
 		{
 			// occurs when substituting with a dependent template argument list
 			type.push_front(element);
@@ -248,9 +248,9 @@ struct SubstituteVisitor : TypeElementVisitor
 		// TODO: SFINAE for expressions: check that type of template argument matches template parameter
 		type.push_front(element);
 	}
-	virtual void visit(const SimpleType& element)
+	virtual void visit(const Instance& element)
 	{
-		const SimpleType& result = substitute(element, context);
+		const Instance& result = substitute(element, context);
 		type.push_front(result);
 	}
 	virtual void visit(const PointerType& element)
@@ -311,7 +311,7 @@ struct SubstituteVisitor : TypeElementVisitor
 
 UniqueTypeWrapper substituteImpl(UniqueTypeWrapper dependent, const InstantiationContext& context)
 {
-	if(!canSubstitute(context.enclosingType, isDependent2(dependent)))
+	if(!canSubstitute(context.enclosingInstance, isDependent2(dependent)))
 	{
 		// occurs when substituting a member template declaration: template<typename T> struct A { template<typename U> void f(U); };
 		return dependent;

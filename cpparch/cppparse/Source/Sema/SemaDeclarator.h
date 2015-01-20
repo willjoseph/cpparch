@@ -274,7 +274,7 @@ struct SemaDeclarator : public SemaBase
 		if(qualifying != gUniqueTypeNull)// if the declarator is qualified by a class-name
 		{
 			// represents the type of 'this'
-			enclosingType = &getSimpleType(qualifying.value);
+			enclosingInstance = &getInstance(qualifying.value);
 		}
 
 		isExplicitSpecialization = templateParams != 0

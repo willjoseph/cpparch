@@ -11,7 +11,7 @@ extern Identifier gDestructorId;
 extern Name gConversionFunctionId;
 extern const DeclarationInstance gCopyAssignmentOperatorInstance;
 extern const DeclarationInstance gDestructorInstance;
-extern const SimpleType gDependentSimpleType;
+extern const Instance gDependentInstance;
 
 extern BuiltInTypeId gImplicitObjectParameter;
 

@@ -270,7 +270,7 @@ inline bool isEqual(UniqueTypeWrapper l, UniqueTypeWrapper r)
 
 inline UniqueType getInner(UniqueType type)
 {
-	SYMBOLS_ASSERT(!isEqual(getTypeInfo(*type), getTypeInfo<TypeElementGeneric<struct SimpleType> >()));
+	SYMBOLS_ASSERT(!isEqual(getTypeInfo(*type), getTypeInfo<TypeElementGeneric<struct Instance> >()));
 	return type->next;
 }
 
@@ -345,13 +345,13 @@ typedef std::vector<ExpressionWrapper> InstantiatedExpressions;
 
 
 
-typedef std::vector<const struct SimpleType*> UniqueBases;
+typedef std::vector<const struct Instance*> UniqueBases;
 
 struct ChildInstantiation
 {
-	const struct SimpleType* instance;
+	const struct Instance* instance;
 	Location source;
-	ChildInstantiation(const struct SimpleType* instance, Location source)
+	ChildInstantiation(const struct Instance* instance, Location source)
 		: instance(instance), source(source)
 	{
 	}
@@ -420,14 +420,14 @@ typedef std::vector<Location> InstanceLocations; // temporary scaffolding!
 // template.
 
 // Represents a class, enumeration, union or fundamental type.
-struct SimpleType
+struct Instance
 {
 	std::size_t uniqueId;
 	DeclarationPtr primary;
 	DeclarationPtr declaration; // don't compare declaration pointer - it will change on instantiation if an explicit/partial specialization is chosen
 	TemplateArgumentsInstance templateArguments;
 	TemplateArgumentsInstance deducedArguments; // the deduced arguments for the partial-specialization's template-parameters
-	const SimpleType* enclosing; // the enclosing template
+	const Instance* enclosing; // the enclosing template
 	UniqueBases bases;
 	TypeLayout layout;
 	InstantiatedTypes substitutedTypes; // the types substituted when this class template is instantiated
@@ -449,7 +449,7 @@ struct SimpleType
 	Location instantiation;
 	ChildInstantiations childInstantiations; // not copied by copy-constructor
 
-	SimpleType(Declaration* declaration, const SimpleType* enclosing, TypeLayout layout = TypeLayout(0, 1))
+	Instance(Declaration* declaration, const Instance* enclosing, TypeLayout layout = TypeLayout(0, 1))
 		: uniqueId(0), primary(declaration), declaration(declaration), enclosing(enclosing), layout(layout),
 		substituted(false), failed(false), instantiated(false), instantiating(false), allowLookup(false),
 		hasCopyAssignmentOperator(false), hasVirtualDestructor(false), isPolymorphic(false), isAbstract(false),
@@ -467,24 +467,24 @@ struct SimpleType
 	}
 };
 
-inline bool operator==(const SimpleType& left, const SimpleType& right)
+inline bool operator==(const Instance& left, const Instance& right)
 {
 	return left.primary.p == right.primary.p
 		&& left.enclosing == right.enclosing
 		&& left.templateArguments == right.templateArguments;
 }
 
-inline bool operator<(const SimpleType& left, const SimpleType& right)
+inline bool operator<(const Instance& left, const Instance& right)
 {
 	return left.primary.p != right.primary.p ? left.primary.p < right.primary.p
 		: left.enclosing != right.enclosing ? left.enclosing < right.enclosing
 		: left.templateArguments < right.templateArguments;
 }
 
-inline const SimpleType& getSimpleType(UniqueType type)
+inline const Instance& getInstance(UniqueType type)
 {
-	SYMBOLS_ASSERT(isEqual(getTypeInfo(*type), getTypeInfo<TypeElementGeneric<SimpleType> >()));
-	return static_cast<const TypeElementGeneric<SimpleType>*>(type.getPointer())->value;
+	SYMBOLS_ASSERT(isEqual(getTypeInfo(*type), getTypeInfo<TypeElementGeneric<Instance> >()));
+	return static_cast<const TypeElementGeneric<Instance>*>(type.getPointer())->value;
 }
 
 
@@ -495,8 +495,8 @@ inline const SimpleType& getSimpleType(UniqueType type)
 struct TemplateTemplateArgument
 {
 	DeclarationPtr declaration; // the primary declaration of the template template argument
-	const SimpleType* enclosing;
-	TemplateTemplateArgument(Declaration* declaration, const SimpleType* enclosing)
+	const Instance* enclosing;
+	TemplateTemplateArgument(Declaration* declaration, const Instance* enclosing)
 		: declaration(declaration), enclosing(enclosing)
 	{
 	}
@@ -686,9 +686,9 @@ inline const MemberPointerType& getMemberPointerType(UniqueType type)
 	return static_cast<const TypeElementGeneric<MemberPointerType>*>(type.getPointer())->value;
 }
 
-inline const SimpleType& getMemberPointerClass(UniqueType type)
+inline const Instance& getMemberPointerClass(UniqueType type)
 {
-	return getSimpleType(getMemberPointerType(type).type.value);
+	return getInstance(getMemberPointerType(type).type.value);
 }
 
 inline bool operator<(const MemberPointerType& left, const MemberPointerType& right)
@@ -840,32 +840,31 @@ struct InstantiationContext
 {
 	mutable InstantiationAllocator allocator;
 	Location source;
-	const SimpleType* enclosingType;
-	const SimpleType* enclosingFunction;
+	const Instance* enclosingInstance;
 	ScopePtr enclosingScope;
 	InstantiationContext()
-		: allocator(NullAllocator<UncheckedLinearAllocator>()), enclosingType(0), enclosingFunction(0), enclosingScope(0)
+		: allocator(NullAllocator<UncheckedLinearAllocator>()), enclosingInstance(0), enclosingScope(0)
 	{
 	}
-	InstantiationContext(const InstantiationAllocator& allocator, Location source, const SimpleType* enclosingType, const SimpleType* enclosingFunction, ScopePtr enclosingScope)
-		: allocator(allocator), source(source), enclosingType(enclosingType), enclosingFunction(enclosingFunction), enclosingScope(enclosingScope)
+	InstantiationContext(const InstantiationAllocator& allocator, Location source, const Instance* enclosingInstance, ScopePtr enclosingScope)
+		: allocator(allocator), source(source), enclosingInstance(enclosingInstance), enclosingScope(enclosingScope)
 	{
 	}
 };
 
-inline InstantiationContext setEnclosingType(const InstantiationContext& context, const SimpleType* enclosingType)
+inline InstantiationContext setEnclosingInstance(const InstantiationContext& context, const Instance* enclosingInstance)
 {
-	return InstantiationContext(context.allocator, context.source, enclosingType, context.enclosingFunction, context.enclosingScope);
+	return InstantiationContext(context.allocator, context.source, enclosingInstance, context.enclosingScope);
 }
 
-inline InstantiationContext setEnclosingTypeSafe(const InstantiationContext& context, const SimpleType* enclosingType)
+inline InstantiationContext setEnclosingInstanceSafe(const InstantiationContext& context, const Instance* enclosingInstance)
 {
-	SYMBOLS_ASSERT(enclosingType != 0);
-	return setEnclosingType(context, enclosingType);
+	SYMBOLS_ASSERT(enclosingInstance != 0);
+	return setEnclosingInstance(context, enclosingInstance);
 }
 
 
-inline UniqueTypeWrapper makeUniqueSimpleType(const SimpleType& type)
+inline UniqueTypeWrapper makeUniqueInstance(const Instance& type)
 {
 	SYMBOLS_ASSERT(!(type.primary->isTemplate && isSpecialization(*type.primary))); // primary declaration must not be a specialization!
 	return UniqueTypeWrapper(pushUniqueType(gUniqueTypes, UNIQUETYPE_NULL, type));
@@ -891,7 +890,7 @@ struct BuiltInTypeId : BuiltInType
 {
 	BuiltInTypeId(Declaration* declaration, const AstAllocator<int>& allocator, TypeLayout layout = TYPELAYOUT_NONE)
 	{
-		value = pushBuiltInType(value, SimpleType(declaration, 0, layout));
+		value = pushBuiltInType(value, Instance(declaration, 0, layout));
 		declaration->type.unique = value;
 		declaration->isComplete = true;
 	}
@@ -931,10 +930,10 @@ inline Dependent isDependent2(const UniqueTypeArray& types)
 	return result;
 }
 
-inline bool isDependent(const SimpleType& type);
-inline Dependent isDependent2(const SimpleType& type);
+inline bool isDependent(const Instance& type);
+inline Dependent isDependent2(const Instance& type);
 
-inline bool isDependentQualifying(const SimpleType* qualifying)
+inline bool isDependentQualifying(const Instance* qualifying)
 {
 	if(qualifying == 0)
 	{
@@ -942,7 +941,7 @@ inline bool isDependentQualifying(const SimpleType* qualifying)
 	}
 	return isDependent(*qualifying);
 }
-inline Dependent isDependentQualifying2(const SimpleType* qualifying)
+inline Dependent isDependentQualifying2(const Instance* qualifying)
 {
 	if(qualifying == 0)
 	{
@@ -951,7 +950,7 @@ inline Dependent isDependentQualifying2(const SimpleType* qualifying)
 	return isDependent2(*qualifying);
 }
 
-inline bool isDependent(const SimpleType& type)
+inline bool isDependent(const Instance& type)
 {
 	if(isDependentQualifying(type.enclosing))
 	{
@@ -963,7 +962,7 @@ inline bool isDependent(const SimpleType& type)
 	}
 	return false;
 }
-inline Dependent isDependent2(const SimpleType& type)
+inline Dependent isDependent2(const Instance& type)
 {
 	return isDependentQualifying2(type.enclosing)
 		| isDependent2(type.templateArguments);
@@ -1053,12 +1052,13 @@ inline Dependent isDependent2(const T&)
 
 // ----------------------------------------------------------------------------
 // Returns true if the enclosing class is or contains the given class.
-inline bool isEnclosingType(const SimpleType* enclosingType, const SimpleType* classType)
+inline bool isEnclosingClass(const Instance* enclosingInstance, const Instance* instance)
 {
-	SYMBOLS_ASSERT(classType != 0);
-	for(const SimpleType* i = enclosingType; i != 0; i = (*i).enclosing)
+	SYMBOLS_ASSERT(instance != 0);
+	SYMBOLS_ASSERT(isClass(*instance->declaration));
+	for(const Instance* i = enclosingInstance; i != 0; i = (*i).enclosing)
 	{
-		if(i == classType)
+		if(i == instance)
 		{
 			return true;
 		}
@@ -1066,10 +1066,11 @@ inline bool isEnclosingType(const SimpleType* enclosingType, const SimpleType* c
 	return false;
 }
 
-// Returns the enclosing class that is the currently instantiated specialization of the given class.
-inline const SimpleType* findEnclosingType(const SimpleType* enclosingType, const Declaration& declaration)
+// Returns the enclosing class instance that is the currently instantiated specialization of the given class.
+inline const Instance* findEnclosingClass(const Instance* enclosingInstance, const Declaration& declaration)
 {
-	for(const SimpleType* i = enclosingType; i != 0; i = (*i).enclosing)
+	SYMBOLS_ASSERT(isClass(declaration));
+	for(const Instance* i = enclosingInstance; i != 0; i = (*i).enclosing)
 	{
 		if((*i).declaration == &declaration)
 		{
@@ -1080,29 +1081,30 @@ inline const SimpleType* findEnclosingType(const SimpleType* enclosingType, cons
 }
 
 // Returns the base class or enclosing class that directly contains the given scope.
-inline const SimpleType* findEnclosingType(const SimpleType& enclosingType, Scope* scope)
+inline const Instance* findEnclosingClass(const Instance& enclosingClass, Scope* scope)
 {
 	SYMBOLS_ASSERT(scope != 0);
+	SYMBOLS_ASSERT(isClass(*enclosingClass.declaration));
 	if(scope->type == SCOPETYPE_TEMPLATE)
 	{
-		return enclosingType.declaration->templateParamScope == scope
-			? &enclosingType
+		return enclosingClass.declaration->templateParamScope == scope
+			? &enclosingClass
 			: 0; // don't search base classes for template-parameter
 	}
 
-	if(enclosingType.declaration->enclosed == scope)
+	if(enclosingClass.declaration->enclosed == scope)
 	{
-		return &enclosingType;
+		return &enclosingClass;
 	}
 
-	if(enclosingType.declaration->enclosed != 0) // TODO: 'enclosingType' may be incomplete if we're finding the enclosing type for a template default argument. 
+	if(enclosingClass.declaration->enclosed != 0) // TODO: 'enclosingClass' may be incomplete if we're finding the enclosing type for a template default argument. 
 	{
-		SYMBOLS_ASSERT(enclosingType.instantiated); // the enclosing type should have been instantiated by this point
+		SYMBOLS_ASSERT(enclosingClass.instantiated); // the enclosing type should have been instantiated by this point
 	}
 
-	for(UniqueBases::const_iterator i = enclosingType.bases.begin(); i != enclosingType.bases.end(); ++i)
+	for(UniqueBases::const_iterator i = enclosingClass.bases.begin(); i != enclosingClass.bases.end(); ++i)
 	{
-		const SimpleType* result = findEnclosingType(*(*i), scope);
+		const Instance* result = findEnclosingClass(*(*i), scope);
 		if(result != 0)
 		{
 			return result;
@@ -1112,14 +1114,16 @@ inline const SimpleType* findEnclosingType(const SimpleType& enclosingType, Scop
 }
 
 // Returns the base class or enclosing class that directly contains the given scope.
-inline const SimpleType* findEnclosingType(const SimpleType* enclosingType, Scope* scope)
+inline const Instance* findEnclosingClass(const Instance* enclosingClass, Scope* scope)
 {
 	SYMBOLS_ASSERT(scope != 0);
-	for(const SimpleType* i = enclosingType; i != 0; i = (*i).enclosing)
+	SYMBOLS_ASSERT(enclosingClass == 0 || isClass(*enclosingClass->declaration));
+	for(const Instance* i = enclosingClass; i != 0; i = (*i).enclosing)
 	{
-		const SimpleType* result = findEnclosingType(*i, scope);
+		const Instance* result = findEnclosingClass(*i, scope);
 		if(result != 0)
 		{
+			SYMBOLS_ASSERT(isClass(*result->declaration));
 			return result;
 		}
 	}
@@ -1127,11 +1131,11 @@ inline const SimpleType* findEnclosingType(const SimpleType* enclosingType, Scop
 }
 
 // Returns the enclosing template class/function that directly contains the given template parameter scope.
-inline const SimpleType* findEnclosingTemplate(const SimpleType* enclosing, Scope* scope)
+inline const Instance* findEnclosingTemplate(const Instance* enclosing, Scope* scope)
 {
 	SYMBOLS_ASSERT(scope != 0);
 	SYMBOLS_ASSERT(scope->type == SCOPETYPE_TEMPLATE);
-	for(const SimpleType* i = enclosing; i != 0; i = (*i).enclosing)
+	for(const Instance* i = enclosing; i != 0; i = (*i).enclosing)
 	{
 		if((*i).declaration->templateParamScope != 0
 			&& (*i).declaration->templateParamScope->templateDepth == scope->templateDepth)
@@ -1140,12 +1144,6 @@ inline const SimpleType* findEnclosingTemplate(const SimpleType* enclosing, Scop
 		}
 	}
 	return 0;
-}
-
-// Returns the enclosing template class/function that directly contains the given template parameter scope.
-inline const SimpleType* findEnclosingTemplate(const InstantiationContext& context, Scope* scope)
-{
-	return findEnclosingTemplate(context.enclosingFunction != 0 ? context.enclosingFunction : context.enclosingType, scope);
 }
 
 

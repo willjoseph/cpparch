@@ -170,34 +170,34 @@ inline Declaration* getFundamentalType(unsigned fundamental)
 
 
 
-inline bool isCStyle(const SimpleType& classType)
+inline bool isCStyle(const Instance& classInstance)
 {
-	return classType.declaration->isCStyle;
+	return classInstance.declaration->isCStyle;
 }
 
-inline bool isUnion(const SimpleType& classType)
+inline bool isUnion(const Instance& classInstance)
 {
-	return classType.declaration->isUnion;
+	return classInstance.declaration->isUnion;
 }
 
-inline bool isClass(const SimpleType& classType)
+inline bool isClass(const Instance& classInstance)
 {
-	return isClass(*classType.declaration);
+	return isClass(*classInstance.declaration);
 }
 
 inline bool isClass(UniqueTypeWrapper type)
 {
-	return type.isSimple() && isClass(getSimpleType(type.value));
+	return type.isSimple() && isClass(getInstance(type.value));
 }
 
-inline bool isEnum(const SimpleType& classType)
+inline bool isEnum(const Instance& classInstance)
 {
-	return isEnum(*classType.declaration);
+	return isEnum(*classInstance.declaration);
 }
 
 inline bool isEnum(UniqueTypeWrapper type)
 {
-	return type.isSimple() && isEnum(getSimpleType(type.value));
+	return type.isSimple() && isEnum(getInstance(type.value));
 }
 
 inline bool isObject(UniqueTypeWrapper type)
@@ -205,24 +205,24 @@ inline bool isObject(UniqueTypeWrapper type)
 	return type != gVoid && !type.isReference() && !type.isFunction();
 }
 
-inline bool isComplete(const SimpleType& classType)
+inline bool isComplete(const Instance& classInstance)
 {
-	return isComplete(*classType.declaration);
+	return isComplete(*classInstance.declaration);
 }
 
 inline bool isComplete(const UniqueTypeId& type)
 {
-	return type.isSimple() && isComplete(getSimpleType(type.value));
+	return type.isSimple() && isComplete(getInstance(type.value));
 }
 
-inline bool isArithmetic(const SimpleType& classType)
+inline bool isArithmetic(const Instance& classInstance)
 {
-	return isArithmetic(*classType.declaration);
+	return isArithmetic(*classInstance.declaration);
 }
 
 inline bool isArithmetic(const UniqueTypeId& type)
 {
-	return type.isSimple() && isArithmetic(getSimpleType(type.value));
+	return type.isSimple() && isArithmetic(getInstance(type.value));
 }
 
 inline bool isFloating(const UniqueTypeId& type)

@@ -348,7 +348,7 @@ inline StandardConversionSequence makeScsConversion(const InstantiationContext& 
 	}
 	if(to.isSimplePointer()
 		&& from.isSimplePointer()
-		&& isBaseOf(getSimpleType(getInner(to.value)), getSimpleType(getInner(from.value)), context))
+		&& isBaseOf(getInstance(getInner(to.value)), getInstance(getInner(from.value)), context))
 	{
 		to.pop_front();
 		from.pop_front();
@@ -369,7 +369,7 @@ inline StandardConversionSequence makeScsConversion(const InstantiationContext& 
 	}
 	if(to.isSimple()
 		&& from.isSimple()
-		&& isBaseOf(getSimpleType(to.value), getSimpleType(from.value), context))
+		&& isBaseOf(getInstance(to.value), getInstance(from.value), context))
 	{
 		return StandardConversionSequence(SCSRANK_CONVERSION, CvQualifiers()); // D -> B
 	}

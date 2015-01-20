@@ -5,7 +5,7 @@
 #include "Ast/Expression.h"
 #include "Ast/Type.h"
 
-struct SimpleType;
+struct Instance;
 struct InstantiationContext;
 
 // ----------------------------------------------------------------------------
@@ -195,12 +195,12 @@ inline const DependentIdExpression& getDependentIdExpression(ExpressionNode* nod
 struct IdExpression
 {
 	DeclarationInstanceRef declaration;
-	const SimpleType* qualifying;
+	const Instance* enclosingInstance;
 	// TODO: handle empty template-argument list '<>'. If specified, overload resolution should ignore non-templates
 	TemplateArgumentsInstance templateArguments;
 	bool isQualified;
-	IdExpression(DeclarationInstanceRef declaration, const SimpleType* qualifying, const TemplateArgumentsInstance& templateArguments, bool isQualified)
-		: declaration(declaration), qualifying(qualifying), templateArguments(templateArguments), isQualified(isQualified)
+	IdExpression(DeclarationInstanceRef declaration, const Instance* enclosingInstance, const TemplateArgumentsInstance& templateArguments, bool isQualified)
+		: declaration(declaration), enclosingInstance(enclosingInstance), templateArguments(templateArguments), isQualified(isQualified)
 	{
 	}
 };
@@ -209,8 +209,8 @@ inline bool operator<(const IdExpression& left, const IdExpression& right)
 {
 	return left.declaration.p != right.declaration.p
 		? left.declaration.p < right.declaration.p
-		: left.qualifying != right.qualifying
-		? left.qualifying < right.qualifying
+		: left.enclosingInstance != right.enclosingInstance
+		? left.enclosingInstance < right.enclosingInstance
 		: left.isQualified != right.isQualified
 		? left.isQualified < right.isQualified
 		: left.templateArguments < right.templateArguments;
@@ -681,7 +681,7 @@ inline bool isUniqueExpression(const OffsetofExpression& e)
 // - of class type
 struct FunctionCallExpression
 {
-	ExpressionWrapper left; // TODO: extract memberClass, id, idEnclosing, type, templateArguments
+	ExpressionWrapper left; // TODO: extract objectExpressionClass, id, idEnclosing, type, templateArguments
 	Arguments arguments;
 	FunctionCallExpression(ExpressionWrapper left, const Arguments& arguments)
 		: left(left), arguments(arguments)

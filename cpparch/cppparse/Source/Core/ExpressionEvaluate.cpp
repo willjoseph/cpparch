@@ -110,14 +110,14 @@ ExpressionValue evaluateExpressionImpl(ExpressionNode* node, const Instantiation
 
 
 
-inline void addOverloads(OverloadResolver& resolver, const DeclarationInstance& declaration, const SimpleType* memberEnclosing, bool fromUsing = false)
+inline void addOverloads(OverloadResolver& resolver, const DeclarationInstance& declaration, const Instance* memberEnclosing, bool fromUsing = false)
 {
 	for(Declaration* p = findOverloaded(declaration); p != 0; p = p->overloaded)
 	{
 		if(isUsing(*p)) // if the overload is a using-declaration
 		{
-			QualifiedDeclaration qualified = getUsingMember(*p);
-			addOverloads(resolver, qualified.declaration, qualified.enclosing, true);
+			ResolvedDeclaration qualified = getUsingMember(*p);
+			addOverloads(resolver, qualified.declaration, qualified.enclosingInstance, true);
 			continue;
 		}
 		addOverload(resolver, Overload(p, memberEnclosing, fromUsing));
@@ -135,10 +135,10 @@ inline void addOverloads(OverloadResolver& resolver, const OverloadSet& overload
 
 ExpressionType getOverloadedMemberOperatorType(ExpressionType operand, const InstantiationContext& context)
 {
-	const SimpleType& classType = getSimpleType(operand.value);
-	SYMBOLS_ASSERT(isClass(*classType.declaration)); // assert that this is a class type
+	const Instance& classInstance = getInstance(operand.value);
+	SYMBOLS_ASSERT(isClass(*classInstance.declaration)); // assert that this is a class type
 	// [expr.ref] [the type of the operand-expression shall be complete]
-	instantiateClass(classType, context); // searching for overloads requires a complete type
+	instantiateClass(classInstance, context); // searching for overloads requires a complete type
 
 	Identifier id;
 	id.value = gOperatorArrowId;
@@ -148,10 +148,10 @@ ExpressionType getOverloadedMemberOperatorType(ExpressionType operand, const Ins
 	Arguments arguments(1, makeArgument(ExpressionWrapper(&transientExpression), operand));
 	OverloadResolver resolver(arguments, 0, context);
 
-	LookupResultRef declaration = ::findDeclaration(classType, id, IsAny());
+	LookupResultRef declaration = ::findDeclaration(classInstance, id, IsAny());
 	if(declaration != 0)
 	{
-		const SimpleType* memberEnclosing = findEnclosingType(&classType, declaration->scope); // find the base class which contains the member-declaration
+		const Instance* memberEnclosing = findEnclosingClass(&classInstance, declaration->scope); // find the base class which contains the member-declaration
 		SYMBOLS_ASSERT(memberEnclosing != 0);
 		addOverloads(resolver, declaration, memberEnclosing);
 	}
@@ -239,8 +239,7 @@ inline void printCandidates(OverloadResolver& resolver, const InstantiationConte
 	}
 }
 
-// source: where the overload resolution occurs (point of instantiation)
-// enclosingType: the class of which the declaration is a member (along with all its overloads).
+// context: the context within which the overload resolution occurs (point of instantiation)
 inline FunctionOverload findBestOverloadedFunction(const OverloadSet& overloads, const TemplateArgumentsInstance* templateArguments, const Arguments& arguments, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(!overloads.empty());
@@ -330,11 +329,11 @@ inline void addBuiltInTypeConversions(UserTypeArray& conversions, BuiltInTypeArr
 }
 
 template<typename Op>
-inline void forEachBase(const SimpleType& classType, Op op)
+inline void forEachBase(const Instance& classInstance, Op op)
 {
-	SYMBOLS_ASSERT(classType.instantiated);
-	op(classType);
-	for(UniqueBases::const_iterator i = classType.bases.begin(); i != classType.bases.end(); ++i)
+	SYMBOLS_ASSERT(classInstance.instantiated);
+	op(classInstance);
+	for(UniqueBases::const_iterator i = classInstance.bases.begin(); i != classInstance.bases.end(); ++i)
 	{
 		forEachBase(**i, op);
 	}
@@ -363,9 +362,9 @@ struct AddPointerConversions
 		: conversions(conversions), qualifiers(qualifiers)
 	{
 	}
-	void operator()(const SimpleType& classType) const
+	void operator()(const Instance& classInstance) const
 	{
-		addQualificationPermutations(conversions, qualifyType(makeUniqueSimpleType(classType), qualifiers));
+		addQualificationPermutations(conversions, qualifyType(makeUniqueInstance(classInstance), qualifiers));
 	}
 };
 
@@ -377,9 +376,9 @@ struct AddMemberPointerConversions
 		: conversions(conversions), type(type)
 	{
 	}
-	void operator()(const SimpleType& classType) const
+	void operator()(const Instance& classInstance) const
 	{
-		addQualificationPermutations(conversions, type, MemberPointerType(makeUniqueSimpleType(classType)));
+		addQualificationPermutations(conversions, type, MemberPointerType(makeUniqueInstance(classInstance)));
 	}
 };
 
@@ -418,9 +417,9 @@ inline void addBuiltInOperatorConversions(UserTypeArray& conversions, UniqueType
 			&& isComplete(type))
 		{
 			// the argument type 'pointer to class X' is convertible to a pointer to any base class of X
-			const SimpleType& classType = getSimpleType(type.value);
-			instantiateClass(classType, context);
-			forEachBase(classType, AddPointerConversions(conversions, qualifiers));
+			const Instance& classInstance = getInstance(type.value);
+			instantiateClass(classInstance, context);
+			forEachBase(classInstance, AddPointerConversions(conversions, qualifiers));
 		}
 		else
 		{
@@ -438,9 +437,9 @@ inline void addBuiltInOperatorConversions(UserTypeArray& conversions, UniqueType
 		if(isComplete(from))
 		{
 			// the argument type 'pointer to member of class X of type Y' is convertible to a pointer to member of any base class of X of type Y
-			const SimpleType& classType = getMemberPointerClass(from.value);
-			instantiateClass(classType, context);
-			forEachBase(classType, AddMemberPointerConversions(conversions, type));
+			const Instance& classInstance = getMemberPointerClass(from.value);
+			instantiateClass(classInstance, context);
+			forEachBase(classInstance, AddMemberPointerConversions(conversions, type));
 		}
 		else
 		{
@@ -721,12 +720,12 @@ inline FunctionOverload findBestOverloadedOperator(const Identifier& id, const A
 	if(isClass(left)
 		&& isComplete(left)) // can only find overloads if class is complete
 	{
-		const SimpleType& operand = getSimpleType(left.value);
+		const Instance& operand = getInstance(left.value);
 		instantiateClass(operand, context); // searching for overloads requires a complete type
 		LookupResultRef declaration = ::findDeclaration(operand, id, IsAny());
 		if(declaration != 0)
 		{
-			const SimpleType* memberEnclosing = findEnclosingType(&operand, declaration->scope); // find the base class which contains the member-declaration
+			const Instance* memberEnclosing = findEnclosingClass(&operand, declaration->scope); // find the base class which contains the member-declaration
 			SYMBOLS_ASSERT(memberEnclosing != 0);
 			addOverloads(resolver, declaration, memberEnclosing);
 		}

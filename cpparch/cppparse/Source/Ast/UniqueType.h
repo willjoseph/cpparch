@@ -60,7 +60,7 @@ struct TypeElementVisitor
 	virtual void visit(const struct DependentArrayType&) = 0;
 	virtual void visit(const struct TemplateTemplateArgument&) = 0;
 	virtual void visit(const struct NonType&) = 0;
-	virtual void visit(const struct SimpleType&) = 0;
+	virtual void visit(const struct Instance&) = 0;
 	virtual void visit(const struct PointerType&) = 0;
 	virtual void visit(const struct ReferenceType&) = 0;
 	virtual void visit(const struct ArrayType&) = 0;
@@ -211,7 +211,7 @@ struct UniqueTypeWrapper
 	}
 	bool isSimple() const
 	{
-		return isEqual(getTypeInfo(*value), getTypeInfo<TypeElementGeneric<SimpleType> >());
+		return isEqual(getTypeInfo(*value), getTypeInfo<TypeElementGeneric<Instance> >());
 	}
 	bool isPointer() const
 	{

@@ -12,7 +12,7 @@ struct KoenigAssociated
 {
 	typedef std::vector<Scope*> Namespaces;
 	Namespaces namespaces;
-	typedef std::vector<const SimpleType*> Classes;
+	typedef std::vector<const Instance*> Classes;
 	Classes classes;
 };
 
@@ -25,7 +25,7 @@ inline void addAssociatedNamespace(KoenigAssociated& associated, Scope& scope)
 	}
 }
 
-inline void addAssociatedClass(KoenigAssociated& associated, const SimpleType& type)
+inline void addAssociatedClass(KoenigAssociated& associated, const Instance& type)
 {
 	SYMBOLS_ASSERT(isClass(*type.declaration));
 	if(std::find(associated.classes.begin(), associated.classes.end(), &type) == associated.classes.end())
@@ -49,7 +49,7 @@ inline Scope* getEnclosingNamespace(Scope* scope)
 	return 0;
 }
 
-inline void addAssociatedEnclosingNamespace(KoenigAssociated& associated, const SimpleType& type)
+inline void addAssociatedEnclosingNamespace(KoenigAssociated& associated, const Instance& type)
 {
 	Scope* scope = getEnclosingNamespace(type.declaration->scope);
 	if(scope != 0)
@@ -58,31 +58,31 @@ inline void addAssociatedEnclosingNamespace(KoenigAssociated& associated, const 
 	}
 }
 
-inline void addAssociatedClassAndNamespace(KoenigAssociated& associated, const SimpleType& classType)
+inline void addAssociatedClassAndNamespace(KoenigAssociated& associated, const Instance& classInstance)
 {
-	SYMBOLS_ASSERT(isClass(*classType.declaration));
-	addAssociatedClass(associated, classType);
-	addAssociatedEnclosingNamespace(associated, classType);
+	SYMBOLS_ASSERT(isClass(*classInstance.declaration));
+	addAssociatedClass(associated, classInstance);
+	addAssociatedEnclosingNamespace(associated, classInstance);
 }
 
-inline void addAssociatedClassRecursive(KoenigAssociated& associated, const SimpleType& classType)
+inline void addAssociatedClassRecursive(KoenigAssociated& associated, const Instance& classInstance)
 {
-	SYMBOLS_ASSERT(isClass(*classType.declaration));
-	addAssociatedClassAndNamespace(associated, classType);
-	for(UniqueBases::const_iterator i = classType.bases.begin(); i != classType.bases.end(); ++i)
+	SYMBOLS_ASSERT(isClass(*classInstance.declaration));
+	addAssociatedClassAndNamespace(associated, classInstance);
+	for(UniqueBases::const_iterator i = classInstance.bases.begin(); i != classInstance.bases.end(); ++i)
 	{
-		const SimpleType* base = *i;
+		const Instance* base = *i;
 		addAssociatedClassRecursive(associated, *base); // TODO: check for cyclic base-class, prevent infinite recursion
 	}
 }
 
-inline void addKoenigAssociated(KoenigAssociated& associated, const SimpleType& classType)
+inline void addKoenigAssociated(KoenigAssociated& associated, const Instance& classInstance)
 {
-	if(classType.enclosing != 0)
+	if(classInstance.enclosing != 0)
 	{
-		addAssociatedClassAndNamespace(associated, *classType.enclosing);
+		addAssociatedClassAndNamespace(associated, *classInstance.enclosing);
 	}
-	addAssociatedClassRecursive(associated, classType);
+	addAssociatedClassRecursive(associated, classInstance);
 }
 
 inline void addKoenigAssociated(KoenigAssociated& associated, UniqueTypeWrapper type);
@@ -119,7 +119,7 @@ struct KoenigVisitor : TypeElementVisitor
 	virtual void visit(const NonType&)
 	{
 	}
-	virtual void visit(const SimpleType& element)
+	virtual void visit(const Instance& element)
 	{
 		// - If T is a fundamental type, its associated sets of namespaces and classes are both empty.
 		if(isClass(*element.declaration))
@@ -171,7 +171,7 @@ struct KoenigVisitor : TypeElementVisitor
 		//   with the function parameter types and return type, together with those associated with X.
 		// - If T is a pointer to a data member of class X, its associated namespaces and classes are those associated
 		//   with the member type together with those associated with X.
-		addKoenigAssociated(associated, getSimpleType(element.type.value));
+		addKoenigAssociated(associated, getInstance(element.type.value));
 	}
 	virtual void visit(const FunctionType& element)
 	{
@@ -205,15 +205,15 @@ inline void addKoenigAssociated(KoenigAssociated& associated, UniqueTypeWrapper 
 	}
 }
 
-inline const SimpleType* findKoenigAssociatedClass(const KoenigAssociated& associated, const Declaration& declaration)
+inline const Instance* findKoenigAssociatedClass(const KoenigAssociated& associated, const Declaration& declaration)
 {
 	SYMBOLS_ASSERT(isClass(declaration));
 	for(KoenigAssociated::Classes::const_iterator i = associated.classes.begin(); i != associated.classes.end(); ++i)
 	{
-		const SimpleType* classType = *i;
-		if(classType->declaration == &declaration)
+		const Instance* classInstance = *i;
+		if(classInstance->declaration == &declaration)
 		{
-			return classType;
+			return classInstance;
 		}
 	}
 	return 0;

@@ -464,8 +464,8 @@ inline bool isEquivalentTemplateParameters(const TemplateParameters& left, const
 inline bool isEquivalentMemberSpecialization(const Declaration& declaration, const Declaration& other)
 {
 	SYMBOLS_ASSERT(declaration.isSpecialization && other.isSpecialization);
-	SYMBOLS_ASSERT(declaration.enclosingType != 0 && other.enclosingType != 0);
-	return declaration.enclosingType == other.enclosingType; // return true if both are members of the same unique class
+	SYMBOLS_ASSERT(declaration.enclosingInstance != 0 && other.enclosingInstance != 0);
+	return declaration.enclosingInstance == other.enclosingInstance; // return true if both are members of the same unique class
 }
 
 inline bool isEquivalent(const Declaration& declaration, const Declaration& other)
@@ -564,9 +564,10 @@ inline bool enclosesEts(ScopeType type)
 		|| type == SCOPETYPE_LOCAL;
 }
 
-inline const SimpleType* getEnclosingType(const SimpleType* enclosing)
+inline const Instance* getEnclosingClass(const Instance* enclosing)
 {
-	for(const SimpleType* i = enclosing; i != 0; i = (*i).enclosing)
+	SYMBOLS_ASSERT(enclosing == 0 || isClass(*enclosing->declaration));
+	for(const Instance* i = enclosing; i != 0; i = (*i).enclosing)
 	{
 		if(!isAnonymousUnion(*i)) // ignore anonymous union
 		{
@@ -657,12 +658,11 @@ struct SemaState
 
 	SemaContext& context;
 	ScopePtr enclosingScope;
-	const SimpleType* enclosingType;
-	const SimpleType* enclosingFunction;
+	const Instance* enclosingInstance;
 	TypePtr qualifying_p;
 	DeclarationPtr qualifyingScope;
-	const SimpleType* qualifyingClass;
-	const SimpleType* memberClass;
+	const Instance* qualifyingClass;
+	const Instance* objectExpressionClass;
 	ExpressionWrapper objectExpression; // the lefthand side of a class member access expression
 	SafePtr<const TemplateParameters> templateParams;
 	ScopePtr enclosingTemplateScope;
@@ -675,12 +675,11 @@ struct SemaState
 	SemaState(SemaContext& context)
 		: context(context)
 		, enclosingScope(0)
-		, enclosingType(0)
-		, enclosingFunction(0)
+		, enclosingInstance(0)
 		, qualifying_p(0)
 		, qualifyingScope(0)
 		, qualifyingClass(0)
-		, memberClass(0)
+		, objectExpressionClass(0)
 		, templateParams(0)
 		, enclosingTemplateScope(0)
 		, enclosingDeferred(0)
@@ -700,7 +699,7 @@ struct SemaState
 	}
 	InstantiationContext getInstantiationContext() const
 	{
-		return InstantiationContext(context.instantiationAllocator, getLocation(), enclosingType, enclosingFunction, enclosingScope);
+		return InstantiationContext(context.instantiationAllocator, getLocation(), enclosingInstance, enclosingScope);
 	}
 
 	ExpressionType getTypeInfoType()
@@ -717,8 +716,8 @@ struct SemaState
 			declaration = ::findDeclaration(*declaration->enclosed, typeInfoId);
 			SEMANTIC_ASSERT(declaration != 0);
 			SEMANTIC_ASSERT(isType(*declaration));
-			QualifiedDeclaration qualified = resolveQualifiedDeclaration(QualifiedDeclaration(0, declaration));
-			context.typeInfoType = ExpressionType(UniqueTypeWrapper(qualified.declaration->type.unique), true); // lvalue
+			ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(0, declaration));
+			context.typeInfoType = ExpressionType(UniqueTypeWrapper(resolved.declaration->type.unique), true); // lvalue
 			context.typeInfoType.value.setQualifiers(CvQualifiers(true, false));
 		}
 		return context.typeInfoType;
@@ -727,7 +726,7 @@ struct SemaState
 	bool qualifyingIsDependent() const
 	{
 		return qualifyingClass != 0
-			&& (qualifyingClass == &gDependentSimpleType
+			&& (qualifyingClass == &gDependentInstance
 				|| isDependentSafe(qualifying_p));
 	}
 
@@ -735,12 +734,13 @@ struct SemaState
 	{
 		return objectExpression.p != 0
 			&& objectExpression.isTypeDependent
-			&& memberClass != 0;
+			&& objectExpressionClass != 0;
 	}
 
-	bool isCurrentInstantiation(const SimpleType* classType) const
+	bool isCurrentInstantiation(const Instance* classInstance) const
 	{
-		return isEnclosingType(enclosingType, classType);
+		return classInstance != &gDependentInstance
+			&& isEnclosingClass(enclosingInstance, classInstance);
 	}
 
 	bool allowNestedNameLookup() const
@@ -759,7 +759,7 @@ struct SemaState
 			return false;
 		}
 		if(objectExpressionIsDependent()
-			&& !isCurrentInstantiation(memberClass))
+			&& !isCurrentInstantiation(objectExpressionClass))
 		{
 			return false;
 		}
@@ -824,13 +824,13 @@ struct SemaState
 		else
 		{
 			bool isQualified = objectExpression.p != 0
-				&& memberClass != 0;
-			SYMBOLS_ASSERT(!(isUnqualifiedId && memberClass == &gDependentSimpleType)); // in case of unqualified-id, should check allowNameLookup before calling
+				&& objectExpressionClass != 0;
+			SYMBOLS_ASSERT(!(isUnqualifiedId && objectExpressionClass == &gDependentInstance)); // in case of unqualified-id, should check allowNameLookup before calling
 			if(isQualified
-				&& memberClass != &gDependentSimpleType)
+				&& objectExpressionClass != &gDependentInstance)
 			{
 				// [basic.lookup.classref]
-				if(result.append(::findDeclaration(*memberClass, id, filter)))
+				if(result.append(::findDeclaration(*objectExpressionClass, id, filter)))
 				{
 #ifdef LOOKUP_DEBUG
 					std::cout << "HIT: member" << std::endl;
@@ -893,7 +893,7 @@ struct SemaState
 		if(parent != 0
 			&& parent->type == SCOPETYPE_CLASS) // if this is a class member
 		{
-			SEMANTIC_ASSERT(enclosingType != 0);
+			SEMANTIC_ASSERT(enclosingInstance != 0);
 		}
 		context.parserContext.allocator.deferredBacktrack(); // flush cached parse-tree
 
@@ -909,7 +909,7 @@ struct SemaState
 				|| type.declaration == &gEnum));
 
 		Declaration declaration(allocator, parent, name, type, enclosed, isType, specifiers, isTemplate, params, isSpecialization, arguments, templateParameter);
-		declaration.enclosingType = enclosingType;
+		declaration.enclosingInstance = enclosingInstance;
 		declaration.isFunction = type.unique != 0 && getUniqueType(type).isFunction();
 		if(Scope* parentClassScope = getEnclosingClass(parent))
 		{
@@ -1072,7 +1072,7 @@ struct SemaState
 		qualifying_p = 0;
 		qualifyingScope = 0;
 		qualifyingClass = 0;
-		memberClass = 0;
+		objectExpressionClass = 0;
 		clearMemberType();
 	}
 
@@ -1217,7 +1217,7 @@ inline BacktrackCallback makePopDeferredExpressionSubstitutionCallback(Dependent
 
 inline void substituteDeferredBase(Type& type, const InstantiationContext& context)
 {
-	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+	Instance& instance = *const_cast<Instance*>(context.enclosingInstance);
 
 	// substitute dependent members
 	SYMBOLS_ASSERT(type.isDependent);
@@ -1232,8 +1232,8 @@ inline void substituteDeferredBase(Type& type, const InstantiationContext& conte
 
 inline void substituteDeferredMemberType(Declaration& declaration, const InstantiationContext& context)
 {
-	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
-	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingInstance));
+	Instance& instance = *const_cast<Instance*>(context.enclosingInstance);
 
 	// substitute dependent members
 	SYMBOLS_ASSERT(declaration.type.isDependent);
@@ -1258,8 +1258,8 @@ inline void substituteDeferredMemberType(Declaration& declaration, const Instant
 
 inline void substituteDeferredMemberType2(Declaration& declaration, const InstantiationContext& context)
 {
-	SYMBOLS_ASSERT(!isDependent(*context.enclosingType));
-	SimpleType& instance = *const_cast<SimpleType*>(context.enclosingType);
+	SYMBOLS_ASSERT(!isDependent(*context.enclosingInstance));
+	Instance& instance = *const_cast<Instance*>(context.enclosingInstance);
 
 	// substitute dependent members
 	SYMBOLS_ASSERT(declaration.type.isDependent);
@@ -1271,7 +1271,7 @@ inline void substituteDeferredMemberType2(Declaration& declaration, const Instan
 	else
 	{
 		UniqueTypeWrapper type = declaration.type.dependentIndex != INDEX_INVALID // if the type depends on a template parameter from the enclosing class
-			? getSubstitutedType(declaration.type, setEnclosingTypeSafe(context, context.enclosingType->enclosing)) // it should already have been substituted
+			? getSubstitutedType(declaration.type, setEnclosingInstanceSafe(context, context.enclosingInstance->enclosing)) // it should already have been substituted
 			: getUniqueType(declaration.type);
 
 		SYMBOLS_ASSERT(declaration.type.dependentIndex2 == instance.substitutedTypes.size());
@@ -1640,7 +1640,7 @@ struct SemaBase : public SemaState
 		{
 			enclosingScope->templateDepth = templateDepth; // indicates that this is a template
 		}
-		declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingType
+		declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingClass
 
 		if(!isAnonymousUnion(*declaration))
 		{
@@ -1672,7 +1672,7 @@ struct SemaBase : public SemaState
 		if(declaration->specifiers.isVirtual
 			&& uniqueType.isFunction())
 		{
-			SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
+			Instance* enclosingClass = const_cast<Instance*>(getEnclosingClass(enclosingInstance));
 			SYMBOLS_ASSERT(enclosingClass != 0);
 			enclosingClass->isEmpty = false;
 			enclosingClass->isPod = false;
@@ -1717,7 +1717,7 @@ struct SemaBase : public SemaState
 		if(isTemplate
 			&& declaration->templateParamScope == 0)
 		{
-			declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingType
+			declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingClass
 		}
 
 		if(declaration->type.isDependent) // if the declaration's type is dependent
@@ -1748,7 +1748,7 @@ struct SemaBase : public SemaState
 			addDeferredDeclarationType(*declaration);
 		}
 
-		SimpleType* enclosingClass = const_cast<SimpleType*>(getEnclosingType(enclosingType));
+		Instance* enclosingClass = const_cast<Instance*>(getEnclosingClass(enclosingInstance));
 		// NOTE: this check must occur after the declaration because an out-of-line definition of a static member is otherwise not known to be static
 		if(enclosingClass != 0 // if the enclosing class is valid
 			&& isNonStaticDataMember(*declaration) // and the declaration is a non-static data member
@@ -2540,12 +2540,12 @@ struct SemaQualified : public SemaBase, SemaQualifyingResult
 				UniqueTypeWrapper type = getUniqueType(*qualifying_p, getInstantiationContext(), isDeclarator || qualifying_p->isDependent);
 				if(!type.isSimple())
 				{
-					qualifyingClass = &gDependentSimpleType;
+					qualifyingClass = &gDependentInstance;
 					qualifyingScope = 0;
 				}
 				else
 				{
-					qualifyingClass = &getSimpleType(type.value);
+					qualifyingClass = &getInstance(type.value);
 					qualifyingScope = qualifyingClass->declaration;
 				}
 			}

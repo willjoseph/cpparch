@@ -8,7 +8,7 @@
 DeferredInstantiations gDeferredInstantiations;
 
 
-inline bool deduceAndSubstitute(const UniqueTypeArray& parameters, const UniqueTypeArray& arguments, const InstantiationContext& context, SimpleType& enclosing, TemplateArgumentsInstance& substituted)
+inline bool deduceAndSubstitute(const UniqueTypeArray& parameters, const UniqueTypeArray& arguments, const InstantiationContext& context, Instance& enclosing, TemplateArgumentsInstance& substituted)
 {
 	// deduce the partial-specialization's template arguments from the original argument list
 	TemplateArgumentsInstance& deduced = enclosing.deducedArguments;
@@ -20,7 +20,7 @@ inline bool deduceAndSubstitute(const UniqueTypeArray& parameters, const UniqueT
 	try
 	{
 		// substitute the template-parameters in the partial-specialization's signature with the deduced template-arguments
-		substitute(substituted, parameters, setEnclosingTypeSafe(context, &enclosing));
+		substitute(substituted, parameters, setEnclosingInstanceSafe(context, &enclosing));
 	}
 	catch(TypeError&)
 	{
@@ -37,7 +37,7 @@ inline bool matchTemplatePartialSpecialization(Declaration* declaration, Templat
 	SYMBOLS_ASSERT(!declaration->templateParams.empty());
 	TemplateArgumentsInstance deduced(std::distance(declaration->templateParams.begin(), declaration->templateParams.end()), gUniqueTypeNull);
 	TemplateArgumentsInstance substituted;
-	SimpleType enclosing(declaration, 0);
+	Instance enclosing(declaration, 0);
 	enclosing.deducedArguments.swap(deduced);
 	enclosing.instantiated = true;
 	if(!deduceAndSubstitute(specializationArguments, arguments, context, enclosing, substituted))
@@ -154,7 +154,7 @@ struct InstantiationSuffix
 
 struct InstantiationName : public Concatenate
 {
-	InstantiationName(const SimpleType& instance)
+	InstantiationName(const Instance& instance)
 		: Concatenate(
 		makeRange(getValue(instance.declaration->getName())),
 		makeRange(InstantiationSuffix(&instance).c_str()))
@@ -164,7 +164,7 @@ struct InstantiationName : public Concatenate
 
 struct InstantiationPath : public Concatenate
 {
-	InstantiationPath(const SimpleType& instance)
+	InstantiationPath(const Instance& instance)
 		: Concatenate(
 		makeRange(InstantiationName(instance).c_str()),
 		makeRange(".html"))
@@ -177,7 +177,7 @@ inline void printPosition(const Source& source, FileOutputStream& out)
 	out << source.absolute.c_str() << "(" << source.line << ", " << source.column << "): ";
 }
 
-void printTypeReadable(const SimpleType& type, FileOutputStream& out, bool escape = true)
+void printTypeReadable(const Instance& type, FileOutputStream& out, bool escape = true)
 {
 	if(type.enclosing != 0)
 	{
@@ -211,7 +211,7 @@ void printTypeReadable(const SimpleType& type, FileOutputStream& out, bool escap
 	}
 }
 
-inline void dumpTemplateInstantiations(const SimpleType& instance, bool root = false)
+inline void dumpTemplateInstantiations(const Instance& instance, bool root = false)
 {
 	if(instance.dumped)
 	{
@@ -233,7 +233,7 @@ inline void dumpTemplateInstantiations(const SimpleType& instance, bool root = f
 	printTypeReadable(instance, out, true);
 	out << '\n' << '\n';
 
-	typedef std::map<const SimpleType*, Location> InstanceMap;
+	typedef std::map<const Instance*, Location> InstanceMap;
 	InstanceMap instanceMap;
 	for(ChildInstantiations::const_iterator i = instance.childInstantiations.begin(); i != instance.childInstantiations.end(); ++i)
 	{
@@ -255,12 +255,12 @@ inline void dumpTemplateInstantiations(const SimpleType& instance, bool root = f
 	instance.visited = false;
 }
 
-inline TypeLayout addBase(SimpleType& instance, UniqueTypeWrapper base, const InstantiationContext& context)
+inline TypeLayout addBase(Instance& instance, UniqueTypeWrapper base, const InstantiationContext& context)
 {
 	SYMBOLS_ASSERT(!isDependent(base));
 	SYMBOLS_ASSERT(base.isSimple());
-	const SimpleType& objectType = getSimpleType(base.value);
-	TypeLayout layout = instantiateClass(objectType, setEnclosingTypeSafe(context, &instance));
+	const Instance& objectType = getInstance(base.value);
+	TypeLayout layout = instantiateClass(objectType, setEnclosingInstanceSafe(context, &instance));
 	SYMBOLS_ASSERT(isClass(*objectType.declaration));
 	SYMBOLS_ASSERT(objectType.declaration->enclosed != 0); // this can occur when the primary template is incomplete, and a specialization was not chosen
 	instance.bases.push_back(&objectType);
@@ -272,7 +272,7 @@ inline TypeLayout addBase(SimpleType& instance, UniqueTypeWrapper base, const In
 	return TypeLayout(evaluateSizeof(layout), layout.align);
 }
 
-inline bool isTemplate(const SimpleType& instance)
+inline bool isTemplate(const Instance& instance)
 {
 	if(instance.declaration->isTemplate)
 	{
@@ -286,16 +286,16 @@ inline bool isTemplate(const SimpleType& instance)
 // The implicitly-declared copy assignment operator for a class X will have the form
 //   X& X::operator=(const X&)
 // TODO: correct constness of parameter
-inline bool hasCopyAssignmentOperator(const SimpleType& classType, const InstantiationContext& context)
+inline bool hasCopyAssignmentOperator(const Instance& classInstance, const InstantiationContext& context)
 {
 	Identifier id;
 	id.value = gOperatorAssignId;
-	const DeclarationInstance* result = ::findDeclaration(classType.declaration->enclosed->declarations, id);
+	const DeclarationInstance* result = ::findDeclaration(classInstance.declaration->enclosed->declarations, id);
 	if(result == 0)
 	{
 		return false;
 	}
-	InstantiationContext memberContext = setEnclosingTypeSafe(context, &classType);
+	InstantiationContext memberContext = setEnclosingInstanceSafe(context, &classInstance);
 	for(const Declaration* p = findOverloaded(*result); p != 0; p = p->overloaded)
 	{
 		if(p->isTemplate)
@@ -309,7 +309,7 @@ inline bool hasCopyAssignmentOperator(const SimpleType& classType, const Instant
 		SYMBOLS_ASSERT(parameters.size() == 1);
 		UniqueTypeWrapper parameterType = removeReference(parameters[0]);
 		if(parameterType.isSimple()
-			&& &getSimpleType(parameterType.value) == &classType)
+			&& &getInstance(parameterType.value) == &classInstance)
 		{
 			return true;
 		}
@@ -318,16 +318,16 @@ inline bool hasCopyAssignmentOperator(const SimpleType& classType, const Instant
 }
 
 
-TypeLayout instantiateClass(const SimpleType& instanceConst, const InstantiationContext& context, bool allowDependent)
+TypeLayout instantiateClass(const Instance& instanceConst, const InstantiationContext& context, bool allowDependent)
 {
-	SimpleType& instance = const_cast<SimpleType&>(instanceConst);
+	Instance& instance = const_cast<Instance&>(instanceConst);
 #if 0 // allow non-class
 	SYMBOLS_ASSERT(isClass(*instance.declaration));
 #endif
 
-	if(context.enclosingType != 0)
+	if(context.enclosingInstance != 0)
 	{
-		ChildInstantiations& instantiations = const_cast<SimpleType*>(context.enclosingType)->childInstantiations;
+		ChildInstantiations& instantiations = const_cast<Instance*>(context.enclosingInstance)->childInstantiations;
 		instantiations.push_back(ChildInstantiation(&instance, context.source));
 	}
 
@@ -354,7 +354,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			SYMBOLS_ASSERT(declaration != 0);
 			Declaration* specialization = findTemplateSpecialization(
 				findOverloaded(*declaration), instance.deducedArguments, instance.templateArguments,
-				InstantiationContext(context.allocator, context.source, instance.enclosing, 0, context.enclosingScope), false);
+				InstantiationContext(context.allocator, context.source, instance.enclosing, context.enclosingScope), false);
 			if(specialization != 0)
 			{
 				instance.declaration = specialization;
@@ -378,7 +378,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 			{
 				const DeferredSubstitution& substitution = *i;
-				InstantiationContext childContext(context.allocator, substitution.location, &instance, 0, substitution.enclosingScope);
+				InstantiationContext childContext(context.allocator, substitution.location, &instance, substitution.enclosingScope);
 				substitution(childContext);
 			}
 
@@ -392,7 +392,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 		{
 			SYMBOLS_ASSERT(instance.declaration->type.unique != 0);
 			// the is the (possibly dependent) unique type of the unspecialized (template) class on which this specialization is based
-			const SimpleType& original = getSimpleType(instance.declaration->type.unique);
+			const Instance& original = getInstance(instance.declaration->type.unique);
 
 			SYMBOLS_ASSERT(instance.declaration->enclosed != 0);
 			Types& bases = instance.declaration->enclosed->bases;
@@ -402,7 +402,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 				const Type& base = *i;
 				// TODO: check compliance: the point of instantiation of a base is the point of declaration of the enclosing (template) class
 				// .. along with the point of instantiation of types required when naming the base type. e.g. struct C : A<T>::B {}; struct C : B<A<T>::value> {};
-				InstantiationContext baseContext = InstantiationContext(context.allocator, original.instantiation, &instance, 0, context.enclosingScope);
+				InstantiationContext baseContext = InstantiationContext(context.allocator, original.instantiation, &instance, context.enclosingScope);
 				UniqueTypeId type = getUniqueType(base, baseContext, allowDependent);
 				SYMBOLS_ASSERT(base.unique != 0);
 				SYMBOLS_ASSERT(base.isDependent || type.value == base.unique);
@@ -427,7 +427,7 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 					}
 					// the member declaration should be found by name lookup during its instantation
 					Location childLocation(declaration.location, declaration.location.pointOfInstantiation + 1);
-					InstantiationContext childContext(context.allocator, childLocation, &instance, 0, context.enclosingScope);
+					InstantiationContext childContext(context.allocator, childLocation, &instance, context.enclosingScope);
 					UniqueTypeWrapper type = getUniqueType(declaration.type, childContext);
 					if(declaration.type.isDependent)
 					{
@@ -460,8 +460,8 @@ TypeLayout instantiateClass(const SimpleType& instanceConst, const Instantiation
 			}
 		}
 
-		if(context.enclosingType == 0
-			|| !isTemplate(*context.enclosingType))
+		if(context.enclosingInstance == 0
+			|| !isTemplate(*context.enclosingInstance))
 		{
 			dumpTemplateInstantiations(instance, true);
 		}

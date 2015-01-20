@@ -11,7 +11,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 		|| overload.memberEnclosing->declaration->enclosed == declaration.scope);
 	UniqueTypeWrapper type = &declaration == gCopyAssignmentOperatorInstance.p
 		? UniqueTypeWrapper(makeCopyAssignmentOperatorType(*overload.memberEnclosing))
-		: getUniqueType(declaration.type, setEnclosingType(context, overload.memberEnclosing), declaration.isTemplate);
+		: getUniqueType(declaration.type, setEnclosingInstance(context, overload.memberEnclosing), declaration.isTemplate);
 	SYMBOLS_ASSERT(type.isFunction());
 
 	const FunctionType& function = getFunctionType(type.value);
@@ -47,7 +47,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 	{
 		return FunctionSignature(); // too many explicitly specified template arguments
 	}
-	SimpleType specialization(const_cast<Declaration*>(&declaration), overload.memberEnclosing);
+	Instance specialization(const_cast<Declaration*>(&declaration), overload.memberEnclosing);
 	specialization.instantiated = true;
 	{
 		std::size_t count = std::max(templateArguments != 0 ? templateArguments->size() : 0, result.templateParameters.size());
@@ -73,7 +73,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 
 	try
 	{
-		InstantiationContext functionContext = setEnclosingTypeSafe(context, &specialization);
+		InstantiationContext functionContext = setEnclosingInstanceSafe(context, &specialization);
 		// substitute the template-parameters in the function's parameter list with the explicitly specified template-arguments
 		ParameterTypes parameters;
 		substitute(parameters, result.parameters, functionContext);
@@ -103,7 +103,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 		substitute(result.parameterTypes, parameters, functionContext);
 		result.returnType = substitute(result.returnType, functionContext); // substitute the return type. TODO: should wait until overload is chosen?
 
-		result.instance = &getSimpleType(makeUniqueSimpleType(specialization).value);
+		result.instance = &getInstance(makeUniqueInstance(specialization).value);
 	}
 	catch(TypeError&)
 	{
@@ -111,7 +111,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 		return FunctionSignature();
 	}
 
-	SimpleType& instance = const_cast<SimpleType&>(*result.instance);
+	Instance& instance = const_cast<Instance&>(*result.instance);
 
 	if(instance.failed) // if we already tried to substitute and failed
 	{
@@ -133,7 +133,7 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
 			{
 				const DeferredSubstitution& substitution = *i;
-				InstantiationContext childContext(context.allocator, substitution.location, &instance, 0, context.enclosingScope);
+				InstantiationContext childContext(context.allocator, substitution.location, &instance, context.enclosingScope);
 				substitution(childContext);
 			}
 
@@ -201,15 +201,15 @@ inline ExpressionType selectOverloadedFunctionImpl(UniqueTypeWrapper target, con
 		{
 			continue; // ignore (namespace-scope) friend functions
 		}
-		const SimpleType* idEnclosing = getIdExpressionClass(expression.qualifying, *declaration, context.enclosingType);
+		const Instance* memberEnclosing = getIdExpressionEnclosing(expression.enclosingInstance, *declaration, context.enclosingInstance);
 		UniqueTypeWrapper type;
 		if(!p->isTemplate)
 		{
-			type = getUniqueType(p->type, setEnclosingType(context, idEnclosing));
+			type = getUniqueType(p->type, setEnclosingInstance(context, memberEnclosing));
 		}
 		else
 		{
-			FunctionSignature result = substituteFunctionId(Overload(declaration, idEnclosing), UniqueTypeArray(), &expression.templateArguments, context);
+			FunctionSignature result = substituteFunctionId(Overload(declaration, memberEnclosing), UniqueTypeArray(), &expression.templateArguments, context);
 			if(result.returnType == gUniqueTypeNull)
 			{
 				continue; // substitution failed

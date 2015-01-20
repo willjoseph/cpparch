@@ -50,6 +50,7 @@ struct SemaUsingDeclaration : public SemaQualified, SemaDeclarationResult
 				return reportIdentifierMismatch(symbol, *walker.id, existingDeclaration, "object-name or type-name");
 			}
 
+			SYMBOLS_ASSERT(!isLocal(*existingDeclaration));
 			isType = isTypeName(*existingDeclaration);
 			isTemplate = isTemplateName(*existingDeclaration);
 		}

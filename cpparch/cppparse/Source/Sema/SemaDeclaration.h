@@ -136,9 +136,9 @@ struct SemaDeclarationSuffix : public SemaBase
 		if(walker.qualifying != gUniqueTypeNull) // if this is a member definition qualified by the name of the enclosing class
 		{
 			SEMANTIC_ASSERT(walker.qualifying.isSimple());
-			enclosingType = &getSimpleType(walker.qualifying.value);
+			enclosingInstance = &getInstance(walker.qualifying.value);
 
-			enclosingInstantiation = enclosingType->declaration; // any dependent types/expressions in the member definition should be appended
+			enclosingInstantiation = enclosingInstance->declaration; // any dependent types/expressions in the member definition should be appended
 		}
 		templateParams = walker.templateParams; // template-params may have been consumed by qualifying template-name
 
@@ -203,13 +203,15 @@ struct SemaDeclarationSuffix : public SemaBase
 		SEMANTIC_ASSERT(declaration != 0);
 		declaration->isFunctionDefinition = true;
 
+#if 0 // TODO: may be relevant for explicit specialization of function templates
 		if(declaration->isTemplate // if this is a function template definition
 			&& !declaration->templateParams.empty()) // and is not an explicit specialization
 		{
-			SimpleType specialization = SimpleType(declaration, enclosingType);
+			Instance specialization = Instance(declaration, enclosingInstance);
 			makeUniqueTemplateParameters(declaration->templateParams, specialization.templateArguments, getInstantiationContext());
-			enclosingFunction = &getSimpleType(makeUniqueSimpleType(specialization).value);
+			enclosingFunction = &getInstance(makeUniqueInstance(specialization).value);
 		}
+#endif
 
 		enclosingInstantiation = declaration; // any dependent expressions in the function definition should be appended
 		enclosingDependentConstructs = 0;
@@ -479,7 +481,7 @@ struct SemaSimpleDeclaration : public SemaBase, SemaSimpleDeclarationResult
 				declaration = instance;
 				if(declaration->templateParamScope == 0)
 				{
-					declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingType
+					declaration->templateParamScope = enclosingTemplateScope; // required by findEnclosingClass
 				}
 			}
 			seq.type = TypeId(declaration, context); // TODO: is this necessary?

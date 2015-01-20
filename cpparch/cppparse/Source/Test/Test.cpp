@@ -750,7 +750,7 @@ struct MakeTemplate
 {
 	static BuiltInType apply(Declaration* declaration, BuiltInType a1, BuiltInType a2)
 	{
-		SimpleType result(declaration, 0);
+		Instance result(declaration, 0);
 		result.templateArguments.reserve(2);
 		result.templateArguments.push_back(a1);
 		result.templateArguments.push_back(a2);
@@ -1720,12 +1720,12 @@ struct TestSubstitution
 	static void apply(UniqueTypeWrapper expected = MakeType<R>::apply())
 	{
 		TemplateArgumentsInstance templateArguments(1, MakeType<A>::apply());
-		SimpleType enclosing(&gTemplateClassDeclaration, 0);
+		Instance enclosing(&gTemplateClassDeclaration, 0);
 		enclosing.templateArguments.swap(templateArguments);
 		enclosing.instantiated = true;
 		try
 		{
-			UniqueTypeWrapper result = substitute(MakeType<P>::apply(), setEnclosingTypeSafe(InstantiationContext(), &enclosing));
+			UniqueTypeWrapper result = substitute(MakeType<P>::apply(), setEnclosingInstanceSafe(InstantiationContext(), &enclosing));
 			SYMBOLS_ASSERT(result == expected);
 		}
 		catch(TypeError&)

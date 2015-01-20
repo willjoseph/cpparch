@@ -127,7 +127,7 @@ typedef LookupFilterDefault<isAdlFunctionName, true> IsAdlFunctionName;
 struct LookupResult
 {
 	const DeclarationInstance* filtered; // the declaration found by the name-lookup, using the filter
-	const SimpleType* enclosing;
+	const Instance* enclosing;
 
 	LookupResult()
 		: filtered(0), enclosing(0)
@@ -196,7 +196,7 @@ struct RecursionGuard
 	}
 };
 
-inline LookupResult findDeclaration(const SimpleType& instance, const Identifier& id, LookupFilter filter)
+inline LookupResult findDeclaration(const Instance& instance, const Identifier& id, LookupFilter filter)
 {
 	SYMBOLS_ASSERT(instance.declaration->enclosed != 0);
 	SYMBOLS_ASSERT(instance.instantiated); // the qualifying type should have been instantiated by this point
@@ -211,7 +211,7 @@ inline LookupResult findDeclaration(const SimpleType& instance, const Identifier
 		std::cout << std::endl;
 		return result;
 	}
-	RecursionGuard<SimpleType> guard(instance);
+	RecursionGuard<Instance> guard(instance);
 
 	result.filtered = findDeclaration(instance.declaration->enclosed->declarations, id, filter);
 	if(result.filtered)
@@ -221,7 +221,7 @@ inline LookupResult findDeclaration(const SimpleType& instance, const Identifier
 	}
 	for(UniqueBases::const_iterator i = instance.bases.begin(); i != instance.bases.end(); ++i)
 	{
-		const SimpleType& base = *(*i);
+		const Instance& base = *(*i);
 		SYMBOLS_ASSERT(base.declaration->enclosed != 0); // TODO: non-fatal error: incomplete type
 		SYMBOLS_ASSERT(base.declaration->enclosed->usingDirectives.empty()); // namespace.udir: A using-directive shall not appear in class scope, but may appear in namespace scope or in block scope.
 
@@ -310,7 +310,7 @@ inline LookupResult findMemberDeclaration(Scope& scope, const Identifier& id, Lo
 		{
 			continue;
 		}
-		const SimpleType& base = getSimpleType((*i).unique);
+		const Instance& base = getInstance((*i).unique);
 
 		// an identifier looked up in the context of a class may name a base class
 		if(base.declaration->getName().value == id.value

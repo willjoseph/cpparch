@@ -89,7 +89,7 @@ struct SemaPrimaryExpression : public SemaBase
 		expression = walker.expression;
 		isUndeclared = walker.isUndeclared;
 
-		SEMANTIC_ASSERT(memberClass == 0); // assert that the id-expression is not part of a class-member-access
+		SEMANTIC_ASSERT(objectExpressionClass == 0); // assert that the id-expression is not part of a class-member-access
 		return true;
 	}
 	SEMA_POLICY(cpp::primary_expression_parenthesis, SemaPolicyPush<struct SemaExpression>)
@@ -102,7 +102,7 @@ struct SemaPrimaryExpression : public SemaBase
 	SEMA_POLICY(cpp::primary_expression_builtin, SemaPolicyIdentity)
 	void action(cpp::primary_expression_builtin* symbol)
 	{
-		SEMANTIC_ASSERT(enclosingType != 0);
+		SEMANTIC_ASSERT(enclosingInstance != 0);
 		ExpressionType type = ExpressionType(pushType(typeOfEnclosingClass(getInstantiationContext()), PointerType()), false); // non lvalue
 		expression = makeExpression(ObjectExpression(type));
 		setExpressionType(symbol, expression.type);
