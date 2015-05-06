@@ -1189,12 +1189,12 @@ inline T* addDeferredParse(Parser& parser, ListType& deferred, ContextType& walk
 
 		BacktrackBuffer buffer;
 		buffer.resize(count + 2); // adding 1 for EOF and 1 to allow use as circular buffer
-		for(const Token* p = first; p != parser.context.position; p = ::next(parser.context.history, p))
+		const Token* p = first;
+		for(; p != parser.context.position; p = ::next(parser.context.history, p))
 		{
 			*buffer.position++ = *p;
 		}
-		FilePosition nullPos = { "$null.cpp", 0, 0 };
-		*buffer.position++ = Token(boost::wave::T_EOF, TokenValue(), nullPos);
+		*buffer.position++ = Token(boost::wave::T_EOF, TokenValue(), (*p).position, (*p).source);
 
 		deferred.back().buffer.swap(buffer);
 
