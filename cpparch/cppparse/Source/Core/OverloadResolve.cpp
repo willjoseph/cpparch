@@ -99,11 +99,12 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 			}
 		}
 
+		specialization.instantiated = false;
+		result.instance = &getInstance(makeUniqueInstance(specialization).value);
+
 		// substitute the template-parameters in the function's parameter list with the deduced template-arguments
 		substitute(result.parameterTypes, parameters, functionContext);
 		result.returnType = substitute(result.returnType, functionContext); // substitute the return type. TODO: should wait until overload is chosen?
-
-		result.instance = &getInstance(makeUniqueInstance(specialization).value);
 	}
 	catch(TypeError&)
 	{
@@ -123,11 +124,15 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 		if(!result.instance->substituted)
 		{
 			instance.substituted = true;
+
+			SYMBOLS_ASSERT(instance.substitutedTypes2.empty());
+			SYMBOLS_ASSERT(instance.substitutedExpressions2.empty());
+
 			std::size_t dependentTypeCount = instance.declaration->declarationDependent.typeCount;
-			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation
+			instance.substitutedTypes2.reserve(dependentTypeCount); // allocate up front to avoid reallocation
 
 			std::size_t dependentExpressionCount = instance.declaration->declarationDependent.expressionCount;
-			instance.substitutedExpressions.reserve(dependentExpressionCount); // allocate up front to avoid reallocation
+			instance.substitutedExpressions2.reserve(dependentExpressionCount); // allocate up front to avoid reallocation
 
 			const DeferredSubstitutions& substitutions = instance.declaration->declarationDependent.substitutions;
 			for(DeferredSubstitutions::const_iterator i = substitutions.begin(); i != substitutions.end(); ++i)
@@ -137,8 +142,8 @@ FunctionSignature substituteFunctionId(const Overload& overload, const UniqueTyp
 				substitution(childContext);
 			}
 
-			SYMBOLS_ASSERT(instance.substitutedTypes.size() == dependentTypeCount);
-			SYMBOLS_ASSERT(instance.substitutedExpressions.size() == dependentExpressionCount);
+			SYMBOLS_ASSERT(instance.substitutedTypes2.size() == dependentTypeCount);
+			SYMBOLS_ASSERT(instance.substitutedExpressions2.size() == dependentExpressionCount);
 		}
 	}
 	catch(TypeError&)

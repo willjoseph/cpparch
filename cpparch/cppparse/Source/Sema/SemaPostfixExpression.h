@@ -189,8 +189,8 @@ struct SemaIsInstantiated : public SemaBase
 
 		ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(qualifying, walker.declaration), context);
 		const Instance* idEnclosing = getIdExpressionEnclosing(resolved.enclosingInstance, *resolved.declaration, context.enclosingInstance);
-		const Instance& uniqueObject = makeUniqueObject(resolved.declaration, idEnclosing, templateArguments);
-		value.value = uniqueObject.instantiated;
+		const Instance& instance = makeUniqueInstance(resolved.declaration, idEnclosing, templateArguments);
+		value.value = instance.instantiated;
 	}
 };
 

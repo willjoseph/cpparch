@@ -270,10 +270,10 @@ struct SemaIdExpression : public SemaQualified
 				? makeExpression(IdExpression(declaration, idEnclosing, templateArguments, isQualified))
 				: makeExpression(NonTypeTemplateParameter(declaration, getUniqueType(declaration->type)));
 
-			if(!expression.isTypeDependent)
+			if(!expression.isTypeDependent
+				&& isIdExpression(expression))
 			{
-				ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(qualifyingClass, declaration), getInstantiationContext());
-				expression.isNonStaticMemberName = isMember(*resolved.declaration) && !isStatic(*resolved.declaration) && !isEnumerator(*resolved.declaration);
+				expression.isNonStaticMemberName = isNonStaticMemberIdExpression(getIdExpression(expression), getInstantiationContext());
 				expression.isQualifiedNonStaticMemberName = expression.isNonStaticMemberName && isQualified;
 			}
 			expression.isMemberOfCurrentInstantiation = isDependentQualifying(idEnclosing);

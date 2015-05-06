@@ -384,6 +384,19 @@ inline bool isOverloadedFunctionIdExpression(const IdExpression& idExpression, c
 	return isOverloadedFunction(idExpression.declaration, idExpression.enclosingInstance, context); // true if this id-expression names an overloaded function
 }
 
+inline bool isNonStaticMember(const Declaration& declaration)
+{
+	return isMember(declaration)
+		&& !isStatic(declaration)
+		&& !isEnumerator(declaration);
+}
+
+inline bool isNonStaticMemberIdExpression(const IdExpression& idExpression, const InstantiationContext& context)
+{
+	ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(idExpression.enclosingInstance, idExpression.declaration), context);
+	return isNonStaticMember(*resolved.declaration);
+}
+
 inline bool isLvalue(const Declaration& declaration)
 {
 	return isObject(declaration) // functions, variables and data members are lvalues
@@ -411,7 +424,8 @@ inline bool isSpecialMember(const Declaration& declaration)
 
 inline const Instance* getIdExpressionEnclosing(const Instance* qualifying, const Declaration& declaration, const Instance* enclosingInstance)
 {
-	if(isLocal(declaration)) // if the declaration is a local object
+	if(isLocal(declaration) // if the declaration is a local object
+		|| isFunctionParameter(declaration)) // or the declaration is a local function parameter
 	{
 		return enclosingInstance != 0 && isFunction(*enclosingInstance->declaration) // if we are substituting a function template
 			? enclosingInstance // the id-expression is enclosed by the enclosing function
@@ -802,14 +816,26 @@ inline ExpressionType typeOfNonStaticClassMemberAccessExpression(ExpressionType 
 }
 
 
-typedef Instance Object;
-
-inline const Object& makeUniqueObject(Declaration* declaration, const Instance* memberEnclosing, const TemplateArgumentsInstance& templateArguments)
+inline const Instance& makeUniqueInstance(Declaration* declaration, const Instance* memberEnclosing, const TemplateArgumentsInstance& templateArguments)
 {
 	SYMBOLS_ASSERT(memberEnclosing == 0 || declaration->scope == memberEnclosing->declaration->enclosed);
 	Instance object = Instance(declaration, memberEnclosing);
 	object.templateArguments = templateArguments;
 	return getInstance(makeUniqueInstance(object).value);
+}
+
+inline void deferInstantiation(const Instance& instance, const InstantiationContext& context)
+{
+	if(!instance.instantiated)
+	{
+		const_cast<Instance*>(&instance)->instantiated = true;
+		if(!instance.declaration->dependentConstructs.substitutions.empty())
+		{
+#if 0 // testing!
+			gDeferredInstantiations.push_back(DeferredInstantiation(context, &instance));
+#endif
+		}
+	}
 }
 
 template<typename T>
@@ -821,7 +847,7 @@ inline void instantiateExpression(const IdExpression& node, const InstantiationC
 {
 	if(isOverloadedFunctionIdExpression(node, context))
 	{
-		return; // can't evaluate id-expression within function-call-expression
+		return; // can't evaluate id-expression within function-call expression
 	}
 
 	if(isLocal(*node.declaration))
@@ -841,12 +867,18 @@ inline void instantiateExpression(const IdExpression& node, const InstantiationC
 	}
 
 	ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(node.enclosingInstance, node.declaration), context);
-	const Object& uniqueObject = makeUniqueObject(resolved.declaration, resolved.enclosingInstance, node.templateArguments);
-	if(!uniqueObject.instantiated)
+	if(isLocal(*resolved.declaration)
+		|| isFunctionParameter(*resolved.declaration))
 	{
-		const_cast<Object*>(&uniqueObject)->instantiated = true;
-		gDeferredInstantiations.push_back(DeferredInstantiation(context, &uniqueObject));
+		return; // can't be a template
 	}
+	const Instance& instance = makeUniqueInstance(resolved.declaration, resolved.enclosingInstance, node.templateArguments);
+	deferInstantiation(instance, context);
+}
+
+inline void instantiateExpression(const FunctionCallExpression& node, const InstantiationContext& context)
+{
+
 }
 
 
@@ -875,12 +907,10 @@ inline ExpressionType typeOfIdExpression(const Instance* qualifying, const Decla
 
 	ResolvedDeclaration resolved = resolveUsingDeclaration(ResolvedDeclaration(qualifying, declaration), context);
 
-	const Instance* idEnclosing = isLocal(*resolved.declaration)
-		? context.enclosingInstance
-		: getIdExpressionEnclosing(resolved.enclosingInstance, *resolved.declaration, context.enclosingInstance);
+	const Instance* idEnclosing = getIdExpressionEnclosing(resolved.enclosingInstance, *resolved.declaration, context.enclosingInstance);
 
 	// a member of a class template may have a type which depends on a template parameter
-	UniqueTypeWrapper type = getUniqueType(resolved.declaration->type, setEnclosingInstance(context, idEnclosing), resolved.declaration->isTemplate);
+	UniqueTypeWrapper type = getSubstitutedType(*resolved.declaration, setEnclosingInstance(context, idEnclosing));
 	ExpressionType result(type, isLvalue(*resolved.declaration));
 	result.isMutable = resolved.declaration->specifiers.isMutable;
 
@@ -1125,13 +1155,13 @@ inline IdExpression substituteIdExpression(ExpressionNode* node, const Instantia
 }
 
 
-inline void requireCompleteFunction(const Instance* instance)
+inline void requireCompleteFunction(const Instance* instance, const InstantiationContext& context)
 {
 	if(instance == 0) // if this is not a function template specialization
 	{
 		return;
 	}
-	const_cast<Instance*>(instance)->instantiated = true;
+	deferInstantiation(*instance, context); // TODO: ensure this occurs only when function is odr-used
 }
 
 inline ExpressionType typeOfFunctionCallExpression(Argument left, const Arguments& arguments, const InstantiationContext& context)
@@ -1207,7 +1237,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 			setDecoration(&declaration->getName(), instance);
 		}
 #endif
-		requireCompleteFunction(overload.instance);
+		requireCompleteFunction(overload.instance, context);
 		return overload.type;
 	}
 
@@ -1340,7 +1370,7 @@ inline ExpressionType typeOfFunctionCallExpression(Argument left, const Argument
 		setDecoration(id, instance);
 	}
 #endif
-	requireCompleteFunction(overload.instance);
+	requireCompleteFunction(overload.instance, context);
 	SYMBOLS_ASSERT(!::isDependent(overload.type));
 	return overload.type;
 }
@@ -1380,6 +1410,10 @@ inline ExpressionType typeOfClassMemberAccessExpression(const ExpressionWrapper&
 	//	    cv returning T".
 	ExpressionType type = typeOfExpressionWrapper(left, context);
 	const Instance& classInstance = getInstance(type.value);
+#if 0
+	IdExpression substituted = substituteIdExpression(right, context);
+	SYMBOLS_ASSERT(substituted.enclosingInstance != 0);
+#endif
 	ExpressionType result = typeOfExpressionImpl(right, setEnclosingInstanceSafe(context, &classInstance));
 	if(right.isNonStaticMemberName)
 	{
@@ -1510,9 +1544,17 @@ inline ExpressionType typeOfExpression(const IdExpression& node, const Instantia
 {
 	if(isOverloadedFunctionIdExpression(node, context))
 	{
-		// can't evaluate id-expression within function-call-expression
+		// can't evaluate id-expression within function-call expression
 		return gOverloadedExpressionType; // do not evaluate the type!
 	}
+#if 0
+	if(isNonStaticMemberIdExpression(node, context)
+		&& !node.isQualified)
+	{
+		// can't evaluate unqualified id-expression naming non-static-member
+		return gNullExpressionType;
+	}
+#endif
 	ExpressionType result = typeOfIdExpression(node.enclosingInstance, node.declaration, node.templateArguments, node.isQualified, context);
 	SYMBOLS_ASSERT(!isDependent(result));
 	return getAdjustedExpressionType(result);
@@ -1706,6 +1748,11 @@ inline ExpressionValue evaluateIdExpression(const IdExpression& node, const Inst
 	if(declaration->initializer.p == 0)
 	{
 		return EXPRESSIONRESULT_INVALID; // constant expression must have an initializer
+	}
+
+	if(isNonStaticMember(*declaration))
+	{
+		return EXPRESSIONRESULT_INVALID; // cannot be a constant-expression (TODO: C++11)
 	}
 
 	ExpressionType type = typeOfIdExpression(node.enclosingInstance, node.declaration, node.templateArguments, node.isQualified, context);
@@ -2845,6 +2892,7 @@ inline ExpressionWrapper substituteExpression(const MemberOperatorExpression& no
 inline ExpressionWrapper substituteExpression(const ClassMemberAccessExpression& node, const InstantiationContext& context)
 {
 	ExpressionWrapper left = substituteExpression(node.left, context);
+	SYMBOLS_ASSERT(!left.isTypeDependent);
 	ExpressionWrapper right = node.right;
 	InstantiationContext rightContext = context;
 	if(node.left.isTypeDependent)

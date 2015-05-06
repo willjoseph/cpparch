@@ -201,14 +201,21 @@ struct TooFewTemplateArgumentsError : TypeErrorBase
 };
 
 
-inline UniqueTypeWrapper getSubstitutedType(const Type& type, const InstantiationContext& context)
+inline UniqueTypeWrapper getSubstitutedTypeImpl(const Type& type, const InstantiationContext& context, bool outer = false)
 {
 	SYMBOLS_ASSERT(type.dependentIndex != INDEX_INVALID);
 	SYMBOLS_ASSERT(context.enclosingInstance != 0);
 	SYMBOLS_ASSERT(!isDependent(*context.enclosingInstance));
-	SYMBOLS_ASSERT(type.dependentIndex < context.enclosingInstance->substitutedTypes.size());
-	return context.enclosingInstance->substitutedTypes[type.dependentIndex];
+	const Instance* enclosingInstance = context.enclosingInstance;
+	if(outer)
+	{
+		enclosingInstance = enclosingInstance->enclosing;
+		SYMBOLS_ASSERT(context.enclosingInstance != 0);
+	}
+	SYMBOLS_ASSERT(type.dependentIndex < enclosingInstance->substitutedTypes.size());
+	return enclosingInstance->substitutedTypes[type.dependentIndex];
 }
+
 
 inline UniqueTypeWrapper getUniqueType(const TypeId& type, const InstantiationContext& context, bool allowDependent = false);
 inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationContext& context, bool allowDependent = false);
@@ -228,7 +235,7 @@ inline UniqueTypeWrapper getUniqueTypeImpl(const T& type, const InstantiationCon
 			return substituted;
 		}
 
-		UniqueTypeWrapper substituted = getSubstitutedType(type, context);
+		UniqueTypeWrapper substituted = getSubstitutedTypeImpl(type, context);
 		SYMBOLS_ASSERT(substituted == substitute(result, context));
 		return substituted;
 	}
@@ -245,6 +252,20 @@ inline UniqueTypeWrapper getUniqueType(const Type& type, const InstantiationCont
 	return getUniqueTypeImpl(type, context, allowDependent);
 }
 
+
+inline UniqueTypeWrapper getSubstitutedType(const Declaration& declaration, const InstantiationContext& context)
+{
+	if(!declaration.type.isDependent)
+	{
+		return getUniqueType(declaration.type);
+	}
+	if(declaration.type.dependentIndex == INDEX_INVALID)
+	{
+		return getUniqueType(declaration.type, context);
+	}
+	// deferred types and expressions in the function prototype are found in the enclosing class
+	return getSubstitutedTypeImpl(declaration.type, context, isFunctionParameter(declaration));
+}
 
 
 struct ResolvedDeclaration

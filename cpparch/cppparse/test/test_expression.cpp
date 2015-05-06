@@ -1,4 +1,37 @@
 
+#define TEST_INSTANTIATE 0
+
+namespace N577 // test deferred evaluation of type of parameter of member function of class template
+{
+	template<typename T>
+	struct A
+	{
+		typedef T Type1;
+		typedef T Type2;
+		static int f(Type2 value)
+		{
+			return value;
+		}
+	};
+
+	int i = A<int>::f(0);
+}
+
+namespace N578 // test deferred evaluation of type of class member access expression into parameter of member function of class template
+{
+	template<class T>
+	int f(T t)
+	{
+		return t.m;
+	}
+
+	struct A
+	{
+		int m;
+	};
+
+	int i = f(A());
+}
 
 namespace N418 //  test that template argument F() indicates function type, rather than non-type cast-expression
 {
@@ -23,6 +56,7 @@ namespace N534
 	int i = f(a);
 }
 
+#if TEST_INSTANTIATE
 namespace N568 // test instantiation of dependent class-member-access expression within function template definition
 {
 	template<typename T>
@@ -47,6 +81,7 @@ namespace N568 // test instantiation of dependent class-member-access expression
 	int i = a.f(); // instantiates A<int>::f, which instantiates B<int>
 	static_assert(__is_instantiated(B<int>), "");
 }
+#endif
 
 namespace N567
 {
@@ -1442,6 +1477,7 @@ namespace N505
 	static_assert(__is_instantiated(T), "");
 }
 
+#if TEST_INSTANTIATE
 namespace N504
 {
 	template<typename T>
@@ -1464,6 +1500,7 @@ namespace N504
 	int i = A<T>::m;
 	static_assert(__is_instantiated(T), "");
 }
+#endif
 
 namespace N503 // test that type of extern declaration is not required to be complete
 {
@@ -1491,6 +1528,7 @@ namespace N501 // test instantiation of declaration within member function
 	static_assert(__is_instantiated(T), "");
 }
 
+#if TEST_INSTANTIATE
 namespace N502 // test instantiation of declaration with dependent type within member function
 {
 	template<typename T>
@@ -1511,6 +1549,7 @@ namespace N502 // test instantiation of declaration with dependent type within m
 	int i = A<T>::f();
 	static_assert(__is_instantiated(T), "");
 }
+#endif
 
 namespace N500 // test instantation of dependent default-argument
 {
@@ -1546,7 +1585,8 @@ namespace N499
 	};
 }
 
-namespace N498
+#if TEST_INSTANTIATE
+namespace N498 // test deferred evaluation of dependent expression within initializer of out of line static data member definition
 {
 	template<typename T>
 	struct B { };
@@ -1566,6 +1606,7 @@ namespace N498
 	static_assert(__is_instantiated(A<T>::m), "");
 	static_assert(__is_instantiated(T), "");
 }
+#endif
 
 #if 0 // TODO: explicit specialization of class member
 namespace N497

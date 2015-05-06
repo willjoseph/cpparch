@@ -364,9 +364,13 @@ TypeLayout instantiateClass(const Instance& instanceConst, const InstantiationCo
 		// TODO: non-fatal error: cannot instantiate incomplete class
 		SYMBOLS_ASSERT(!isClass(*instance.declaration) || instance.declaration->enclosed != 0); // TODO: this can occur when the primary template is incomplete, and a specialization was not chosen
 
-		if(!allowDependent)
+		if(!allowDependent
+			&& !instance.declaration->dependentConstructs.substitutions.empty())
 		{
 			instance.allowLookup = true; // temporary workaround
+
+			SYMBOLS_ASSERT(instance.substitutedTypes.empty());
+			SYMBOLS_ASSERT(instance.substitutedExpressions.empty());
 
 			std::size_t dependentTypeCount = instance.declaration->dependentConstructs.typeCount;
 			instance.substitutedTypes.reserve(dependentTypeCount); // allocate up front to avoid reallocation

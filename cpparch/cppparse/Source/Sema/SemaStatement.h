@@ -22,6 +22,7 @@ struct SemaLabeledStatement : public SemaBase
 	void action(cpp::constant_expression* symbol, const SemaExpressionResult& walker)
 	{
 		SEMANTIC_ASSERT(walker.expression.value.isConstant); // TODO: non-fatal error: expected constant expression
+		addDeferredExpression(walker.expression);
 	}
 	SEMA_POLICY(cpp::statement, SemaPolicyPush<struct SemaStatement>)
 	void action(cpp::statement* symbol, const SemaStatement& walker)
@@ -64,10 +65,12 @@ struct SemaStatement : public SemaBase
 	SEMA_POLICY(cpp::expression_statement, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::expression_statement* symbol, const SemaExpressionResult& walker)
 	{
+		addDeferredExpression(walker.expression);
 	}
 	SEMA_POLICY(cpp::jump_statement_return, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::jump_statement_return* symbol, const SemaExpressionResult& walker)
 	{
+		addDeferredExpression(walker.expression);
 	}
 	SEMA_POLICY(cpp::jump_statement_goto, SemaPolicyIdentity)
 	void action(cpp::jump_statement_goto* symbol)
@@ -119,6 +122,7 @@ struct SemaControlStatement : public SemaBase
 	SEMA_POLICY(cpp::expression, SemaPolicyPush<struct SemaExpression>)
 	void action(cpp::expression* symbol, const SemaExpressionResult& walker)
 	{
+		addDeferredExpression(walker.expression);
 	}
 };
 

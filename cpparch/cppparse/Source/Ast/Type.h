@@ -430,8 +430,10 @@ struct Instance
 	const Instance* enclosing; // the enclosing template
 	UniqueBases bases;
 	TypeLayout layout;
-	InstantiatedTypes substitutedTypes; // the types substituted when this class template is instantiated
-	InstantiatedExpressions substitutedExpressions; // the expressions substituted when this class template is instantiated
+	InstantiatedTypes substitutedTypes; // the types substituted when this template is instantiated
+	InstantiatedExpressions substitutedExpressions; // the expressions substituted when this template is instantiated
+	InstantiatedTypes substitutedTypes2; // the types substituted when this template is susbtituted
+	InstantiatedExpressions substitutedExpressions2; // the expressions substituted when this template is susbtituted
 	bool substituted;
 	bool failed;
 	bool instantiated;

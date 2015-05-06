@@ -1262,13 +1262,13 @@ inline void substituteDeferredMemberType2(Declaration& declaration, const Instan
 	else
 	{
 		UniqueTypeWrapper type = declaration.type.dependentIndex != INDEX_INVALID // if the type depends on a template parameter from the enclosing class
-			? getSubstitutedType(declaration.type, setEnclosingInstanceSafe(context, context.enclosingInstance->enclosing)) // it should already have been substituted
+			? getSubstitutedTypeImpl(declaration.type, setEnclosingInstanceSafe(context, context.enclosingInstance->enclosing)) // it should already have been substituted
 			: getUniqueType(declaration.type);
 
-		SYMBOLS_ASSERT(declaration.type.dependentIndex2 == instance.substitutedTypes.size());
+		SYMBOLS_ASSERT(declaration.type.dependentIndex2 == instance.substitutedTypes2.size());
 		UniqueTypeWrapper substituted = substitute(type, context);
-		SYMBOLS_ASSERT(instance.substitutedTypes.size() != instance.substitutedTypes.capacity());
-		instance.substitutedTypes.push_back(substituted);
+		SYMBOLS_ASSERT(instance.substitutedTypes2.size() != instance.substitutedTypes2.capacity());
+		instance.substitutedTypes2.push_back(substituted);
 
 		SYMBOLS_ASSERT(!isCompleteTypeRequired(declaration)); // type of function template not required to be complete?
 	}
@@ -1437,6 +1437,7 @@ struct SemaBase : public SemaState
 
 	void addDeferredSubstitution(DependentConstructs& dependent, const DeferredSubstitution& substitution)
 	{
+		SEMANTIC_ASSERT(substitution.location.line != 0);
 		dependent.substitutions.push_back(substitution);
 		addBacktrackCallback(makePopDeferredSubstitutionCallback(&dependent));
 	}
